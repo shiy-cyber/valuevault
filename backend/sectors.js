@@ -180,17 +180,26 @@ const MARKET_BASKET = [
   { ticker:'AMT', name:'American Tower', sector:'Real Estate', industry:'REIT', cap:100 },
 ];
 
+// Variación DIARIA real: último cierre vs cierre anterior (de los puntos diarios).
+// OJO: meta.chartPreviousClose en ventana 5d es de hace ~5 sesiones (multi-día);
+// meta.previousClose viene vacío en el endpoint chart. Por eso usamos los cierres.
+function dailyChange(points, meta) {
+  const closes = points.map(p => p.close);
+  const price = meta.regularMarketPrice ?? closes[closes.length - 1] ?? null;
+  const prev = closes.length >= 2 ? closes[closes.length - 2] : (meta.chartPreviousClose ?? null);
+  const change = (price != null && prev) ? +(((price - prev) / prev) * 100).toFixed(2) : 0;
+  return { price: price != null ? +Number(price).toFixed(2) : null, prev, change };
+}
+
 let mmCache = { ts: 0, data: null };
 export async function getMarketMap() {
   if (mmCache.data && Date.now() - mmCache.ts < 15 * 60 * 1000) return mmCache.data;
 
   const out = await Promise.all(MARKET_BASKET.map(async (s) => {
     try {
-      const { meta } = await fetchChart(yahooSymbol(s.ticker), '5d', '1d');
-      const price = meta.regularMarketPrice ?? null;
-      const prev = meta.chartPreviousClose ?? meta.previousClose ?? null;
-      const chg = (price != null && prev) ? +(((price - prev) / prev) * 100).toFixed(2) : 0;
-      return { ...s, price: price != null ? +Number(price).toFixed(2) : null, changePercent: chg, live: true };
+      const { points, meta } = await fetchChart(yahooSymbol(s.ticker), '5d', '1d');
+      const { price, change } = dailyChange(points, meta);
+      return { ...s, price, changePercent: change, live: true };
     } catch (e) {
       return { ...s, price: null, changePercent: 0, live: false };
     }
@@ -202,14 +211,13 @@ export async function getMarketMap() {
 
 // Cotización puntual en tiempo real de un símbolo cualquiera
 export async function getQuote(symbol) {
-  const { meta } = await fetchChart(yahooSymbol(symbol), '5d', '1d');
+  const { points, meta } = await fetchChart(yahooSymbol(symbol), '5d', '1d');
+  const { price, prev, change } = dailyChange(points, meta);
   return {
     symbol: meta.symbol || symbol,
-    price: meta.regularMarketPrice ?? null,
-    previousClose: meta.chartPreviousClose ?? meta.previousClose ?? null,
-    changePercent: (meta.regularMarketPrice && meta.chartPreviousClose)
-      ? +(((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100).toFixed(2)
-      : null,
+    price,
+    previousClose: prev,
+    changePercent: change,
     currency: meta.currency || null,
   };
 }
@@ -218,15 +226,9 @@ export async function getQuote(symbol) {
 export async function getQuotes(symbols) {
   return Promise.all(symbols.map(async (s) => {
     try {
-      const { meta } = await fetchChart(yahooSymbol(s), '5d', '1d');
-      const price = meta.regularMarketPrice ?? null;
-      const prev = meta.chartPreviousClose ?? meta.previousClose ?? null;
-      return {
-        symbol: s,
-        price: price != null ? +Number(price).toFixed(2) : null,
-        previousClose: prev,
-        changePercent: (price != null && prev) ? +(((price - prev) / prev) * 100).toFixed(2) : null,
-      };
+      const { points, meta } = await fetchChart(yahooSymbol(s), '5d', '1d');
+      const { price, prev, change } = dailyChange(points, meta);
+      return { symbol: s, price, previousClose: prev, changePercent: change };
     } catch (e) {
       return { symbol: s, price: null, error: e.message };
     }
