@@ -2,7 +2,7 @@ import React from 'react';
 import AssetRow from './AssetRow.jsx';
 import { avgPnl } from '../lib/format.js';
 
-export default function Dashboard({ assets, notes, theme, onNotes, onEdit, onDelete, goAssets, onRefresh, refreshing, lastRefresh }) {
+export default function Dashboard({ assets, notes, theme, onNotes, onEdit, onDelete, onRefreshData, goAssets, onRefresh, refreshing, lastRefresh }) {
   const noteCount = (id) => notes.filter(n => n.assetId === id).length;
   const lowRisk = assets.filter(a => a.risk === 'low').length;
   const recent = assets.slice(-5).reverse();
@@ -31,7 +31,7 @@ export default function Dashboard({ assets, notes, theme, onNotes, onEdit, onDel
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
         {recent.length
-          ? recent.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} />)
+          ? recent.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} />)
           : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">Añade tu primer activo</div></div>}
       </div>
     </div>

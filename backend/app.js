@@ -149,5 +149,43 @@ export async function createApp() {
     res.json({ updated, total: rows.length, at: now, assets, quotes });
   }));
 
+  // Refresca TODOS los datos de un activo: precio + fundamentales (Alpha Vantage),
+  // con Yahoo de respaldo para el precio si Alpha Vantage no tiene cuota.
+  // Conserva los campos del usuario (precio de entrada, estrategias, horizonte, riesgo, tesis, tipo).
+  app.post('/api/assets/:id/refresh-data', h(async (req, res) => {
+    const id = Number(req.params.id);
+    const existing = await get('SELECT * FROM assets WHERE id = ?', [id]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const ticker = existing.ticker;
+
+    const updates = {};
+    let source = '';
+    try {
+      const d = await lookupTicker(ticker); // Alpha Vantage (precio + fundamentales)
+      const MARKET_FIELDS = ['current', 'pe', 'fpe', 'pb', 'peg', 'evebitda', 'ps', 'eps', 'epsd', 'epsny', 'epsg', 'roe', 'roa', 'gm', 'om', 'nm', 'beta', 'w52h', 'w52l'];
+      MARKET_FIELDS.forEach(k => { if (d[k] !== null && d[k] !== undefined) updates[k] = d[k]; });
+      if (d.mcap) updates.mcap = d.mcap;
+      if (d.name) updates.name = d.name;
+      if (d.sector) updates.sector = d.sector;
+      if (d.market) updates.market = d.market;
+      source = 'alphavantage';
+    } catch (e) {
+      // Respaldo: al menos el precio actual desde Yahoo
+      try {
+        const q = await getQuote(ticker);
+        if (q.price != null) updates.current = q.price;
+        source = 'yahoo';
+      } catch (e2) {
+        return res.status(502).json({ error: 'No se pudieron obtener datos: ' + e.message });
+      }
+    }
+    updates.priceUpdatedAt = new Date().toISOString();
+
+    const cols = Object.keys(updates);
+    await run(`UPDATE assets SET ${cols.map(c => `${c} = ?`).join(', ')} WHERE id = ?`, [...cols.map(c => updates[c]), id]);
+    const updated = rowToAsset(await get('SELECT * FROM assets WHERE id = ?', [id]));
+    res.json({ asset: updated, source });
+  }));
+
   return app;
 }

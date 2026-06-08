@@ -49,6 +49,12 @@ export default function App() {
         const t = c.theme || 'dark'; setTheme(t);
         const stamps = a.map(x => x.priceUpdatedAt).filter(Boolean).sort();
         if (stamps.length) setLastRefresh(timeAgo(stamps[stamps.length - 1]));
+        // Primera carga sin precios refrescados (datos semilla) → traer precios en vivo
+        if (a.length && a.every(x => !x.priceUpdatedAt)) {
+          api.refreshPrices()
+            .then(r => { if (r.assets) { setAssets(r.assets); setLastRefresh(timeAgo(r.at)); } })
+            .catch(() => {});
+        }
       })
       .catch(e => toast('⚠ No se pudo conectar con el backend: ' + e.message));
   }, [toast]);
@@ -102,6 +108,17 @@ export default function App() {
     finally { setRefreshing(false); }
   };
 
+  // Actualiza precio + fundamentales de UN activo (Alpha Vantage, Yahoo de respaldo)
+  const refreshAssetData = async (id) => {
+    try {
+      const r = await api.refreshAssetData(id);
+      setAssets(prev => prev.map(x => (x.id === id ? r.asset : x)));
+      toast(r.source === 'alphavantage'
+        ? `✓ ${r.asset.ticker}: datos actualizados`
+        : `↻ ${r.asset.ticker}: solo precio (Alpha Vantage sin cuota hoy)`);
+    } catch (e) { toast('⚠ ' + e.message); }
+  };
+
   // ─── Notas ──────────────────────────────────────────────
   const saveNote = async (payload) => {
     try {
@@ -141,7 +158,7 @@ export default function App() {
   const closeAssetModal = () => setAssetModal({ open: false, editing: null, presetType: 'portfolio' });
   const detailAsset = detailId ? assets.find(a => a.id === detailId) : null;
 
-  const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset };
+  const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset, onRefreshData: refreshAssetData };
 
   return (
     <>

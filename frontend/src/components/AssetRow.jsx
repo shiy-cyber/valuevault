@@ -71,11 +71,18 @@ function PriceHistory({ ticker, theme }) {
 }
 
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
-export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelete }) {
+export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelete, onRefreshData }) {
   const [open, setOpen] = useState(false);
+  const [busyData, setBusyData] = useState(false);
   const chg = changePct(a).toFixed(2);
   const isPos = chg >= 0;
   const live = timeAgo(a.priceUpdatedAt);
+
+  const doRefresh = async () => {
+    if (busyData || !onRefreshData) return;
+    setBusyData(true);
+    try { await onRefreshData(a.id); } finally { setBusyData(false); }
+  };
 
   return (
     <div className="asset-row">
@@ -107,6 +114,13 @@ export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelet
 
       {open && (
         <div className="arow-panel">
+          {onRefreshData && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+              <button className="btn btn-outline" disabled={busyData} onClick={doRefresh} style={{ fontSize: '11px', padding: '6px 12px' }}>
+                {busyData ? '⏳ Actualizando…' : '🔄 Actualizar datos de mercado'}
+              </button>
+            </div>
+          )}
           <PriceHistory ticker={a.ticker} theme={theme} />
 
           <div className="mv-section-label">Valoración</div>
