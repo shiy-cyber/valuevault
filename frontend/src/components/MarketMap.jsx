@@ -77,10 +77,13 @@ export default function MarketMap({ theme, toast }) {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    interaction: { mode: 'point', intersect: true },
     plugins: {
       legend: { display: false },
       tooltip: {
         displayColors: false,
+        // Solo el nodo de la acción (nivel 1), no el rectángulo del sector que hay detrás
+        filter: (item) => item.raw && item.raw.l === 1,
         backgroundColor: isDark ? '#181c22' : '#fff',
         titleColor: isDark ? '#e8e9ea' : '#1a1d23',
         bodyColor: isDark ? '#7a8694' : '#6b7280',
