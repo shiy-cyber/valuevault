@@ -11,22 +11,27 @@ const remote = !!process.env.TURSO_DATABASE_URL;
 const url = process.env.TURSO_DATABASE_URL || 'file:./data/valuevault.db';
 const authToken = process.env.TURSO_AUTH_TOKEN || undefined;
 
-let createClient;
-if (remote) {
-  // Especificador literal → el bundler lo empaqueta (JS puro, sin nativo)
-  ({ createClient } = await import('@libsql/client/web'));
-} else {
-  // Especificador en variable → el bundler NO lo sigue; solo se usa en local
-  const localPkg = '@libsql/client';
-  ({ createClient } = await import(localPkg));
+// Cliente con init PEREZOSO (sin top-level await) → permite empaquetar como
+// CommonJS en Netlify, que es lo que espera su arranque de funciones.
+let _db;
+async function getDb() {
+  if (_db) return _db;
+  let createClient;
+  if (remote) {
+    ({ createClient } = await import('@libsql/client/web')); // literal → empaquetable (JS puro)
+  } else {
+    const localPkg = '@libsql/client';
+    ({ createClient } = await import(localPkg));              // variable → solo local (nativo)
+  }
+  _db = createClient(authToken ? { url, authToken } : { url });
+  return _db;
 }
-export const db = createClient(authToken ? { url, authToken } : { url });
 
 // ─── Helpers asíncronos ──────────────────────────────────────
-export const get = async (sql, args = []) => (await db.execute({ sql, args })).rows[0] ?? null;
-export const all = async (sql, args = []) => (await db.execute({ sql, args })).rows;
+export const get = async (sql, args = []) => (await (await getDb()).execute({ sql, args })).rows[0] ?? null;
+export const all = async (sql, args = []) => (await (await getDb()).execute({ sql, args })).rows;
 export const run = async (sql, args = []) => {
-  const r = await db.execute({ sql, args });
+  const r = await (await getDb()).execute({ sql, args });
   return {
     changes: Number(r.rowsAffected || 0),
     lastInsertRowid: r.lastInsertRowid != null ? Number(r.lastInsertRowid) : null,
@@ -50,11 +55,11 @@ export function rowToNote(r) {
 // ─── Esquema + migraciones (idempotente) ─────────────────────
 async function ensureColumn(table, col, decl) {
   const cols = await all(`PRAGMA table_info(${table})`);
-  if (!cols.some(c => c.name === col)) await db.execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${decl}`);
+  if (!cols.some(c => c.name === col)) await (await getDb()).execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${decl}`);
 }
 
 export async function initSchema() {
-  await db.executeMultiple(`
+  await (await getDb()).executeMultiple(`
     CREATE TABLE IF NOT EXISTS assets (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
       ticker    TEXT NOT NULL,
