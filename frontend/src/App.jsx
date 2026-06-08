@@ -10,6 +10,7 @@ import Charts from './components/Charts.jsx';
 import Screener from './components/Screener.jsx';
 import Learning from './components/Learning.jsx';
 import Trends from './components/Trends.jsx';
+import MarketMap from './components/MarketMap.jsx';
 import Macro from './components/Macro.jsx';
 import AssetModal from './components/AssetModal.jsx';
 import LearnModal from './components/LearnModal.jsx';
@@ -189,6 +190,7 @@ export default function App() {
           {section === 'screener' && <Screener />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={(id) => setLearnModal({ open: true, linkedAssetId: id })} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
+          {section === 'marketmap' && <MarketMap theme={theme} toast={toast} />}
           {section === 'macro' && <Macro />}
         </div>
       </div>

@@ -116,6 +116,90 @@ export async function getSectors() {
   return results;
 }
 
+// ─────────────────────────────────────────────────────────────
+// MAPA DE MERCADO estilo Finviz (treemap).
+// Cesta curada de grandes valores: sector + industria + capitalización
+// aprox (B$, para el tamaño del rectángulo). La variación % y el precio
+// se traen en vivo de Yahoo. Cache 15 min.
+// ─────────────────────────────────────────────────────────────
+const MARKET_BASKET = [
+  // Technology
+  { ticker:'AAPL', name:'Apple', sector:'Technology', industry:'Consumer Electronics', cap:3400 },
+  { ticker:'MSFT', name:'Microsoft', sector:'Technology', industry:'Software', cap:3100 },
+  { ticker:'NVDA', name:'NVIDIA', sector:'Technology', industry:'Semiconductors', cap:3000 },
+  { ticker:'AVGO', name:'Broadcom', sector:'Technology', industry:'Semiconductors', cap:1100 },
+  { ticker:'ORCL', name:'Oracle', sector:'Technology', industry:'Software', cap:500 },
+  { ticker:'AMD', name:'AMD', sector:'Technology', industry:'Semiconductors', cap:240 },
+  { ticker:'CRM', name:'Salesforce', sector:'Technology', industry:'Software', cap:280 },
+  { ticker:'ADBE', name:'Adobe', sector:'Technology', industry:'Software', cap:230 },
+  // Communication Services
+  { ticker:'GOOGL', name:'Alphabet', sector:'Communication Services', industry:'Internet Content', cap:2200 },
+  { ticker:'META', name:'Meta Platforms', sector:'Communication Services', industry:'Internet Content', cap:1300 },
+  { ticker:'NFLX', name:'Netflix', sector:'Communication Services', industry:'Entertainment', cap:300 },
+  { ticker:'DIS', name:'Disney', sector:'Communication Services', industry:'Entertainment', cap:200 },
+  // Consumer Cyclical
+  { ticker:'AMZN', name:'Amazon', sector:'Consumer Cyclical', industry:'Internet Retail', cap:2000 },
+  { ticker:'TSLA', name:'Tesla', sector:'Consumer Cyclical', industry:'Auto Manufacturers', cap:800 },
+  { ticker:'HD', name:'Home Depot', sector:'Consumer Cyclical', industry:'Home Improvement', cap:400 },
+  { ticker:'MCD', name:'McDonalds', sector:'Consumer Cyclical', industry:'Restaurants', cap:210 },
+  { ticker:'NKE', name:'Nike', sector:'Consumer Cyclical', industry:'Apparel', cap:120 },
+  // Financials
+  { ticker:'BRK-B', name:'Berkshire Hathaway', sector:'Financials', industry:'Insurance', cap:900 },
+  { ticker:'JPM', name:'JPMorgan Chase', sector:'Financials', industry:'Banks', cap:650 },
+  { ticker:'V', name:'Visa', sector:'Financials', industry:'Credit Services', cap:550 },
+  { ticker:'MA', name:'Mastercard', sector:'Financials', industry:'Credit Services', cap:450 },
+  { ticker:'BAC', name:'Bank of America', sector:'Financials', industry:'Banks', cap:330 },
+  // Healthcare
+  { ticker:'LLY', name:'Eli Lilly', sector:'Healthcare', industry:'Drug Manufacturers', cap:800 },
+  { ticker:'UNH', name:'UnitedHealth', sector:'Healthcare', industry:'Healthcare Plans', cap:500 },
+  { ticker:'JNJ', name:'Johnson & Johnson', sector:'Healthcare', industry:'Drug Manufacturers', cap:380 },
+  { ticker:'ABBV', name:'AbbVie', sector:'Healthcare', industry:'Drug Manufacturers', cap:330 },
+  { ticker:'MRK', name:'Merck', sector:'Healthcare', industry:'Drug Manufacturers', cap:250 },
+  // Consumer Defensive
+  { ticker:'WMT', name:'Walmart', sector:'Consumer Defensive', industry:'Discount Stores', cap:600 },
+  { ticker:'COST', name:'Costco', sector:'Consumer Defensive', industry:'Discount Stores', cap:400 },
+  { ticker:'PG', name:'Procter & Gamble', sector:'Consumer Defensive', industry:'Household Products', cap:390 },
+  { ticker:'KO', name:'Coca-Cola', sector:'Consumer Defensive', industry:'Beverages', cap:290 },
+  { ticker:'PEP', name:'PepsiCo', sector:'Consumer Defensive', industry:'Beverages', cap:230 },
+  // Energy
+  { ticker:'XOM', name:'Exxon Mobil', sector:'Energy', industry:'Oil & Gas', cap:500 },
+  { ticker:'CVX', name:'Chevron', sector:'Energy', industry:'Oil & Gas', cap:280 },
+  // Industrials
+  { ticker:'CAT', name:'Caterpillar', sector:'Industrials', industry:'Machinery', cap:180 },
+  { ticker:'GE', name:'GE Aerospace', sector:'Industrials', industry:'Aerospace & Defense', cap:190 },
+  { ticker:'RTX', name:'RTX', sector:'Industrials', industry:'Aerospace & Defense', cap:160 },
+  { ticker:'HON', name:'Honeywell', sector:'Industrials', industry:'Conglomerates', cap:140 },
+  // Utilities
+  { ticker:'NEE', name:'NextEra Energy', sector:'Utilities', industry:'Utilities', cap:160 },
+  { ticker:'DUK', name:'Duke Energy', sector:'Utilities', industry:'Utilities', cap:90 },
+  // Basic Materials
+  { ticker:'LIN', name:'Linde', sector:'Basic Materials', industry:'Specialty Chemicals', cap:220 },
+  { ticker:'SHW', name:'Sherwin-Williams', sector:'Basic Materials', industry:'Specialty Chemicals', cap:90 },
+  // Real Estate
+  { ticker:'PLD', name:'Prologis', sector:'Real Estate', industry:'REIT', cap:110 },
+  { ticker:'AMT', name:'American Tower', sector:'Real Estate', industry:'REIT', cap:100 },
+];
+
+let mmCache = { ts: 0, data: null };
+export async function getMarketMap() {
+  if (mmCache.data && Date.now() - mmCache.ts < 15 * 60 * 1000) return mmCache.data;
+
+  const out = await Promise.all(MARKET_BASKET.map(async (s) => {
+    try {
+      const { meta } = await fetchChart(yahooSymbol(s.ticker), '5d', '1d');
+      const price = meta.regularMarketPrice ?? null;
+      const prev = meta.chartPreviousClose ?? meta.previousClose ?? null;
+      const chg = (price != null && prev) ? +(((price - prev) / prev) * 100).toFixed(2) : 0;
+      return { ...s, price: price != null ? +Number(price).toFixed(2) : null, changePercent: chg, live: true };
+    } catch (e) {
+      return { ...s, price: null, changePercent: 0, live: false };
+    }
+  }));
+
+  mmCache = { ts: Date.now(), data: out };
+  return out;
+}
+
 // Cotización puntual en tiempo real de un símbolo cualquiera
 export async function getQuote(symbol) {
   const { meta } = await fetchChart(yahooSymbol(symbol), '5d', '1d');
