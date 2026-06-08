@@ -11,7 +11,15 @@ const remote = !!process.env.TURSO_DATABASE_URL;
 const url = process.env.TURSO_DATABASE_URL || 'file:./data/valuevault.db';
 const authToken = process.env.TURSO_AUTH_TOKEN || undefined;
 
-const { createClient } = await import(remote ? '@libsql/client/web' : '@libsql/client');
+let createClient;
+if (remote) {
+  // Especificador literal → el bundler lo empaqueta (JS puro, sin nativo)
+  ({ createClient } = await import('@libsql/client/web'));
+} else {
+  // Especificador en variable → el bundler NO lo sigue; solo se usa en local
+  const localPkg = '@libsql/client';
+  ({ createClient } = await import(localPkg));
+}
 export const db = createClient(authToken ? { url, authToken } : { url });
 
 // ─── Helpers asíncronos ──────────────────────────────────────

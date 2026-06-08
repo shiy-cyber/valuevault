@@ -18,8 +18,7 @@
 
 [functions]
   node_bundler = "esbuild"
-  # El cliente nativo no se empaqueta: en producción se usa @libsql/client/web (JS puro)
-  external_node_modules = ["@libsql/client"]
+  # @libsql/client/web (JS puro) se empaqueta solo; el nativo no se referencia en prod.
 
 # La API: /api/* la atiende la función serverless
 [[redirects]]
