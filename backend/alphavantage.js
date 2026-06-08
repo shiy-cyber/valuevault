@@ -3,7 +3,7 @@
 // normaliza la respuesta al formato de campos del formulario.
 // La clave nunca sale del servidor.
 // ─────────────────────────────────────────────────────────────
-const KEY = process.env.ALPHA_VANTAGE_KEY || 'VAN3GADW10EX9IFT';
+const KEY = process.env.ALPHA_VANTAGE_KEY; // definir en .env (local) y en Netlify (producción)
 const BASE = 'https://www.alphavantage.co/query';
 
 const num = (v) => {
