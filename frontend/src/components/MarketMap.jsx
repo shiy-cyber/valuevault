@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Chart } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
@@ -24,6 +24,32 @@ export default function MarketMap({ theme, toast }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const isDark = theme === 'dark';
+  const chartRef = useRef(null);
+  const wrapRef = useRef(null);
+
+  // Doble clic sobre un valor → abre su ficha (Finviz), como en el mapa real.
+  // Se engancha a un contenedor estable y lee el chart FRESCO (se recrea al refrescar).
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const openTicker = (e) => {
+      const chart = chartRef.current;
+      if (!chart || !chart.canvas) return;
+      let els;
+      try { els = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false); }
+      catch { return; }
+      for (const el of els) {
+        const raw = chart.getDatasetMeta(0).data[el.index]?.$context?.raw;
+        const stock = raw && raw._data && raw._data.children && raw._data.children[0];
+        if (raw && raw.l === 1 && stock) {
+          window.open(`https://finviz.com/quote.ashx?t=${encodeURIComponent(stock.ticker)}`, '_blank', 'noopener');
+          return;
+        }
+      }
+    };
+    wrap.addEventListener('dblclick', openTicker);
+    return () => wrap.removeEventListener('dblclick', openTicker);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -78,6 +104,7 @@ export default function MarketMap({ theme, toast }) {
     maintainAspectRatio: false,
     animation: false,
     interaction: { mode: 'point', intersect: true },
+    onHover: (e, els) => { if (e.native && e.native.target) e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -124,10 +151,10 @@ export default function MarketMap({ theme, toast }) {
       </div>
 
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px' }}>
-        <div style={{ position: 'relative', height: '560px' }}>
+        <div ref={wrapRef} style={{ position: 'relative', height: '560px' }}>
           {loading
             ? <div style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', paddingTop: '240px' }}>Cargando mapa de mercado…</div>
-            : chartData && <Chart type="treemap" data={chartData} options={options} />}
+            : chartData && <Chart ref={chartRef} type="treemap" data={chartData} options={options} />}
         </div>
 
         {/* Leyenda de color */}
@@ -139,7 +166,7 @@ export default function MarketMap({ theme, toast }) {
       </div>
 
       <div style={{ marginTop: '14px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
-        🗺 Cesta de ~44 grandes valores agrupados por sector. Cada rectángulo es proporcional a su capitalización y se colorea por la variación del día (verde sube, rojo baja). Pasa el ratón por un valor para ver el detalle. Para el mapa completo del mercado, abre <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Finviz</a>.
+        🗺 Cesta de ~44 grandes valores agrupados por sector. Cada rectángulo es proporcional a su capitalización y se colorea por la variación del día (verde sube, rojo baja). Pasa el ratón por un valor para ver el detalle y haz <strong>doble clic para abrir su ficha</strong>. Para el mapa completo del mercado, abre <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Finviz</a>.
       </div>
     </div>
   );
