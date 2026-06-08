@@ -1,0 +1,34 @@
+# ─────────────────────────────────────────────────────────────
+# Despliegue COMPLETO en Netlify: frontend (estático) + backend
+# (función serverless en netlify/functions/api.js).
+# La base de datos vive en Turso (variables TURSO_* en el panel).
+#
+# Variables de entorno a definir en Netlify (Site settings → Env):
+#   TURSO_DATABASE_URL   libsql://<tu-db>.turso.io
+#   TURSO_AUTH_TOKEN     <token de Turso>
+#   ALPHA_VANTAGE_KEY    <tu clave Alpha Vantage>
+# ─────────────────────────────────────────────────────────────
+[build]
+  command = "npm install && npm --prefix frontend install && npm --prefix frontend run build"
+  publish = "frontend/dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  node_bundler = "esbuild"
+  # El cliente nativo no se empaqueta: en producción se usa @libsql/client/web (JS puro)
+  external_node_modules = ["@libsql/client"]
+
+# La API: /api/* la atiende la función serverless
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA fallback: el resto de rutas sirven la app React
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

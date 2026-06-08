@@ -1,0 +1,16 @@
+{
+  "name": "valuevault",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ValueVault — dependencias compartidas por las funciones serverless de Netlify",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "serverless-http": "^4.0.0"
+  }
+}
