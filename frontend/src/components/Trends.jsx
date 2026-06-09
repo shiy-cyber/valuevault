@@ -2,10 +2,19 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
-const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const PERIODS = [['1m','1 Mes'],['3m','3 Meses'],['6m','6 Meses'],['1y','1 Año'],['ytd','YTD']];
 
 const lastVal = (s, p) => s[p][s[p].length - 1];
+
+// Formatea un timestamp (ms) según el periodo. En 1 Año los puntos son
+// mensuales → "May '25"; en periodos cortos son intra-mes → "12 May".
+const fmtLabel = (ts, period) => {
+  const d = new Date(ts);
+  const mes = MESES[d.getMonth()];
+  if (period === '1y') return `${mes} '${String(d.getFullYear()).slice(2)}`;
+  return `${d.getDate()} ${mes}`;
+};
 
 export default function Trends({ theme, toast }) {
   const [sectors, setSectors] = useState([]);
@@ -42,8 +51,12 @@ export default function Trends({ theme, toast }) {
     });
   };
 
+  // Fechas reales de los 12 puntos (vienen del backend); si faltan, eje vacío
+  const tsLabels = sectors[0]?.labels?.[period] || [];
+  const xLabels = tsLabels.map(ts => fmtLabel(ts, period));
+
   const lineData = {
-    labels: MONTHS,
+    labels: xLabels,
     datasets: sectors.filter(s => active.has(s.name)).map(s => ({
       label: s.name, data: s[period], borderColor: s.color, backgroundColor: s.color + '18',
       borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.4, fill: false,

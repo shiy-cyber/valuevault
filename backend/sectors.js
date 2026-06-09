@@ -67,18 +67,23 @@ function windowLength(period, points) {
   }
 }
 
-// Serie acumulada de 12 puntos relativa al inicio de la ventana
-function buildSeries(closes, len) {
+// Serie acumulada de 12 puntos relativa al inicio de la ventana.
+// Devuelve { series, labels } donde labels son los timestamps (ms) reales
+// de cada punto muestreado, para que el eje X del frontend sea correcto.
+function buildSeries(points, len) {
+  const closes = points.map(p => p.close);
   const n = closes.length;
   const start = Math.max(0, n - len);
   const base = closes[start];
   const span = n - 1 - start;
-  const out = [];
+  const series = [];
+  const labels = [];
   for (let i = 0; i < POINTS; i++) {
     const idx = span <= 0 ? n - 1 : start + Math.round((i * span) / (POINTS - 1));
-    out.push(+(((closes[idx] / base) - 1) * 100).toFixed(2));
+    series.push(+(((closes[idx] / base) - 1) * 100).toFixed(2));
+    labels.push(points[idx].t);
   }
-  return out;
+  return { series, labels };
 }
 
 let cache = { ts: 0, data: null };
@@ -99,13 +104,24 @@ export async function getSectors() {
       base.price = +Number(last).toFixed(2);
       base.changePercent = +(((closes[closes.length - 1] - prev) / prev) * 100).toFixed(2);
 
-      for (const p of PERIODS) base[p] = buildSeries(closes, windowLength(p, points));
+      base.labels = {};
+      for (const p of PERIODS) {
+        const { series, labels } = buildSeries(points, windowLength(p, points));
+        base[p] = series;
+        base.labels[p] = labels;
+      }
       base.live = true;
     } catch (e) {
       // Fallback para que la UI nunca quede vacía
       base.price = null;
       base.changePercent = 0;
-      for (const p of PERIODS) base[p] = new Array(POINTS).fill(0);
+      base.labels = {};
+      const now = Date.now();
+      for (const p of PERIODS) {
+        base[p] = new Array(POINTS).fill(0);
+        // etiquetas de respaldo: 12 puntos hacia atrás desde hoy
+        base.labels[p] = Array.from({ length: POINTS }, (_, i) => now - (POINTS - 1 - i) * 86400000);
+      }
       base.live = false;
       base.error = e.message;
     }
