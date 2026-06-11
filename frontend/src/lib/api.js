@@ -30,6 +30,7 @@ export const api = {
 
   lookup:  (ticker) => req('GET', `/api/lookup/${encodeURIComponent(ticker)}`),
   sectors: () => req('GET', '/api/sectors'),
+  indices: () => req('GET', '/api/indices'),
   marketMap: () => req('GET', '/api/market-map'),
   quote:   (symbol) => req('GET', `/api/quote/${encodeURIComponent(symbol)}`),
   history: (symbol, range) => req('GET', `/api/history/${encodeURIComponent(symbol)}?range=${range}`),

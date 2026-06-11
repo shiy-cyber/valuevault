@@ -86,6 +86,28 @@ function buildSeries(points, len) {
   return { series, labels };
 }
 
+// Serie de 12 puntos para ventanas LARGAS, seleccionando por FECHA (no por
+// nº de puntos): Yahoo en range='max' espacia los puntos de forma irregular,
+// así que tomamos como inicio el primer punto dentro de los últimos `years`.
+function buildSeriesByTime(points, years) {
+  if (!points.length) return { series: new Array(POINTS).fill(0), labels: [] };
+  const cutoff = Date.now() - years * 365.25 * 86400000;
+  let start = points.findIndex(p => p.t >= cutoff);
+  if (start < 0) start = Math.max(0, points.length - 2); // histórico más corto que la ventana
+  const closes = points.map(p => p.close);
+  const base = closes[start];
+  const n = closes.length;
+  const span = n - 1 - start;
+  const series = [];
+  const labels = [];
+  for (let i = 0; i < POINTS; i++) {
+    const idx = span <= 0 ? n - 1 : start + Math.round((i * span) / (POINTS - 1));
+    series.push(+(((closes[idx] / base) - 1) * 100).toFixed(2));
+    labels.push(points[idx].t);
+  }
+  return { series, labels };
+}
+
 let cache = { ts: 0, data: null };
 const TTL = 10 * 60 * 1000; // 10 min
 
@@ -129,6 +151,88 @@ export async function getSectors() {
   }));
 
   cache = { ts: Date.now(), data: results };
+  return results;
+}
+
+// ─────────────────────────────────────────────────────────────
+// ÍNDICES BURSÁTILES principales en tiempo real vía Yahoo Finance.
+// Mismo formato que getSectors(): precio + variación diaria y series
+// acumuladas de 12 puntos para 1m/3m/6m/1y/ytd. Cache 10 min.
+// ─────────────────────────────────────────────────────────────
+export const INDEX_META = [
+  // ── Estados Unidos ──
+  { name: 'S&P 500',        symbol: '^GSPC',    region: 'USA',    color: '#3a8eff', icon: '🇺🇸' },
+  { name: 'Nasdaq 100',     symbol: '^NDX',     region: 'USA',    color: '#9b59b6', icon: '💻' },
+  { name: 'Nasdaq Comp.',   symbol: '^IXIC',    region: 'USA',    color: '#8e44ad', icon: '📈' },
+  { name: 'Dow Jones',      symbol: '^DJI',     region: 'USA',    color: '#c9a84c', icon: '🏛' },
+  { name: 'Russell 2000',   symbol: '^RUT',     region: 'USA',    color: '#1abc9c', icon: '🏢' },
+  { name: 'VIX (Volat.)',   symbol: '^VIX',     region: 'USA',    color: '#e74c3c', icon: '😨' },
+  // ── Europa ──
+  { name: 'Euro Stoxx 50',  symbol: '^STOXX50E', region: 'Europa', color: '#2ecc71', icon: '🇪🇺' },
+  { name: 'IBEX 35',        symbol: '^IBEX',    region: 'Europa', color: '#e67e22', icon: '🇪🇸' },
+  { name: 'DAX (Alemania)', symbol: '^GDAXI',   region: 'Europa', color: '#f39c12', icon: '🇩🇪' },
+  { name: 'CAC 40',         symbol: '^FCHI',    region: 'Europa', color: '#16a085', icon: '🇫🇷' },
+  { name: 'FTSE 100',       symbol: '^FTSE',    region: 'Europa', color: '#3498db', icon: '🇬🇧' },
+  // ── Asia ──
+  { name: 'Nikkei 225',     symbol: '^N225',    region: 'Asia',   color: '#e84393', icon: '🇯🇵' },
+  { name: 'Hang Seng',      symbol: '^HSI',     region: 'Asia',   color: '#d35400', icon: '🇭🇰' },
+];
+
+// Periodos cortos → datos diarios (1 año). Periodos largos → histórico máximo,
+// con la ventana seleccionada por nº de años (buildSeriesByTime).
+const IDX_SHORT = ['1m', '3m', '6m', '1y', 'ytd'];
+const IDX_LONG_YEARS = { '3y': 3, '5y': 5, '10y': 10, '20y': 20 };
+const IDX_PERIODS = [...IDX_SHORT, ...Object.keys(IDX_LONG_YEARS)];
+
+let idxCache = { ts: 0, data: null };
+export async function getIndices() {
+  if (idxCache.data && Date.now() - idxCache.ts < TTL) return idxCache.data;
+
+  const results = await Promise.all(INDEX_META.map(async (m) => {
+    const base = { ...m };
+    try {
+      // Diario (1a) para periodos cortos + mensual (máx histórico) para los largos
+      const [daily, monthly] = await Promise.all([
+        fetchChart(m.symbol, '1y', '1d'),
+        fetchChart(m.symbol, 'max', '1mo'),
+      ]);
+      const closes = daily.points.map(p => p.close);
+      if (closes.length < 2) throw new Error('sin datos');
+
+      const last = daily.meta.regularMarketPrice ?? closes[closes.length - 1];
+      const prev = closes[closes.length - 2];
+      base.price = +Number(last).toFixed(2);
+      base.changePercent = +(((closes[closes.length - 1] - prev) / prev) * 100).toFixed(2);
+      base.currency = daily.meta.currency || null;
+
+      base.labels = {};
+      for (const p of IDX_SHORT) {
+        const { series, labels } = buildSeries(daily.points, windowLength(p, daily.points));
+        base[p] = series;
+        base.labels[p] = labels;
+      }
+      for (const [p, years] of Object.entries(IDX_LONG_YEARS)) {
+        const { series, labels } = buildSeriesByTime(monthly.points, years);
+        base[p] = series;
+        base.labels[p] = labels;
+      }
+      base.live = true;
+    } catch (e) {
+      base.price = null;
+      base.changePercent = 0;
+      base.labels = {};
+      const now = Date.now();
+      for (const p of IDX_PERIODS) {
+        base[p] = new Array(POINTS).fill(0);
+        base.labels[p] = Array.from({ length: POINTS }, (_, i) => now - (POINTS - 1 - i) * 86400000);
+      }
+      base.live = false;
+      base.error = e.message;
+    }
+    return base;
+  }));
+
+  idxCache = { ts: Date.now(), data: results };
   return results;
 }
 
