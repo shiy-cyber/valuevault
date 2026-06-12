@@ -118,6 +118,7 @@ export const NAV = [
   { id:'valuation', icon:'🧮', label:'Valoración DCF' },
   { id:'volprofile', icon:'📊', label:'Vol. Profile / VWAP' },
   { id:'smc', icon:'⚡', label:'Smart Money' },
+  { id:'gamma', icon:'γ', label:'Gamma / GEX' },
   { section:'Conocimiento' },
   { id:'guide', icon:'📖', label:'Manual de uso' },
   { id:'learning', icon:'◉', label:'Aprendizaje' },
@@ -127,4 +128,4 @@ export const NAV = [
   { id:'marketmap', icon:'🗺', label:'Mapa de Mercado' },
   { id:'macro', icon:'🌐', label:'Macro Research' },
 ];
-export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', valuation:'Valoración · DCF / ROIC', volprofile:'Perfil de Volumen & VWAP', smc:'Smart Money · FVG / Order Blocks', guide:'Manual de Uso', learning:'Aprendizaje', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research' };
+export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', valuation:'Valoración · DCF / ROIC', volprofile:'Perfil de Volumen & VWAP', smc:'Smart Money · FVG / Order Blocks', gamma:'Exposición a Gamma · GEX', guide:'Manual de Uso', learning:'Aprendizaje', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research' };
