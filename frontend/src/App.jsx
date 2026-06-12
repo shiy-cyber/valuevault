@@ -11,6 +11,7 @@ import Screener from './components/Screener.jsx';
 import Valuation from './components/Valuation.jsx';
 import VolProfile from './components/VolProfile.jsx';
 import SMC from './components/SMC.jsx';
+import Guide from './components/Guide.jsx';
 import Learning from './components/Learning.jsx';
 import Trends from './components/Trends.jsx';
 import Indices from './components/Indices.jsx';
@@ -213,6 +214,7 @@ export default function App() {
           {section === 'valuation' && <Valuation toast={toast} />}
           {section === 'volprofile' && <VolProfile theme={theme} toast={toast} />}
           {section === 'smc' && <SMC theme={theme} toast={toast} />}
+          {section === 'guide' && <Guide go={go} />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={(id) => setLearnModal({ open: true, linkedAssetId: id })} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
           {section === 'indices' && <Indices theme={theme} toast={toast} />}
