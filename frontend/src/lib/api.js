@@ -28,6 +28,8 @@ export const api = {
   register: (email, password) => req('POST', '/api/auth/register', { email, password }),
   login:    (email, password) => req('POST', '/api/auth/login', { email, password }),
   me:       () => req('GET', '/api/auth/me'),
+  reset:    (email, code, password) => req('POST', '/api/auth/reset', { email, code, password }),
+  regenerateCode: () => req('POST', '/api/auth/recovery-code'),
 
   getAssets:   () => req('GET', '/api/assets'),
   createAsset: (a) => req('POST', '/api/assets', a),

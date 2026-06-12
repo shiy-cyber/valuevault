@@ -24,6 +24,17 @@ export async function initAuthSecret() {
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 
+// Código de recuperación: 16 chars de un alfabeto sin caracteres ambiguos
+// (sin O/0/I/1), mostrado como XXXX-XXXX-XXXX-XXXX. Se guarda solo su hash.
+const RC_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function generateRecoveryCode() {
+  const bytes = crypto.randomBytes(16);
+  let s = '';
+  for (let i = 0; i < 16; i++) s += RC_ALPHABET[bytes[i] % RC_ALPHABET.length];
+  return s.match(/.{1,4}/g).join('-');
+}
+const normCode = (c) => String(c || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
 // ─── Contraseñas (scrypt) ───────────────────────────────────
 function hashPassword(pw) {
   const salt = crypto.randomBytes(16);
@@ -65,9 +76,30 @@ export async function registerUser(email, password) {
   if (await get('SELECT id FROM users WHERE email = ?', [email])) {
     throw Object.assign(new Error('Ese email ya está registrado'), { status: 409 });
   }
-  const info = await run('INSERT INTO users (email, passwordHash) VALUES (?, ?)', [email, hashPassword(password)]);
+  const recoveryCode = generateRecoveryCode();
+  const info = await run('INSERT INTO users (email, passwordHash, recoveryHash) VALUES (?, ?, ?)',
+    [email, hashPassword(password), hashPassword(normCode(recoveryCode))]);
   const uid = Number(info.lastInsertRowid);
-  return { token: signToken({ uid, email }), user: { id: uid, email } };
+  return { token: signToken({ uid, email }), user: { id: uid, email }, recoveryCode };
+}
+
+// Restablece la contraseña con el código de recuperación; deja la sesión iniciada
+export async function resetWithCode(email, code, newPassword) {
+  email = String(email || '').trim().toLowerCase();
+  if (String(newPassword || '').length < 6) throw Object.assign(new Error('La nueva contraseña debe tener al menos 6 caracteres'), { status: 400 });
+  const u = await get('SELECT * FROM users WHERE email = ?', [email]);
+  if (!u || !u.recoveryHash || !verifyPassword(normCode(code), u.recoveryHash)) {
+    throw Object.assign(new Error('Email o código de recuperación incorrectos'), { status: 401 });
+  }
+  await run('UPDATE users SET passwordHash = ? WHERE id = ?', [hashPassword(newPassword), u.id]);
+  return { token: signToken({ uid: u.id, email: u.email }), user: { id: u.id, email: u.email } };
+}
+
+// Genera un código nuevo (invalida el anterior) para un usuario con sesión
+export async function regenerateRecovery(uid) {
+  const recoveryCode = generateRecoveryCode();
+  await run('UPDATE users SET recoveryHash = ? WHERE id = ?', [hashPassword(normCode(recoveryCode)), uid]);
+  return { recoveryCode };
 }
 
 export async function loginUser(email, password) {

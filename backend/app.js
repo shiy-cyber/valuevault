@@ -14,7 +14,7 @@ import { getMacro } from './macro.js';
 import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
 import { getSMC } from './smc.js';
-import { registerUser, loginUser, userFromReq, initAuthSecret } from './auth.js';
+import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
 
@@ -69,6 +69,14 @@ export async function createApp() {
   app.get('/api/auth/me', h(async (req, res) => {
     const u = userFromReq(req);
     res.json({ user: u ? { id: u.uid, email: u.email } : null });
+  }));
+  app.post('/api/auth/reset', h(async (req, res) => {
+    res.json(await resetWithCode(req.body.email, req.body.code, req.body.password));
+  }));
+  app.post('/api/auth/recovery-code', h(async (req, res) => {
+    const u = userFromReq(req);
+    if (!u) return res.status(401).json({ error: 'Inicia sesión' });
+    res.json(await regenerateRecovery(u.uid));
   }));
 
   // ─── ASSETS (aislados por usuario) ─────────────────────────

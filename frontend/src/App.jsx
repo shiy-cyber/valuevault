@@ -38,6 +38,7 @@ export default function App() {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [presetCode, setPresetCode] = useState(null);
 
   // Cartera vs seguimiento
   const portfolio = assets.filter(a => a.type !== 'watchlist');
@@ -83,6 +84,11 @@ export default function App() {
     setToken(null); setUser(null);
     toast('Sesión cerrada');
     reloadPortfolio();
+  };
+  const showRecoveryCode = async () => {
+    if (!window.confirm('Se generará un código de recuperación NUEVO y el anterior dejará de funcionar. ¿Continuar?')) return;
+    try { const r = await api.regenerateCode(); setPresetCode(r.recoveryCode); setAuthOpen(true); }
+    catch (e) { toast('⚠ ' + e.message); }
   };
   // Exige sesión para acciones de escritura; si no, abre el modal
   const requireAuth = () => {
@@ -213,10 +219,13 @@ export default function App() {
         </div>
         <div className="sidebar-bottom">
           {user ? (
-            <div className="stat-row" style={{ alignItems: 'center' }}>
-              <span className="stat-label" title={user.email} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>👤 {user.email}</span>
-              <button className="sb-btn" onClick={logout} style={{ padding: '3px 9px', flex: 'none' }}>Salir</button>
-            </div>
+            <>
+              <div className="stat-row" style={{ alignItems: 'center' }}>
+                <span className="stat-label" title={user.email} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>👤 {user.email}</span>
+                <button className="sb-btn" onClick={logout} style={{ padding: '3px 9px', flex: 'none' }}>Salir</button>
+              </div>
+              <button className="sb-btn" style={{ width: '100%', marginBottom: '10px', fontSize: '11px' }} onClick={showRecoveryCode}>🔑 Código de recuperación</button>
+            </>
           ) : (
             <button className="sb-btn" style={{ width: '100%', marginBottom: '10px' }} onClick={() => setAuthOpen(true)}>🔑 Iniciar sesión / Registrarse</button>
           )}
@@ -270,7 +279,7 @@ export default function App() {
       <AssetModal open={assetModal.open} editing={assetModal.editing} presetType={assetModal.presetType} onClose={closeAssetModal} onSave={saveAsset} toast={toast} />
       <LearnModal open={learnModal.open} assets={assets} linkedAssetId={learnModal.linkedAssetId} onClose={() => setLearnModal({ open: false, linkedAssetId: null })} onSave={saveNote} toast={toast} />
       <DetailModal asset={detailAsset} notes={notes} onClose={() => setDetailId(null)} onAddNote={(id) => { setDetailId(null); addNote(id); }} />
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} onAuth={onAuth} toast={toast} />
+      <AuthModal open={authOpen} presetCode={presetCode} onClose={() => { setAuthOpen(false); setPresetCode(null); }} onAuth={onAuth} toast={toast} />
 
       <div className={`toast${toastMsg ? ' show' : ''}`}>{toastMsg}</div>
     </>

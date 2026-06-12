@@ -108,6 +108,8 @@ export async function initSchema() {
   // Multi-usuario: cada activo/nota pertenece a un usuario
   await ensureColumn('assets', 'userId', 'INTEGER');
   await ensureColumn('notes', 'userId', 'INTEGER');
+  // Recuperación de cuenta: hash del código de recuperación
+  await ensureColumn('users', 'recoveryHash', 'TEXT');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que
