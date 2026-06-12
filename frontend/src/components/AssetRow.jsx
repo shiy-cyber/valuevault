@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
-import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo } from '../lib/format.js';
+import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo, compositeScore, positionMetrics, fmtBase } from '../lib/format.js';
+
+const ENGINE_LABEL = { momentum: 'A · Momentum', value: 'B · Valor', hidden: 'C · Gema oculta' };
+const scoreColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 45 ? 'var(--orange)' : 'var(--red)';
+
+// Barra de un pilar del score (0-100)
+function ScoreBar({ label, score }) {
+  return (
+    <div className="mv-item">
+      <div className="mv-label">{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ flex: 1, height: '5px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${score ?? 0}%`, background: scoreColor(score), borderRadius: '3px' }} />
+        </div>
+        <div className="mv-val" style={{ color: scoreColor(score), minWidth: '28px', textAlign: 'right' }}>{score ?? '—'}</div>
+      </div>
+    </div>
+  );
+}
 
 function MV({ label, val, suffix = '', good, warn }) {
   const v = parseFloat(val);
@@ -71,12 +89,14 @@ function PriceHistory({ ticker, theme }) {
 }
 
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
-export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelete, onRefreshData }) {
+export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData }) {
   const [open, setOpen] = useState(false);
   const [busyData, setBusyData] = useState(false);
   const chg = changePct(a).toFixed(2);
   const isPos = chg >= 0;
   const live = timeAgo(a.priceUpdatedAt);
+  const sc = compositeScore(a);
+  const pos = positionMetrics(a, fxRates || {});
 
   const doRefresh = async () => {
     if (busyData || !onRefreshData) return;
@@ -122,6 +142,26 @@ export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelet
             </div>
           )}
           <PriceHistory ticker={a.ticker} theme={theme} />
+
+          <div className="mv-section-label">Score Compuesto <span style={{ color: scoreColor(sc.total) }}>· {sc.total ?? '—'}/100</span></div>
+          <div className="mv-grid">
+            <ScoreBar label="Valor" score={sc.value} />
+            <ScoreBar label="Calidad" score={sc.quality} />
+            <ScoreBar label="Momentum*" score={sc.momentum} />
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>*Momentum = proxy (posición en rango 52s + crecimiento EPS); sin fuerza relativa vs índice.</div>
+
+          <div className="mv-section-label">Posición & Proceso</div>
+          <div className="mv-grid">
+            <div className="mv-item"><div className="mv-label">Tamaño</div><div className="mv-val">{a.shares > 0 ? `${fmt(a.shares)} ${a.currency || ''}` : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Valor (EUR)</div><div className="mv-val">{pos.sized ? fmtBase(pos.valueBase) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">P&L (EUR)</div><div className="mv-val" style={{ color: pos.sized && pos.pnlBase >= 0 ? 'var(--green)' : pos.sized ? 'var(--red)' : 'var(--muted)' }}>{pos.sized ? fmtBase(pos.pnlBase) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Ret. divisa</div><div className="mv-val">{pos.curRet != null ? `${pos.curRet >= 0 ? '+' : ''}${(pos.curRet * 100).toFixed(1)}%` : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Motor α</div><div className="mv-val">{ENGINE_LABEL[a.engine] || '—'}</div></div>
+            <MV label="Objetivo" val={a.target} suffix={a.currency ? ' ' + a.currency : ''} />
+            <MV label="Stop" val={a.stop} suffix={a.currency ? ' ' + a.currency : ''} />
+            <div className="mv-item"><div className="mv-label">Catalizador</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.catalyst ? a.catalyst + (a.catalystDate ? ` (${a.catalystDate})` : '') : '—'}</div></div>
+          </div>
 
           <div className="mv-section-label">Valoración</div>
           <div className="mv-grid">

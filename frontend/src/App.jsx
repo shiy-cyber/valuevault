@@ -39,6 +39,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [presetCode, setPresetCode] = useState(null);
+  const [fxRates, setFxRates] = useState({ EUR: 1 });
 
   // Cartera vs seguimiento
   const portfolio = assets.filter(a => a.type !== 'watchlist');
@@ -74,6 +75,15 @@ export default function App() {
     api.me().then(r => setUser(r.user)).catch(() => {});
     reloadPortfolio();
   }, [reloadPortfolio]);
+
+  // ─── Tipos de cambio (FX) → divisa base EUR ─────────────
+  // Refresca cuando cambian las divisas presentes en la cartera.
+  const ccyKey = [...new Set(assets.map(a => (a.currency || 'USD').toUpperCase()))].sort().join(',');
+  useEffect(() => {
+    const ccys = ccyKey ? ccyKey.split(',') : [];
+    if (!ccys.length) return;
+    api.fx(ccys).then(r => setFxRates({ EUR: 1, ...(r.rates || {}) })).catch(() => {});
+  }, [ccyKey]);
 
   // ─── Autenticación ──────────────────────────────────────
   const onAuth = ({ token, user: u }) => {
@@ -116,6 +126,14 @@ export default function App() {
         setAssets(prev => prev.map(a => a.id === editId ? updated : a));
         toast(`✓ ${updated.ticker} actualizado`);
       } else {
+        // Fija el FX de entrada (EUR por 1 ud. de su divisa) para poder
+        // separar después retorno de activo vs retorno de divisa.
+        if (!payload.fxEntry) {
+          const ccy = (payload.currency || 'USD').toUpperCase();
+          let rate = fxRates[ccy];
+          if (rate == null) { try { rate = (await api.fx([ccy])).rates?.[ccy]; } catch {} }
+          if (rate != null) payload.fxEntry = rate;
+        }
         const created = await api.createAsset(payload);
         setAssets(prev => [...prev, created]);
         toast(`✓ ${created.ticker} registrado`);
@@ -257,9 +275,9 @@ export default function App() {
               👁 Estás viendo la cartera <b>DEMO</b> compartida (solo lectura). <span onClick={() => setAuthOpen(true)} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>Crea tu cuenta privada</span> para gestionar tus propios activos y notas.
             </div>
           )}
-          {section === 'dashboard' && <Dashboard assets={portfolio} notes={notes} theme={theme} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />}
-          {section === 'assets' && <Assets assets={portfolio} notes={notes} theme={theme} {...navHandlers} />}
-          {section === 'watchlist' && <Watchlist assets={watchlist} notes={notes} theme={theme} {...navHandlers} onAdd={() => newAsset('watchlist')} />}
+          {section === 'dashboard' && <Dashboard assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />}
+          {section === 'assets' && <Assets assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} />}
+          {section === 'watchlist' && <Watchlist assets={watchlist} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} onAdd={() => newAsset('watchlist')} />}
           {section === 'compare' && <Compare assets={assets} />}
           {section === 'charts' && <Charts assets={portfolio} theme={theme} />}
           {section === 'screener' && <Screener />}

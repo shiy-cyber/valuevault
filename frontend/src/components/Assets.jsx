@@ -5,7 +5,7 @@ const STRATS = [['all','Todos'],['value','Value'],['growth','Growth'],['dividend
 const TIMES = [['short','Corto Plazo'],['medium','Medio Plazo'],['long','Largo Plazo']];
 const RISKS = [['low','Riesgo Bajo'],['medium','Riesgo Medio'],['high','Riesgo Alto']];
 
-export default function Assets({ assets, notes, theme, onNotes, onEdit, onDelete, onRefreshData }) {
+export default function Assets({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData }) {
   const [strat, setStrat] = useState('all');
   const [time, setTime] = useState(null);
   const [risk, setRisk] = useState(null);
@@ -43,7 +43,7 @@ export default function Assets({ assets, notes, theme, onNotes, onEdit, onDelete
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginTop:'16px' }}>
         {filtered.length
-          ? filtered.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} />)
+          ? filtered.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} />)
           : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">No hay activos con estos filtros</div></div>}
       </div>
     </div>

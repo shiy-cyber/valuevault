@@ -54,6 +54,7 @@ export const api = {
   sentiment: (fresh) => req('GET', `/api/sentiment${fresh ? '?fresh=1' : ''}`),
   macro: (fresh) => req('GET', `/api/macro${fresh ? '?fresh=1' : ''}`),
   marketMap: () => req('GET', '/api/market-map'),
+  fx: (symbols) => req('GET', `/api/fx?symbols=${encodeURIComponent((symbols || []).join(','))}`),
   quote:   (symbol) => req('GET', `/api/quote/${encodeURIComponent(symbol)}`),
   history: (symbol, range) => req('GET', `/api/history/${encodeURIComponent(symbol)}?range=${range}`),
   refreshPrices: () => req('POST', '/api/assets/refresh-prices'),

@@ -8,7 +8,7 @@ import express from 'express';
 import cors from 'cors';
 import { ready, all, get, run, rowToAsset, rowToNote, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
 import { lookupTicker } from './alphavantage.js';
-import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap } from './sectors.js';
+import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
 import { getMacro } from './macro.js';
 import { getFundamentals } from './valuation.js';
@@ -183,13 +183,17 @@ export async function createApp() {
   app.get('/api/volprofile/:symbol', h(async (req, res) => { res.json(await getVolProfile(req.params.symbol, req.query.range, req.query.anchor)); }));
   app.get('/api/smc/:symbol', h(async (req, res) => { res.json(await getSMC(req.params.symbol, req.query.range)); }));
   app.get('/api/market-map', h(async (_req, res) => { res.json(await getMarketMap()); }));
+  app.get('/api/fx', h(async (req, res) => {
+    const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean);
+    res.json(await getFx(symbols));
+  }));
   app.get('/api/quote/:symbol', h(async (req, res) => { res.json(await getQuote(req.params.symbol)); }));
   app.get('/api/history/:symbol', h(async (req, res) => { res.json(await getHistory(req.params.symbol, req.query.range || '6mo')); }));
 
   // Refresca el precio de todos los activos del usuario con Yahoo
   app.post('/api/assets/refresh-prices', h(async (req, res) => {
     const uid = readUid(req);
-    const rows = await all('SELECT id, ticker FROM assets WHERE userId = ?', [uid]);
+    const rows = await all('SELECT id, ticker, currency FROM assets WHERE userId = ?', [uid]);
     if (!rows.length) return res.json({ updated: 0, total: 0, assets: [], quotes: [] });
     const quotes = await getQuotes(rows.map(r => r.ticker));
     const byTicker = Object.fromEntries(quotes.map(q => [q.symbol, q]));
@@ -197,7 +201,11 @@ export async function createApp() {
     let updated = 0;
     for (const r of rows) {
       const q = byTicker[r.ticker];
-      if (q && q.price != null) { await run('UPDATE assets SET current = ?, priceUpdatedAt = ? WHERE id = ?', [q.price, now, r.id]); updated++; }
+      if (q && q.price != null) {
+        // Captura la divisa de Yahoo solo si el activo aún no la tiene fijada
+        if (q.currency && !r.currency) await run('UPDATE assets SET currency = ? WHERE id = ?', [q.currency, r.id]);
+        await run('UPDATE assets SET current = ?, priceUpdatedAt = ? WHERE id = ?', [q.price, now, r.id]); updated++;
+      }
     }
     const assets = (await all('SELECT * FROM assets WHERE userId = ? ORDER BY id ASC', [uid])).map(rowToAsset);
     res.json({ updated, total: rows.length, at: now, assets, quotes });
