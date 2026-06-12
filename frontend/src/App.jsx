@@ -279,7 +279,7 @@ export default function App() {
           {section === 'assets' && <Assets assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} />}
           {section === 'watchlist' && <Watchlist assets={watchlist} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} onAdd={() => newAsset('watchlist')} />}
           {section === 'compare' && <Compare assets={assets} />}
-          {section === 'charts' && <Charts assets={portfolio} theme={theme} />}
+          {section === 'charts' && <Charts assets={portfolio} theme={theme} fxRates={fxRates} />}
           {section === 'screener' && <Screener />}
           {section === 'valuation' && <Valuation toast={toast} />}
           {section === 'volprofile' && <VolProfile theme={theme} toast={toast} />}
