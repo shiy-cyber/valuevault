@@ -7,7 +7,20 @@
 import crypto from 'node:crypto';
 import { get, run } from './db.js';
 
-const SECRET = process.env.JWT_SECRET || 'valuevault-dev-secret-change-me';
+// Secreto de firma JWT. Prioridad: variable de entorno (si está) → clave
+// persistente auto-generada y guardada en la BD (privada). Así no depende
+// del panel de Netlify y es fuerte y única sin pasos manuales.
+let SECRET = process.env.JWT_SECRET || null;
+export async function initAuthSecret() {
+  if (SECRET) return;
+  const row = await get("SELECT value FROM config WHERE key = 'jwt_secret'");
+  if (row?.value) { SECRET = row.value; return; }
+  const generated = crypto.randomBytes(48).toString('base64url');
+  await run("INSERT OR IGNORE INTO config (key, value) VALUES ('jwt_secret', ?)", [generated]);
+  const row2 = await get("SELECT value FROM config WHERE key = 'jwt_secret'"); // por si otra instancia ganó la carrera
+  SECRET = row2?.value || generated;
+}
+
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 

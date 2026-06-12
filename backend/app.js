@@ -14,7 +14,7 @@ import { getMacro } from './macro.js';
 import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
 import { getSMC } from './smc.js';
-import { registerUser, loginUser, userFromReq } from './auth.js';
+import { registerUser, loginUser, userFromReq, initAuthSecret } from './auth.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
 
@@ -50,6 +50,7 @@ const writeUid = (req) => {
 
 export async function createApp() {
   await ready(); // esquema + semilla + demo (idempotente, una vez por instancia)
+  await initAuthSecret(); // clave JWT (entorno o BD), una vez por instancia
 
   const app = express();
   app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
