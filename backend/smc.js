@@ -83,11 +83,22 @@ function detectOB(bars) {
     const ob = bars[k];
     const impulse = bars[impulseIdx];
     let mitigated = false;
+    // Breaker block: el precio CIERRA atravesando por completo el OB → la zona
+    // invierte su papel (un OB alcista roto pasa a actuar como resistencia).
+    let broken = false;
     for (let j = impulseIdx + 1; j < bars.length; j++) {
-      if (type === 'bull' && bars[j].l <= ob.h) { mitigated = true; break; }
-      if (type === 'bear' && bars[j].h >= ob.l) { mitigated = true; break; }
+      if (type === 'bull') {
+        if (bars[j].l <= ob.h) mitigated = true;
+        if (bars[j].c < ob.l) { broken = true; break; }
+      } else {
+        if (bars[j].h >= ob.l) mitigated = true;
+        if (bars[j].c > ob.h) { broken = true; break; }
+      }
     }
-    out.push({ kind: 'OB', type, top: round(ob.h), bottom: round(ob.l), t: ob.t, mitigated, filled: mitigated, ...scoreOB(type, ob, impulse, impulseIdx) });
+    const role = broken
+      ? (type === 'bull' ? 'resistencia' : 'soporte')   // rol invertido
+      : (type === 'bull' ? 'soporte' : 'resistencia');  // rol normal
+    out.push({ kind: 'OB', type, top: round(ob.h), bottom: round(ob.l), t: ob.t, mitigated, filled: mitigated, broken, role, ...scoreOB(type, ob, impulse, impulseIdx) });
   }
 
   // Fuerza del OB (0-100): volumen del impulso vs media (40%), tamaño del
