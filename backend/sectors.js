@@ -185,8 +185,8 @@ const IDX_LONG_YEARS = { '3y': 3, '5y': 5, '10y': 10, '20y': 20 };
 const IDX_PERIODS = [...IDX_SHORT, ...Object.keys(IDX_LONG_YEARS)];
 
 let idxCache = { ts: 0, data: null };
-export async function getIndices() {
-  if (idxCache.data && Date.now() - idxCache.ts < TTL) return idxCache.data;
+export async function getIndices(force = false) {
+  if (!force && idxCache.data && Date.now() - idxCache.ts < TTL) return idxCache.data;
 
   const results = await Promise.all(INDEX_META.map(async (m) => {
     const base = { ...m };

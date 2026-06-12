@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
@@ -22,21 +22,30 @@ export default function Indices({ theme, toast }) {
   const [period, setPeriod] = useState('1m');
   const [active, setActive] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(null);
   const isDark = theme === 'dark';
 
-  useEffect(() => {
-    let alive = true;
-    api.indices()
-      .then(data => {
-        if (!alive) return;
-        setIndices(data);
-        setActive(new Set(data.map(s => s.name)));
-        setLoading(false);
-        if (data.some(s => s.live === false)) toast?.('⚠ Algún índice usa datos de respaldo');
-      })
-      .catch(e => { if (alive) { setLoading(false); toast?.('⚠ No se pudieron cargar los índices: ' + e.message); } });
-    return () => { alive = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Carga los índices. fresh=true salta la caché de 10 min del backend
+  // y conserva la selección de índices activos del usuario.
+  const load = useCallback(async (fresh) => {
+    if (fresh) setRefreshing(true);
+    try {
+      const data = await api.indices(fresh);
+      setIndices(data);
+      setActive(prev => prev.size ? prev : new Set(data.map(s => s.name)));
+      setUpdatedAt(new Date());
+      if (data.some(s => s.live === false)) toast?.('⚠ Algún índice usa datos de respaldo');
+      else if (fresh) toast?.('↻ Índices actualizados');
+    } catch (e) {
+      toast?.('⚠ No se pudieron cargar los índices: ' + e.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [toast]);
+
+  useEffect(() => { load(false); }, [load]);
 
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
@@ -88,10 +97,16 @@ export default function Indices({ theme, toast }) {
             Variación diaria y rendimiento acumulado · {loading ? 'cargando…' : 'datos Yahoo Finance en vivo'}
           </div>
         </div>
-        <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
-          {PERIODS.map(([k, l]) => (
-            <button key={k} className={`filter-chip${period === k ? ' active' : ''}`} onClick={() => setPeriod(k)}>{l}</button>
-          ))}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'10px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            {updatedAt && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>↻ {updatedAt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</span>}
+            <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? '⏳ Actualizando…' : '↻ Actualizar'}</button>
+          </div>
+          <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', justifyContent:'flex-end' }}>
+            {PERIODS.map(([k, l]) => (
+              <button key={k} className={`filter-chip${period === k ? ' active' : ''}`} onClick={() => setPeriod(k)}>{l}</button>
+            ))}
+          </div>
         </div>
       </div>
 
