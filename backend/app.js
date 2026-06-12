@@ -7,6 +7,7 @@ import cors from 'cors';
 import { ready, all, get, run, rowToAsset, rowToNote, ASSET_NUM, ASSET_TXT, ASSET_JSON } from './db.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap } from './sectors.js';
+import { getSentiment } from './sentiment.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
 
@@ -130,6 +131,7 @@ export async function createApp() {
   // ─── YAHOO FINANCE ─────────────────────────────────────────
   app.get('/api/sectors', h(async (_req, res) => { res.json(await getSectors()); }));
   app.get('/api/indices', h(async (req, res) => { res.json(await getIndices(req.query.fresh === '1')); }));
+  app.get('/api/sentiment', h(async (req, res) => { res.json(await getSentiment(req.query.fresh === '1')); }));
   app.get('/api/market-map', h(async (_req, res) => { res.json(await getMarketMap()); }));
   app.get('/api/quote/:symbol', h(async (req, res) => { res.json(await getQuote(req.params.symbol)); }));
   app.get('/api/history/:symbol', h(async (req, res) => { res.json(await getHistory(req.params.symbol, req.query.range || '6mo')); }));

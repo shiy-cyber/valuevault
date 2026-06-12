@@ -11,6 +11,7 @@ import Screener from './components/Screener.jsx';
 import Learning from './components/Learning.jsx';
 import Trends from './components/Trends.jsx';
 import Indices from './components/Indices.jsx';
+import Sentiment from './components/Sentiment.jsx';
 import MarketMap from './components/MarketMap.jsx';
 import Macro from './components/Macro.jsx';
 import AssetModal from './components/AssetModal.jsx';
@@ -209,6 +210,7 @@ export default function App() {
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={(id) => setLearnModal({ open: true, linkedAssetId: id })} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
           {section === 'indices' && <Indices theme={theme} toast={toast} />}
+          {section === 'sentiment' && <Sentiment theme={theme} toast={toast} />}
           {section === 'marketmap' && <MarketMap theme={theme} toast={toast} />}
           {section === 'macro' && <Macro />}
         </div>

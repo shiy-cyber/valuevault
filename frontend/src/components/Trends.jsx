@@ -45,11 +45,13 @@ export default function Trends({ theme, toast }) {
   const toggleSector = (name) => {
     setActive(prev => {
       const next = new Set(prev);
-      if (next.has(name)) { if (next.size <= 2) return prev; next.delete(name); }
-      else next.add(name);
+      if (next.has(name)) next.delete(name); else next.add(name);
       return next;
     });
   };
+  const selectAll = () => setActive(new Set(sectors.map(s => s.name)));
+  const clearAll = () => setActive(new Set());
+  const allOn = sectors.length > 0 && active.size === sectors.length;
 
   // Fechas reales de los 12 puntos (vienen del backend); si faltan, eje vacío
   const tsLabels = sectors[0]?.labels?.[period] || [];
@@ -136,8 +138,11 @@ export default function Trends({ theme, toast }) {
       {/* LINE */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'6px' }}>Tendencia Acumulada por Sector</div>
-        <div style={{ fontSize:'11px', color:'var(--muted)', marginBottom:'14px' }}>Rendimiento % acumulado — selecciona sectores</div>
-        <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'16px' }}>
+        <div style={{ fontSize:'11px', color:'var(--muted)', marginBottom:'14px' }}>Rendimiento % acumulado — selecciona sectores ({active.size}/{sectors.length})</div>
+        <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'16px', alignItems:'center' }}>
+          <button onClick={selectAll} disabled={allOn} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: allOn ? 'default' : 'pointer', border:'1px solid var(--gold)', background:'transparent', color:'var(--gold)', opacity: allOn ? 0.4 : 1, transition:'all .15s' }}>✓ Todos</button>
+          <button onClick={clearAll} disabled={active.size === 0} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: active.size === 0 ? 'default' : 'pointer', border:'1px solid var(--muted)', background:'transparent', color:'var(--muted)', opacity: active.size === 0 ? 0.4 : 1, transition:'all .15s' }}>✗ Ninguno</button>
+          <span style={{ width:'1px', alignSelf:'stretch', background:'var(--border)', margin:'0 4px' }} />
           {sectors.map(s => {
             const on = active.has(s.name);
             return (

@@ -31,6 +31,7 @@ export const api = {
   lookup:  (ticker) => req('GET', `/api/lookup/${encodeURIComponent(ticker)}`),
   sectors: () => req('GET', '/api/sectors'),
   indices: (fresh) => req('GET', `/api/indices${fresh ? '?fresh=1' : ''}`),
+  sentiment: (fresh) => req('GET', `/api/sentiment${fresh ? '?fresh=1' : ''}`),
   marketMap: () => req('GET', '/api/market-map'),
   quote:   (symbol) => req('GET', `/api/quote/${encodeURIComponent(symbol)}`),
   history: (symbol, range) => req('GET', `/api/history/${encodeURIComponent(symbol)}?range=${range}`),
