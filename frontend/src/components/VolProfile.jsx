@@ -48,7 +48,7 @@ export default function VolProfile({ theme, toast }) {
       { label: 'VWAP', data: data.vwap.series.map(s => s.vwap), borderColor: '#c9a84c', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false, spanGaps: false },
       hline(data.poc, '#2ecc71', 'POC'),
       hline(data.vah, '#e67e22', 'VAH'),
-      hline(data.val, '#e67e22', 'VAL'),
+      hline(data.val, '#9b59b6', 'VAL'),
     ],
   } : null;
   const priceOpts = {
@@ -65,9 +65,15 @@ export default function VolProfile({ theme, toast }) {
 
   // ─── Perfil de Volumen (barras horizontales) ───
   const barColor = (b) => b.isPOC ? '#c9a84c' : b.inVA ? 'rgba(46,204,113,.55)' : (isDark ? 'rgba(122,134,148,.35)' : 'rgba(107,114,128,.35)');
+  const priceBinIdx = data ? data.bins.findIndex(b => data.price >= b.low && data.price < b.high) : -1;
   const vpData = data ? {
     labels: data.bins.map(b => b.mid),
-    datasets: [{ data: data.bins.map(b => b.volume), backgroundColor: data.bins.map(barColor), borderWidth: 0, barPercentage: 0.95, categoryPercentage: 1 }],
+    datasets: [{
+      data: data.bins.map(b => b.volume), backgroundColor: data.bins.map(barColor),
+      borderColor: data.bins.map((_, i) => i === priceBinIdx ? '#3a8eff' : 'rgba(0,0,0,0)'),
+      borderWidth: data.bins.map((_, i) => i === priceBinIdx ? 2 : 0),
+      borderSkipped: false, barPercentage: 0.95, categoryPercentage: 1,
+    }],
   } : null;
   const vpOpts = {
     indexAxis: 'y', responsive: true, maintainAspectRatio: false,
@@ -136,7 +142,7 @@ export default function VolProfile({ theme, toast }) {
             {stat('Precio', '$' + data.price, data.symbol, abovePOC ? 'var(--green)' : 'var(--red)')}
             {stat('POC', '$' + data.poc, 'control', '#c9a84c')}
             {stat('VAH', '$' + data.vah, 'value area ↑', '#e67e22')}
-            {stat('VAL', '$' + data.val, 'value area ↓', '#e67e22')}
+            {stat('VAL', '$' + data.val, 'value area ↓', '#9b59b6')}
             {stat('VWAP', data.vwap.value != null ? '$' + data.vwap.value : '—', 'desde ' + (data.vwap.anchorDate ? fmtDay(data.vwap.anchorDate) : '—'), aboveVWAP ? 'var(--green)' : 'var(--red)')}
           </div>
 
@@ -149,18 +155,21 @@ export default function VolProfile({ theme, toast }) {
           </div>
 
           {/* Charts */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: '16px' }}>
-            <div style={{ ...cardBase, gridColumn: 'span 1' }}>
+          <div className="vp-charts">
+            <div style={cardBase}>
               <div style={cap}>Precio · VWAP · niveles (POC/VAH/VAL)</div>
               <div style={{ position: 'relative', height: '360px' }}>{!loading && priceData && <Line data={priceData} options={priceOpts} />}</div>
             </div>
             <div style={cardBase}>
-              <div style={cap}>Perfil de Volumen por precio</div>
+              <div style={{ ...cap, display: 'flex', justifyContent: 'space-between' }}><span>Perfil de Volumen por precio</span><span style={{ color: '#3a8eff', textTransform: 'none', letterSpacing: 0 }}>— precio actual</span></div>
               <div style={{ position: 'relative', height: '360px' }}>{!loading && vpData && <Bar data={vpData} options={vpOpts} />}</div>
             </div>
           </div>
         </>
       )}
+
+      {loading && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", fontSize: '12px', padding: '40px' }}>⏳ Analizando {symbol}…</div>}
+      {!loading && !data && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontSize: '12px', padding: '40px' }}>No se pudieron cargar datos para <b>{symbol}</b>. Prueba con el símbolo exacto (ej: AAPL, MSFT, NVDA).</div>}
 
       <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
         📊 Perfil aproximado: el volumen de cada sesión se reparte por su rango máx-mín (datos diarios de Yahoo). El POC y la Value Area señalan zonas de aceptación de precio; un VWAP anclado a un máximo/mínimo relevante revela quién domina desde ese giro. Herramienta de análisis, no asesoramiento.

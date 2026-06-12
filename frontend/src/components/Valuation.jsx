@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '../lib/api.js';
 
 // m = millones. Formateo de dinero e importes por acción.
@@ -46,6 +46,14 @@ export default function Valuation({ toast }) {
   const [beta, setBeta] = useState(1.1);
   const [erp, setErp] = useState(5);
   const ke = +(N(rf) + N(beta) * N(erp)).toFixed(2);
+
+  // Prefijar el tipo libre de riesgo con el 10Y real del Tesoro (sección Macro)
+  useEffect(() => {
+    api.macro().then(m => {
+      const tenY = m?.curve?.points?.find(p => p.key === '10Y')?.value;
+      if (tenY != null) setRf(+Number(tenY).toFixed(2));
+    }).catch(() => {});
+  }, []);
 
   // ─── Autocompletar desde Alpha Vantage + Yahoo ──────────────
   const fetchData = async () => {
@@ -99,6 +107,9 @@ export default function Valuation({ toast }) {
     : dcf.upside >= 0 ? 'Ligeramente infravalorada'
     : dcf.upside >= -20 ? 'Cerca del valor justo'
     : 'Sobrevalorada';
+  // Margen de seguridad: cuánto por debajo del valor intrínseco cotiza el precio
+  const mos = (dcf.perShare != null && dcf.perShare > 0 && N(price) > 0) ? (1 - N(price) / dcf.perShare) * 100 : null;
+  const priceFrac = (dcf.perShare > 0 && N(price) > 0) ? Math.max(2, Math.min(140, (N(price) / dcf.perShare) * 100)) : null;
 
   return (
     <div className="section active">
@@ -172,8 +183,26 @@ export default function Valuation({ toast }) {
                     <div style={{ fontSize: '10px', color: 'var(--muted)' }}>potencial</div>
                   </div>
                 </div>
-                <div style={{ marginTop: '10px', display: 'inline-block', fontFamily: "'DM Mono',monospace", fontSize: '11px', padding: '4px 10px', borderRadius: '10px', background: upColor + '22', color: upColor }}>{verdict}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginTop: '16px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginTop: '10px' }}>
+                  <span style={{ display: 'inline-block', fontFamily: "'DM Mono',monospace", fontSize: '11px', padding: '4px 10px', borderRadius: '10px', background: upColor + '22', color: upColor }}>{verdict}</span>
+                  {mos != null && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '11px', color: 'var(--muted)' }}>Margen de seguridad: <b style={{ color: mos >= 0 ? 'var(--green)' : 'var(--red)' }}>{mos >= 0 ? '+' : ''}{mos.toFixed(0)}%</b></span>}
+                </div>
+
+                {/* Barra visual precio vs valor intrínseco */}
+                {priceFrac != null && (
+                  <div style={{ marginTop: '14px' }}>
+                    <div style={{ position: 'relative', height: '12px', background: 'var(--surface2)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <div style={{ width: Math.min(100, priceFrac) + '%', height: '100%', background: upColor, transition: 'width .3s' }} />
+                      <div style={{ position: 'absolute', top: '-2px', bottom: '-2px', left: '100%', width: '2px', background: 'var(--gold)' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontFamily: "'DM Mono',monospace", fontSize: '9px', color: 'var(--muted)' }}>
+                      <span>Precio {fmtP(N(price))}</span>
+                      <span style={{ color: 'var(--gold)' }}>Valor intrínseco {fmtP(dcf.perShare)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(90px,1fr))', gap: '8px', marginTop: '16px' }}>
                   {[['Valor empresa (EV)', fmtB(dcf.ev)], ['− Deuda neta', fmtB(N(netDebt))], ['= Equity', fmtB(dcf.equity)]].map(([l, v]) => (
                     <div key={l} style={{ background: 'var(--surface2)', borderRadius: '8px', padding: '8px 10px' }}>
                       <div style={{ fontSize: '9px', color: 'var(--muted)' }}>{l}</div>
