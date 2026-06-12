@@ -93,17 +93,21 @@ export async function getGamma(symbol, dateParam) {
   const lo = spot * 0.75, hi = spot * 1.25;
   const windowStrikes = strikes.filter(s => s.strike >= lo && s.strike <= hi);
 
-  // Gamma flip: barrido de precios buscando cruce por cero de la GEX total
+  // Perfil de gamma: GEX total a distintos precios hipotéticos. El gamma flip
+  // es el precio donde la curva cruza cero (interpolación lineal del 1er cruce).
   let gammaFlip = null;
-  const pLo = spot * 0.7, pHi = spot * 1.3, steps = 120;
-  let prevP = pLo, prevG = netGexAt(pLo, rows, T);
-  for (let i = 1; i <= steps; i++) {
+  const pLo = spot * 0.7, pHi = spot * 1.3, steps = 80;
+  const profile = [];
+  let prevP = null, prevG = null;
+  for (let i = 0; i <= steps; i++) {
     const p = pLo + (pHi - pLo) * (i / steps);
     const g = netGexAt(p, rows, T);
-    if (prevG === 0) { gammaFlip = +prevP.toFixed(2); break; }
-    if ((prevG < 0 && g > 0) || (prevG > 0 && g < 0)) {
-      gammaFlip = +(prevP + (p - prevP) * (-prevG) / (g - prevG)).toFixed(2); // interpolación lineal
-      break;
+    profile.push({ p: +p.toFixed(2), g: +g.toFixed(0) });
+    if (gammaFlip == null && prevG != null) {
+      if (prevG === 0) gammaFlip = +prevP.toFixed(2);
+      else if ((prevG < 0 && g > 0) || (prevG > 0 && g < 0)) {
+        gammaFlip = +(prevP + (p - prevP) * (-prevG) / (g - prevG)).toFixed(2);
+      }
     }
     prevP = p; prevG = g;
   }
@@ -127,6 +131,7 @@ export async function getGamma(symbol, dateParam) {
     putCallOI: callOItot > 0 ? +(putOItot / callOItot).toFixed(2) : null,
     callOItot, putOItot,
     strikes: windowStrikes,
+    profile,
   };
   cache.set(key, { ts: Date.now(), data });
   return data;

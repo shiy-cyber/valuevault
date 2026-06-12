@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Bar } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
 const bn = (v) => v == null ? '—' : (Math.abs(v) >= 1e9 ? (v / 1e9).toFixed(2) + ' bn' : (v / 1e6).toFixed(0) + ' M');
@@ -27,32 +27,82 @@ export default function Gamma({ theme, toast }) {
   const cardBase = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '18px' };
   const cap = { fontFamily: "'DM Mono',monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '12px' };
 
-  const posColor = '#2ecc71', negColor = '#e74c3c';
-  const chartData = data ? {
-    labels: data.strikes.map(s => s.strike),
+  const posColor = '#2ecc71', negColor = '#e74c3c', spotColor = '#3a8eff', flipColor = '#c9a84c';
+  const tipBox = { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1 };
+
+  // ── 1) Perfil por strike (barras horizontales, strike más alto arriba) ──
+  const byStrike = data ? [...data.strikes].sort((a, b) => b.strike - a.strike) : [];
+  const isWall = (s) => s === data?.callWall || s === data?.putWall;
+  const barData = data ? {
+    labels: byStrike.map(s => s.strike),
     datasets: [{
       label: 'GEX neto',
-      data: data.strikes.map(s => +(s.netGEX / 1e6).toFixed(1)), // en $M
-      backgroundColor: data.strikes.map(s => (s.netGEX >= 0 ? posColor : negColor) + 'cc'),
-      borderWidth: 0,
+      data: byStrike.map(s => +(s.netGEX / 1e6).toFixed(1)), // $M
+      backgroundColor: byStrike.map(s => (s.netGEX >= 0 ? posColor : negColor) + (isWall(s.strike) ? 'ff' : '99')),
+      borderColor: byStrike.map(s => isWall(s.strike) ? flipColor : 'transparent'),
+      borderWidth: byStrike.map(s => isWall(s.strike) ? 1.5 : 0),
     }],
   } : null;
-  const chartOpts = {
+  const barOpts = {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { ...tipBox, callbacks: {
+        title: (it) => 'Strike ' + it[0].label + (isWall(+it[0].label) ? (+it[0].label === data.callWall ? '  · CALL WALL' : '  · PUT WALL') : ''),
+        label: (c) => `GEX ${c.parsed.x >= 0 ? '+' : ''}${c.parsed.x} M$ /1%`,
+        afterLabel: (c) => { const s = byStrike[c.dataIndex]; return `OI call ${s.callOI} · put ${s.putOI}`; },
+      } },
+    },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, callback: v => v + 'M' } },
+      y: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, autoSkip: true, maxTicksLimit: 22 } },
+    },
+  };
+
+  // ── 2) Curva de gamma (flip): GEX total vs precio; cruza cero en el flip ──
+  const lineData = data ? {
+    datasets: [{
+      label: 'GEX total',
+      data: data.profile.map(pt => ({ x: pt.p, y: +(pt.g / 1e9).toFixed(3) })), // $bn
+      borderWidth: 2, pointRadius: 0, tension: 0.2, fill: { target: 'origin' },
+      segment: {
+        borderColor: c => (c.p1.parsed.y >= 0 ? posColor : negColor),
+        backgroundColor: c => (c.p1.parsed.y >= 0 ? posColor : negColor) + '22',
+      },
+    }],
+  } : null;
+  const lineOpts = {
     responsive: true, maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      tooltip: {
-        backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1,
-        callbacks: {
-          title: (it) => 'Strike ' + it[0].label,
-          label: (c) => `GEX ${c.parsed.y >= 0 ? '+' : ''}${c.parsed.y} M$ /1%`,
-          afterLabel: (c) => { const s = data.strikes[c.dataIndex]; return `OI call ${s.callOI} · put ${s.putOI}`; },
-        },
-      },
+      tooltip: { ...tipBox, callbacks: {
+        title: (it) => 'Precio $' + it[0].parsed.x.toFixed(2),
+        label: (c) => `GEX ${c.parsed.y >= 0 ? '+' : ''}${c.parsed.y} bn$ /1%`,
+      } },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, maxTicksLimit: 16, autoSkip: true, callback(i) { return this.getLabelForValue(i); } } },
-      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, callback: v => v + 'M' } },
+      x: { type: 'linear', grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, callback: v => '$' + v } },
+      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, callback: v => v + 'bn' } },
+    },
+  };
+  // Plugin: líneas verticales de spot y flip + base cero sobre la curva
+  const refLines = {
+    id: 'gammaRefs',
+    afterDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      const vline = (val, color, label) => {
+        if (val == null) return;
+        const x = scales.x.getPixelForValue(val);
+        if (x < chartArea.left || x > chartArea.right) return;
+        ctx.save();
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "10px 'DM Mono', monospace";
+        ctx.fillText(label, x + 4, chartArea.top + 11);
+        ctx.restore();
+      };
+      vline(data?.spot, spotColor, 'spot $' + data?.spot);
+      vline(data?.gammaFlip, flipColor, 'flip $' + data?.gammaFlip);
     },
   };
 
@@ -109,9 +159,17 @@ export default function Gamma({ theme, toast }) {
           <div style={{ ...cardBase, marginBottom: '18px' }}>
             <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <span>Perfil de gamma por strike · venc. {data.expiry}</span>
-              <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> gamma + · <span style={{ color: negColor }}>■</span> gamma − · spot ${data.spot}</span>
+              <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> gamma + · <span style={{ color: negColor }}>■</span> gamma − · <span style={{ color: flipColor }}>▭</span> wall</span>
             </div>
-            <div style={{ position: 'relative', height: '360px' }}>{!loading && chartData && <Bar data={chartData} options={chartOpts} />}</div>
+            <div style={{ position: 'relative', height: Math.max(360, byStrike.length * 15) + 'px' }}>{!loading && barData && <Bar data={barData} options={barOpts} />}</div>
+          </div>
+
+          <div style={{ ...cardBase, marginBottom: '18px' }}>
+            <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <span>Curva de gamma · cruza cero en el flip</span>
+              <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: spotColor }}>┊</span> spot · <span style={{ color: flipColor }}>┊</span> flip · <span style={{ color: posColor }}>■</span> larga / <span style={{ color: negColor }}>■</span> corta</span>
+            </div>
+            <div style={{ position: 'relative', height: '300px' }}>{!loading && lineData && <Line data={lineData} options={lineOpts} plugins={[refLines]} />}</div>
           </div>
         </>
       )}
