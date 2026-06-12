@@ -60,7 +60,14 @@ export function rowToNote(r) {
 // ─── Esquema + migraciones (idempotente) ─────────────────────
 async function ensureColumn(table, col, decl) {
   const cols = await all(`PRAGMA table_info(${table})`);
-  if (!cols.some(c => c.name === col)) await (await getDb()).execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${decl}`);
+  if (!cols.some(c => c.name === col)) {
+    try {
+      await (await getDb()).execute(`ALTER TABLE ${table} ADD COLUMN ${col} ${decl}`);
+    } catch (e) {
+      // Carrera entre cold-starts concurrentes: otra instancia ya la añadió.
+      if (!/duplicate column/i.test(e.message || '')) throw e;
+    }
+  }
 }
 
 export async function initSchema() {
@@ -216,17 +223,25 @@ async function backfillDemoPositions() {
   }
 }
 
-// Inicialización única por instancia (esquema + semilla)
+// Inicialización única por instancia (esquema + semilla). Lo CRÍTICO es el
+// esquema; la semilla/backfill son best-effort (no deben tumbar la API si dos
+// cold-starts concurrentes chocan al escribir). Si la promesa falla, se limpia
+// para reintentar en la siguiente petición (no se cachea un rechazo).
 let _ready;
 export function ready() {
-  _ready ??= (async () => {
-    await initSchema();
-    await ensureDemoUser();
-    await seedIfEmpty();
-    // Los datos semilla (y cualquier fila antigua sin dueño) pasan a la cuenta demo
-    await run('UPDATE assets SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
-    await run('UPDATE notes SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
-    await backfillDemoPositions();
-  })();
+  if (!_ready) {
+    _ready = (async () => {
+      await initSchema();        // crítico: las queries dependen del esquema
+      await ensureDemoUser();
+      try {
+        await seedIfEmpty();
+        await run('UPDATE assets SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
+        await run('UPDATE notes SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
+        await backfillDemoPositions();
+      } catch (e) {
+        console.warn('Semilla/backfill best-effort falló (continuo):', e.message);
+      }
+    })().catch(e => { _ready = null; throw e; });
+  }
   return _ready;
 }

@@ -5,13 +5,18 @@
 import serverless from 'serverless-http';
 import { createApp } from '../../backend/app.js';
 
-let cached; // memoiza la app+wrapper por instancia caliente
-async function getHandler() {
-  if (!cached) {
-    const app = await createApp();
-    cached = serverless(app);
+// Memoiza la PROMESA de init (no el resultado): así, si llegan varias
+// peticiones a una instancia fría a la vez, comparten un único arranque en
+// lugar de ejecutar createApp()/migraciones en paralelo. Si falla, se limpia
+// para reintentar en la siguiente petición (no cachea un rechazo).
+let cachedPromise;
+function getHandler() {
+  if (!cachedPromise) {
+    cachedPromise = createApp()
+      .then(app => serverless(app))
+      .catch(e => { cachedPromise = null; throw e; });
   }
-  return cached;
+  return cachedPromise;
 }
 
 export const handler = async (event, context) => {
