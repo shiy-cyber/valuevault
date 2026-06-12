@@ -23,12 +23,19 @@ const FRED_HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; ValueVault/1.0)' 
 const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 const curveStatus = (v) => v == null ? '—' : v < -0.005 ? 'Invertida' : v < 0.25 ? 'Plana' : 'Normal';
 
+// Corta cualquier promesa colgada para que una fuente lenta no tumbe la función
+// (Netlify mata a ~10s; sin esto, un fetch sin respuesta colgaba todo el endpoint).
+const withTimeout = (p, ms, label) => Promise.race([
+  p,
+  new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timeout ${ms}ms`)), ms)),
+]);
+
 // ─── Curva de tipos (Yahoo) ─────────────────────────────────
 async function getCurve() {
   const series = {};
   const curve = await Promise.all(CURVE.map(async (c) => {
     try {
-      const { points, meta } = await fetchChart(c.symbol, '2y', '1d');
+      const { points, meta } = await withTimeout(fetchChart(c.symbol, '2y', '1d'), 7000, c.symbol);
       const value = meta.regularMarketPrice ?? points[points.length - 1]?.close ?? null;
       series[c.key] = points;
       return { key: c.key, label: c.label, months: c.months, value: value != null ? +Number(value).toFixed(3) : null };
@@ -64,7 +71,7 @@ async function getCurve() {
 
 // ─── FRED: inflación subyacente + tipo Fed ──────────────────
 async function fredSeries(id, cosd = '2022-01-01') {
-  const r = await fetch(`${FRED}${id}&cosd=${cosd}`, { headers: FRED_HEADERS });
+  const r = await fetch(`${FRED}${id}&cosd=${cosd}`, { headers: FRED_HEADERS, signal: AbortSignal.timeout(7000) });
   if (!r.ok) throw new Error(`FRED ${id} HTTP ${r.status}`);
   const txt = await r.text();
   return txt.trim().split('\n').slice(1)
@@ -102,7 +109,10 @@ const TTL = 30 * 60 * 1000;
 export async function getMacro(force = false) {
   if (!force && cache.data && Date.now() - cache.ts < TTL) return cache.data;
 
-  const [curve, fred] = await Promise.allSettled([getCurve(), getFred()]);
+  const [curve, fred] = await Promise.allSettled([
+    withTimeout(getCurve(), 8500, 'curve'),
+    withTimeout(getFred(), 8500, 'fred'),
+  ]);
   const data = {
     curve: curve.status === 'fulfilled' ? curve.value : null,
     inflation: fred.status === 'fulfilled' ? fred.value : null,
