@@ -31,7 +31,12 @@ export default function Gamma({ theme, toast }) {
   const tipBox = { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1 };
 
   // ── 1) Perfil por strike (barras horizontales, strike más alto arriba) ──
-  const byStrike = data ? [...data.strikes].sort((a, b) => b.strike - a.strike) : [];
+  // Limita a los ~40 strikes con mayor gamma (los relevantes) para que la
+  // gráfica no crezca sin control en subyacentes con cientos de strikes.
+  const MAX_STRIKES = 40;
+  const byStrike = data
+    ? [...data.strikes].sort((a, b) => Math.abs(b.netGEX) - Math.abs(a.netGEX)).slice(0, MAX_STRIKES).sort((a, b) => b.strike - a.strike)
+    : [];
   const isWall = (s) => s === data?.callWall || s === data?.putWall;
   const barData = data ? {
     labels: byStrike.map(s => s.strike),
@@ -158,10 +163,10 @@ export default function Gamma({ theme, toast }) {
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
             <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <span>Perfil de gamma por strike · venc. {data.expiry}</span>
+              <span>Perfil de gamma por strike · venc. {data.expiry} <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted)' }}>(top {byStrike.length} por gamma)</span></span>
               <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> gamma + · <span style={{ color: negColor }}>■</span> gamma − · <span style={{ color: flipColor }}>▭</span> wall</span>
             </div>
-            <div style={{ position: 'relative', height: Math.max(360, byStrike.length * 15) + 'px' }}>{!loading && barData && <Bar data={barData} options={barOpts} />}</div>
+            <div style={{ position: 'relative', height: Math.min(560, Math.max(320, byStrike.length * 14)) + 'px' }}>{!loading && barData && <Bar data={barData} options={barOpts} />}</div>
           </div>
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
