@@ -115,6 +115,7 @@ export const NAV = [
   { id:'compare', icon:'⇄', label:'Comparador' },
   { id:'charts', icon:'◎', label:'Gráficos' },
   { id:'screener', icon:'⊞', label:'Stock Screener' },
+  { id:'valuation', icon:'🧮', label:'Valoración DCF' },
   { section:'Conocimiento' },
   { id:'learning', icon:'◉', label:'Aprendizaje' },
   { id:'trends', icon:'📡', label:'Tendencias' },
@@ -123,4 +124,4 @@ export const NAV = [
   { id:'marketmap', icon:'🗺', label:'Mapa de Mercado' },
   { id:'macro', icon:'🌐', label:'Macro Research' },
 ];
-export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', learning:'Aprendizaje', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research' };
+export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', valuation:'Valoración · DCF / ROIC', learning:'Aprendizaje', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research' };

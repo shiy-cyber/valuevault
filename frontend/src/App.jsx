@@ -8,6 +8,7 @@ import Watchlist from './components/Watchlist.jsx';
 import Compare from './components/Compare.jsx';
 import Charts from './components/Charts.jsx';
 import Screener from './components/Screener.jsx';
+import Valuation from './components/Valuation.jsx';
 import Learning from './components/Learning.jsx';
 import Trends from './components/Trends.jsx';
 import Indices from './components/Indices.jsx';
@@ -207,6 +208,7 @@ export default function App() {
           {section === 'compare' && <Compare assets={assets} />}
           {section === 'charts' && <Charts assets={portfolio} theme={theme} />}
           {section === 'screener' && <Screener />}
+          {section === 'valuation' && <Valuation toast={toast} />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={(id) => setLearnModal({ open: true, linkedAssetId: id })} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
           {section === 'indices' && <Indices theme={theme} toast={toast} />}

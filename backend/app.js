@@ -9,6 +9,7 @@ import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap } from './sectors.js';
 import { getSentiment } from './sentiment.js';
 import { getMacro } from './macro.js';
+import { getFundamentals } from './valuation.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
 
@@ -127,6 +128,10 @@ export async function createApp() {
   // ─── ALPHA VANTAGE ─────────────────────────────────────────
   app.get('/api/lookup/:ticker', h(async (req, res) => {
     res.json(await lookupTicker(req.params.ticker));
+  }));
+
+  app.get('/api/fundamentals/:ticker', h(async (req, res) => {
+    res.json(await getFundamentals(req.params.ticker));
   }));
 
   // ─── YAHOO FINANCE ─────────────────────────────────────────
