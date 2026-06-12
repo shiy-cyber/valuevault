@@ -145,7 +145,7 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px' }}>
               {onRefreshQuality && (
                 <button className="btn btn-outline" disabled={busyQual} onClick={doQuality} style={{ fontSize: '11px', padding: '6px 12px' }}>
-                  {busyQual ? '⏳ Calculando…' : '📊 ROIC / FCF'}
+                  {busyQual ? '⏳ Calculando…' : '📊 Fundamentales'}
                 </button>
               )}
               {onRefreshData && (
@@ -161,9 +161,11 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           <div className="mv-grid">
             <ScoreBar label="Valor" score={sc.value} />
             <ScoreBar label="Calidad" score={sc.quality} />
-            <ScoreBar label="Momentum*" score={sc.momentum} />
+            <ScoreBar label={a.epsRev != null ? 'Momentum' : 'Momentum*'} score={sc.momentum} />
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>*Momentum = proxy (posición en rango 52s + crecimiento EPS); sin fuerza relativa vs índice.</div>
+          {a.epsRev == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>*Momentum = proxy (rango 52s + crecimiento EPS). Pulsa «📊 Fundamentales» para añadir revisiones de analistas.</div>
+          )}
 
           <div className="mv-section-label">Posición & Proceso</div>
           <div className="mv-grid">
@@ -183,10 +185,11 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <MV label="PEG" val={a.peg} /><MV label="EV/EBITDA" val={a.evebitda} suffix="x" /><MV label="P/Sales" val={a.ps} suffix="x" />
           </div>
 
-          <div className="mv-section-label">EPS</div>
+          <div className="mv-section-label">EPS & Revisiones</div>
           <div className="mv-grid">
             <MV label="EPS" val={a.eps} suffix="$" /><MV label="EPS Diluted" val={a.epsd} suffix="$" /><MV label="EPS Next Y" val={a.epsny} suffix="$" />
             <MV label="EPS Gr.5Y" val={a.epsg} suffix="%" good={10} warn={5} />
+            <div className="mv-item"><div className="mv-label">Rev. EPS 30d</div><div className="mv-val" style={{ color: a.epsRev == null ? 'var(--muted)' : a.epsRev > 0 ? 'var(--green)' : a.epsRev < 0 ? 'var(--red)' : 'var(--text)' }}>{a.epsRev == null ? '—' : (a.epsRev > 0 ? '+' : '') + a.epsRev + '%'}</div></div>
           </div>
 
           <div className="mv-section-label">Calidad del Negocio</div>

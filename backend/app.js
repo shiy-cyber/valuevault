@@ -14,6 +14,7 @@ import { getMacro } from './macro.js';
 import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
 import { getRisk } from './risk.js';
+import { getEstimates } from './estimates.js';
 import { getSMC } from './smc.js';
 import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
 
@@ -127,11 +128,28 @@ export async function createApp() {
     const id = Number(req.params.id);
     const existing = await get('SELECT * FROM assets WHERE id = ? AND userId = ?', [id, uid]);
     if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
-    const f = await getFundamentals(existing.ticker);
-    const upd = { roic: f.roic ?? null, fcfy: f.fcfy ?? null, wacc: f.wacc ?? null };
-    await run('UPDATE assets SET roic = ?, fcfy = ?, wacc = ? WHERE id = ? AND userId = ?', [upd.roic, upd.fcfy, upd.wacc, id, uid]);
+
+    // Dos fuentes independientes: ROIC/FCF/WACC (Alpha Vantage, con cuota) y
+    // revisiones de EPS + consenso (Yahoo). Si una falla, persistimos la otra.
+    const upd = {};
+    let fundamentals = null, estimates = null;
+    const errs = [];
+    try {
+      const f = await getFundamentals(existing.ticker);
+      fundamentals = f;
+      upd.roic = f.roic ?? null; upd.fcfy = f.fcfy ?? null; upd.wacc = f.wacc ?? null;
+    } catch (e) { errs.push('fundamentales: ' + e.message); }
+    try {
+      const est = await getEstimates(existing.ticker);
+      estimates = est;
+      if (est.epsRev != null) upd.epsRev = est.epsRev;
+    } catch (e) { errs.push('estimaciones: ' + e.message); }
+
+    const cols = Object.keys(upd);
+    if (!cols.length) return res.status(502).json({ error: errs.join(' · ') || 'Sin datos' });
+    await run(`UPDATE assets SET ${cols.map(c => `${c} = ?`).join(', ')} WHERE id = ? AND userId = ?`, [...cols.map(c => upd[c]), id, uid]);
     const updated = rowToAsset(await get('SELECT * FROM assets WHERE id = ?', [id]));
-    res.json({ asset: updated, fundamentals: f });
+    res.json({ asset: updated, fundamentals, estimates, errors: errs });
   }));
 
   // ─── NOTES (aisladas por usuario) ──────────────────────────

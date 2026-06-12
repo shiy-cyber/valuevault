@@ -183,7 +183,11 @@ export default function App() {
     try {
       const r = await api.refreshQuality(id);
       setAssets(prev => prev.map(x => (x.id === id ? r.asset : x)));
-      toast(r.asset.roic != null ? `✓ ${r.asset.ticker}: ROIC ${r.asset.roic}% · WACC ${r.asset.wacc ?? '—'}%` : `↻ ${r.asset.ticker}: sin datos suficientes`);
+      const a = r.asset, est = r.estimates;
+      const parts = [];
+      if (a.roic != null) parts.push(`ROIC ${a.roic}% vs WACC ${a.wacc ?? '—'}%`);
+      if (est?.targetUpside != null) parts.push(`target ${est.targetUpside >= 0 ? '+' : ''}${est.targetUpside}% (${est.recommendation || '—'})`);
+      toast(parts.length ? `✓ ${a.ticker}: ${parts.join(' · ')}` : `↻ ${a.ticker}: ${(r.errors || []).join(' · ') || 'sin datos'}`);
     } catch (e) { toast('⚠ ' + e.message); }
   };
 

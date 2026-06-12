@@ -182,6 +182,7 @@ export function compositeScore(a) {
   if (a.w52h > a.w52l && a.current > 0) pos52 = (a.current - a.w52l) / (a.w52h - a.w52l) * 100;
   const momentum = avg([
     sub(pos52, 'high', 70, 40), sub(a.epsg, 'high', 12, 5),
+    sub(a.epsRev, 'high', 2, 0), // revisión de estimaciones EPS (P1.4): >0 = al alza
   ]);
   const total = avg([value, quality, momentum]);
   return { value, quality, momentum, total };
