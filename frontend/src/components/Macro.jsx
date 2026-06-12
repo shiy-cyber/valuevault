@@ -97,37 +97,37 @@ export default function Macro({ theme, toast }) {
           </div>
         )}
 
-        {/* Core PCE */}
+        {/* Core CPI subyacente */}
         <div style={cardBase}>
-          <div style={cap}>Inflación · Core PCE</div>
-          {infl?.corePCE ? (
-            <>
-              <div style={{ ...big, color: inflColor(infl.corePCE.value) }}>{infl.corePCE.value}%</div>
-              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>interanual · {monthYr(infl.corePCE.date)}</div>
-              <div style={{ fontSize: '10px', color: 'var(--muted)', lineHeight: 1.6, marginTop: '8px' }}>El indicador predilecto de la Fed. Objetivo: <b>2%</b>. {infl.corePCE.value > 2 ? `${(infl.corePCE.value - 2).toFixed(1)} pp por encima.` : 'En objetivo.'}</div>
-            </>
-          ) : <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
-        </div>
-
-        {/* Core CPI */}
-        <div style={cardBase}>
-          <div style={cap}>Inflación · Core CPI</div>
+          <div style={cap}>Inflación · IPC Subyacente</div>
           {infl?.coreCPI ? (
             <>
               <div style={{ ...big, color: inflColor(infl.coreCPI.value) }}>{infl.coreCPI.value}%</div>
               <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>interanual · {monthYr(infl.coreCPI.date)}</div>
-              <div style={{ fontSize: '10px', color: 'var(--muted)', lineHeight: 1.6, marginTop: '8px' }}>IPC subyacente (sin energía ni alimentos). El dato que más mueve al mercado cada mes.</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', lineHeight: 1.6, marginTop: '8px' }}>Sin energía ni alimentos — el que vigila la Fed. Objetivo: <b>2%</b>. {infl.coreCPI.value > 2 ? `${(infl.coreCPI.value - 2).toFixed(1)} pp por encima.` : 'En objetivo.'}</div>
             </>
           ) : <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
         </div>
 
-        {/* Fed Funds */}
+        {/* CPI general */}
+        <div style={cardBase}>
+          <div style={cap}>Inflación · IPC General</div>
+          {infl?.cpi ? (
+            <>
+              <div style={{ ...big, color: inflColor(infl.cpi.value) }}>{infl.cpi.value}%</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>interanual · {monthYr(infl.cpi.date)}</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', lineHeight: 1.6, marginTop: '8px' }}>IPC general (incluye energía y alimentos). El titular que más mueve al mercado cada mes.</div>
+            </>
+          ) : <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
+        </div>
+
+        {/* Fed Funds (EFFR) */}
         <div style={cardBase}>
           <div style={cap}>Tipo de la Fed</div>
           {infl?.fedFunds ? (
             <>
               <div style={{ ...big, color: 'var(--gold)' }}>{infl.fedFunds.value}%</div>
-              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>tipo efectivo · {monthYr(infl.fedFunds.date)}</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>tipo efectivo (EFFR) · {monthYr(infl.fedFunds.date)}</div>
               <a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '10px', fontFamily: "'DM Mono',monospace", fontSize: '10px', color: 'var(--gold)', textDecoration: 'none' }}>Calendario FOMC ↗</a>
             </>
           ) : <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}

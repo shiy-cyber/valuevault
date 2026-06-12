@@ -17,8 +17,13 @@ const CURVE = [
   { key: '30Y', symbol: '^TYX',  label: '30A', months: 360 },
 ];
 
-const FRED = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=';
-const FRED_HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; ValueVault/1.0)' };
+// Inflación vía BLS y tipo Fed vía NY Fed — APIs públicas programáticas,
+// sin clave y accesibles desde datacenter (a diferencia de FRED/Akamai,
+// que filtra la IP de Netlify). PCE queda fuera (es de BEA, requiere clave).
+const BLS_URL = 'https://api.bls.gov/publicAPI/v2/timeseries/data/';
+const NYFED_EFFR = 'https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json';
+const BLS_CORE_CPI = 'CUUR0000SA0L1E'; // IPC subyacente (sin energía ni alimentos)
+const BLS_CPI = 'CUUR0000SA0';         // IPC general
 
 const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 const curveStatus = (v) => v == null ? '—' : v < -0.005 ? 'Invertida' : v < 0.25 ? 'Plana' : 'Normal';
@@ -69,38 +74,36 @@ async function getCurve() {
   };
 }
 
-// ─── FRED: inflación subyacente + tipo Fed ──────────────────
-async function fredSeries(id, cosd = '2022-01-01') {
-  const r = await fetch(`${FRED}${id}&cosd=${cosd}`, { headers: FRED_HEADERS, signal: AbortSignal.timeout(7000) });
-  if (!r.ok) throw new Error(`FRED ${id} HTTP ${r.status}`);
-  const txt = await r.text();
-  return txt.trim().split('\n').slice(1)
-    .map(l => l.split(','))
-    .filter(c => c[1] && c[1].trim() !== '.' && !Number.isNaN(Number(c[1])))
-    .map(c => ({ date: c[0], value: Number(c[1]) }));
-}
-
-// Variación interanual de un índice mensual (último vs 12 meses antes)
-function yoy(rows) {
-  if (rows.length < 13) return null;
-  const last = rows[rows.length - 1];
-  const prior = rows[rows.length - 13];
-  return { value: +(((last.value / prior.value) - 1) * 100).toFixed(2), date: last.date };
-}
-
-async function getFred() {
-  const [cpi, pce, ff] = await Promise.allSettled([
-    fredSeries('CPILFESL'),  // Core CPI (índice)
-    fredSeries('PCEPILFE'),  // Core PCE (índice)
-    fredSeries('FEDFUNDS'),  // Tipo efectivo Fed (%)
-  ]);
-  const lastVal = (s) => s.status === 'fulfilled' && s.value.length
-    ? { value: s.value[s.value.length - 1].value, date: s.value[s.value.length - 1].date } : null;
+// ─── Inflación (BLS) + tipo Fed (NY Fed) ────────────────────
+// Variación interanual de una serie BLS (datos newest-first, mensual)
+function blsYoY(data) {
+  if (!data || data.length < 13) return null;
+  const latest = data[0];
+  const prior = data.find(d => Number(d.year) === Number(latest.year) - 1 && d.period === latest.period) || data[12];
+  if (!prior) return null;
   return {
-    coreCPI: cpi.status === 'fulfilled' ? yoy(cpi.value) : null,
-    corePCE: pce.status === 'fulfilled' ? yoy(pce.value) : null,
-    fedFunds: lastVal(ff),
+    value: +(((Number(latest.value) / Number(prior.value)) - 1) * 100).toFixed(2),
+    date: `${latest.year}-${latest.period.slice(1)}-01`,
   };
+}
+
+async function getInflation() {
+  const year = new Date().getFullYear();
+  const body = JSON.stringify({ seriesid: [BLS_CORE_CPI, BLS_CPI], startyear: String(year - 1), endyear: String(year) });
+  const r = await fetch(BLS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: AbortSignal.timeout(7000) });
+  if (!r.ok) throw new Error(`BLS HTTP ${r.status}`);
+  const j = await r.json();
+  const byId = {};
+  for (const s of (j.Results?.series || [])) byId[s.seriesID] = s.data;
+  return { coreCPI: blsYoY(byId[BLS_CORE_CPI]), cpi: blsYoY(byId[BLS_CPI]) };
+}
+
+async function getFedRate() {
+  const r = await fetch(NYFED_EFFR, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(7000) });
+  if (!r.ok) throw new Error(`NYFed HTTP ${r.status}`);
+  const j = await r.json();
+  const ref = j.refRates?.[0];
+  return ref ? { value: Number(ref.percentRate), date: ref.effectiveDate } : null;
 }
 
 let cache = { ts: 0, data: null };
@@ -109,17 +112,24 @@ const TTL = 30 * 60 * 1000;
 export async function getMacro(force = false) {
   if (!force && cache.data && Date.now() - cache.ts < TTL) return cache.data;
 
-  const [curve, fred] = await Promise.allSettled([
-    withTimeout(getCurve(), 8500, 'curve'),
-    withTimeout(getFred(), 8500, 'fred'),
+  const [curve, infl, fed] = await Promise.allSettled([
+    withTimeout(getCurve(), 8000, 'curve'),
+    withTimeout(getInflation(), 7500, 'bls'),
+    withTimeout(getFedRate(), 7500, 'nyfed'),
   ]);
+  const inflation = {
+    coreCPI: infl.status === 'fulfilled' ? infl.value.coreCPI : null,
+    cpi: infl.status === 'fulfilled' ? infl.value.cpi : null,
+    fedFunds: fed.status === 'fulfilled' ? fed.value : null,
+  };
   const data = {
     curve: curve.status === 'fulfilled' ? curve.value : null,
-    inflation: fred.status === 'fulfilled' ? fred.value : null,
+    inflation,
     at: new Date().toISOString(),
     errors: {
       curve: curve.status === 'rejected' ? String(curve.reason?.message || curve.reason) : null,
-      fred: fred.status === 'rejected' ? String(fred.reason?.message || fred.reason) : null,
+      bls: infl.status === 'rejected' ? String(infl.reason?.message || infl.reason) : null,
+      nyfed: fed.status === 'rejected' ? String(fed.reason?.message || fed.reason) : null,
     },
   };
   cache = { ts: Date.now(), data };
