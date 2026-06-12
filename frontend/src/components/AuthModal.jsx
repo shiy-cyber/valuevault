@@ -80,6 +80,13 @@ export default function AuthModal({ open, onClose, onAuth, toast, presetCode }) 
               {mode === 'login' ? 'Accede a tu cartera privada.' : mode === 'register' ? 'Tu cartera y notas serán privadas, solo tuyas.' : 'Introduce tu código de recuperación y una nueva contraseña.'}
             </div>
 
+            {mode === 'register' && (
+              <div style={{ display: 'flex', gap: '8px', background: 'var(--surface2)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px', fontSize: '10.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+                <span>📭</span>
+                <span>El email es <b>solo tu identificador de acceso</b> — esta app <b>no envía correos</b> (ni verificación ni recuperación por email). Para recuperar la cuenta usarás el <b>código</b> que verás justo después: guárdalo bien.</span>
+              </div>
+            )}
+
             <label style={label}>Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} placeholder="tucorreo@ejemplo.com" style={input} autoFocus />
 
