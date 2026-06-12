@@ -54,6 +54,9 @@ export default function SMC({ theme, toast }) {
     },
   };
 
+  const activeOB = data ? data.orderBlocks.filter(o => !o.mitigated) : [];
+  const strongestOB = activeOB.length ? Math.max(...activeOB.map(o => o.strength || 0)) : null;
+
   const stat = (label, value, sub, color) => (
     <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px 14px' }}>
       <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", textTransform: 'uppercase', letterSpacing: '1px' }}>{label}</div>
@@ -69,19 +72,29 @@ export default function SMC({ theme, toast }) {
     return <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '10px', padding: '1px 7px', borderRadius: '8px', background: col + '22', color: col }}>{label}</span>;
   };
 
-  const zoneTable = (title, zones, emptyMsg) => (
+  const strengthColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
+
+  const zoneTable = (title, zones, emptyMsg, withStrength = false) => (
     <div style={{ ...cardBase, overflowX: 'auto' }}>
       <div style={cap}>{title}</div>
       {zones.length ? (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace" }}>
           <thead><tr style={{ color: 'var(--muted)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            <th style={{ textAlign: 'left', padding: '5px 6px' }}>Tipo</th><th style={{ textAlign: 'right', padding: '5px 6px' }}>Zona</th><th style={{ textAlign: 'right', padding: '5px 6px' }}>Fecha</th><th style={{ textAlign: 'right', padding: '5px 6px' }}>Estado</th>
+            <th style={{ textAlign: 'left', padding: '5px 6px' }}>Tipo</th><th style={{ textAlign: 'right', padding: '5px 6px' }}>Zona</th>
+            {withStrength && <th style={{ textAlign: 'right', padding: '5px 6px' }}>Fuerza</th>}
+            <th style={{ textAlign: 'right', padding: '5px 6px' }}>Fecha</th><th style={{ textAlign: 'right', padding: '5px 6px' }}>Estado</th>
           </tr></thead>
           <tbody>
             {[...zones].reverse().map((z, i) => (
               <tr key={i} style={{ fontSize: '11px', borderTop: '1px solid var(--border)', opacity: z.filled ? 0.55 : 1 }}>
                 <td style={{ padding: '6px', color: z.type === 'bull' ? 'var(--green)' : 'var(--red)' }}>{z.type === 'bull' ? '▲ alcista' : '▼ bajista'}</td>
                 <td style={{ padding: '6px', textAlign: 'right' }}>${z.bottom}–${z.top}</td>
+                {withStrength && (
+                  <td style={{ padding: '6px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span style={{ color: strengthColor(z.strength), fontWeight: 700 }} title={`Convicción ${z.strengthLabel}`}>{z.strength ?? '—'}</span>
+                    {z.highVolume && <span title={`Volumen del impulso ${z.volRatio}× la media`} style={{ marginLeft: '5px', color: 'var(--gold)', fontSize: '10px' }}>⚡{z.volRatio}×</span>}
+                  </td>
+                )}
                 <td style={{ padding: '6px', textAlign: 'right', color: 'var(--muted)' }}>{fmtDay(z.t)}</td>
                 <td style={{ padding: '6px', textAlign: 'right' }}>{statusBadge(z)}</td>
               </tr>
@@ -119,6 +132,7 @@ export default function SMC({ theme, toast }) {
             {stat('Resistencia cercana', data.resistance ? `$${data.resistance.bottom}–${data.resistance.top}` : '—', data.resistance ? data.resistance.kind : 'sin zona', '#e74c3c')}
             {stat('FVG activas', String(data.counts.fvgUnfilled), 'sin rellenar', '#c9a84c')}
             {stat('Order Blocks activos', String(data.counts.obUnmitigated), 'sin mitigar', '#c9a84c')}
+            {strongestOB != null && stat('OB más fuerte', String(strongestOB), 'fuerza 0-100', strengthColor(strongestOB))}
           </div>
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
@@ -131,7 +145,7 @@ export default function SMC({ theme, toast }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: '16px' }}>
             {zoneTable('Fair Value Gaps', data.fvgs, 'No se detectaron FVG en el rango.')}
-            {zoneTable('Order Blocks', data.orderBlocks, 'No se detectaron Order Blocks en el rango.')}
+            {zoneTable('Order Blocks · fuerza + volumen', data.orderBlocks, 'No se detectaron Order Blocks en el rango.', true)}
           </div>
         </>
       )}
@@ -140,7 +154,7 @@ export default function SMC({ theme, toast }) {
       {!loading && !data && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontSize: '12px', padding: '40px' }}>No se pudieron cargar datos para <b>{symbol}</b>. Prueba con el símbolo exacto.</div>}
 
       <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
-        ⚡ Detección algorítmica sobre velas diarias (Yahoo). "Mitigada" = el precio volvió a tocar la zona; "llena/activa" según si la rellenó o sigue intacta. Metodología discutida y no estandarizada — herramienta de análisis exploratorio, no asesoramiento de inversión.
+        ⚡ Detección algorítmica sobre velas diarias (Yahoo). "Mitigada" = el precio volvió a tocar la zona; "llena/activa" según si la rellenó o sigue intacta. La <b>fuerza (0-100)</b> de cada Order Block combina volumen del impulso vs su media (40%), tamaño del impulso (30%) y desplazamiento posterior (30%); el rayo ⚡ marca impulsos con volumen ≥1,5× la media. Metodología discutida y no estandarizada — herramienta de análisis exploratorio, no asesoramiento de inversión.
       </div>
     </div>
   );

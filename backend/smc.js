@@ -28,7 +28,7 @@ async function fetchOHLC(symbol, range, interval) {
   const bars = [];
   for (let i = 0; i < ts.length; i++) {
     const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
-    if (o != null && h != null && l != null && c != null) bars.push({ t: ts[i] * 1000, o, h, l, c });
+    if (o != null && h != null && l != null && c != null) bars.push({ t: ts[i] * 1000, o, h, l, c, v: q.volume?.[i] ?? null });
   }
   return { bars, meta: res.meta || {} };
 }
@@ -81,12 +81,46 @@ function detectOB(bars) {
   function addOB(type, k, impulseIdx) {
     if (seen.has(k)) return; seen.add(k);
     const ob = bars[k];
+    const impulse = bars[impulseIdx];
     let mitigated = false;
     for (let j = impulseIdx + 1; j < bars.length; j++) {
       if (type === 'bull' && bars[j].l <= ob.h) { mitigated = true; break; }
       if (type === 'bear' && bars[j].h >= ob.l) { mitigated = true; break; }
     }
-    out.push({ kind: 'OB', type, top: round(ob.h), bottom: round(ob.l), t: ob.t, mitigated, filled: mitigated });
+    out.push({ kind: 'OB', type, top: round(ob.h), bottom: round(ob.l), t: ob.t, mitigated, filled: mitigated, ...scoreOB(type, ob, impulse, impulseIdx) });
+  }
+
+  // Fuerza del OB (0-100): volumen del impulso vs media (40%), tamaño del
+  // impulso (30%) y desplazamiento posterior / follow-through (30%).
+  function scoreOB(type, ob, impulse, impulseIdx) {
+    const clamp = (x) => Math.max(0, Math.min(1, x));
+    // Volumen medio de las 20 velas previas al impulso
+    let sum = 0, n = 0;
+    for (let j = Math.max(0, impulseIdx - 20); j < impulseIdx; j++) {
+      if (bars[j].v != null) { sum += bars[j].v; n++; }
+    }
+    const avgVol = n ? sum / n : null;
+    const volRatio = (impulse.v != null && avgVol) ? impulse.v / avgVol : null;
+
+    const impRange = (impulse.h - impulse.l) / impulse.c;
+
+    // Follow-through: mejor desplazamiento en la dirección del impulso (5 velas)
+    let move = 0;
+    for (let j = impulseIdx + 1; j <= Math.min(bars.length - 1, impulseIdx + 5); j++) {
+      if (type === 'bull') move = Math.max(move, (bars[j].h - impulse.h) / impulse.h);
+      else move = Math.max(move, (impulse.l - bars[j].l) / impulse.l);
+    }
+
+    const sVol = volRatio != null ? clamp(volRatio / 2) : 0.5; // 2× media = pleno
+    const sImp = clamp(impRange / 0.07);                       // 7% rango = pleno
+    const sMove = clamp(move / 0.05);                          // 5% follow = pleno
+    const strength = Math.round((0.4 * sVol + 0.3 * sImp + 0.3 * sMove) * 100);
+    const strengthLabel = strength >= 67 ? 'alta' : strength >= 40 ? 'media' : 'baja';
+    return {
+      volRatio: volRatio != null ? +volRatio.toFixed(1) : null,
+      highVolume: volRatio != null && volRatio >= 1.5,
+      strength, strengthLabel,
+    };
   }
   return out;
 }
