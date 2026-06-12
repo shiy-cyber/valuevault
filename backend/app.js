@@ -143,6 +143,9 @@ export async function createApp() {
       const est = await getEstimates(existing.ticker);
       estimates = est;
       if (est.epsRev != null) upd.epsRev = est.epsRev;
+      if (est.targetMean != null) upd.targetMean = est.targetMean;
+      if (est.recommendation != null) upd.recommendation = est.recommendation;
+      if (est.numAnalysts != null) upd.numAnalysts = est.numAnalysts;
     } catch (e) { errs.push('estimaciones: ' + e.message); }
 
     const cols = Object.keys(upd);

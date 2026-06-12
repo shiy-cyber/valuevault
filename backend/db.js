@@ -42,10 +42,11 @@ export const run = async (sql, args = []) => {
 // shares = tamaño de posición · target/stop = precio objetivo / invalidación
 // fxEntry = tipo de cambio (EUR por 1 ud. de la divisa del activo) en la compra
 // roic = retorno sobre capital invertido · fcfy = FCF yield (%) · wacc = coste medio de capital (%)
-export const ASSET_NUM = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop','fxEntry','roic','fcfy','wacc','epsRev'];
+// targetMean = precio objetivo medio de analistas · numAnalysts = nº de analistas
+export const ASSET_NUM = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop','fxEntry','roic','fcfy','wacc','epsRev','targetMean','numAnalysts'];
 // currency = divisa del activo · engine = motor de alfa (momentum/value/hidden)
-// catalyst/catalystDate = catalizador y su fecha esperada
-export const ASSET_TXT = ['ticker','name','sector','market','mcap','risk','thesis','currency','engine','catalyst','catalystDate'];
+// catalyst/catalystDate = catalizador y su fecha · recommendation = consenso analistas
+export const ASSET_TXT = ['ticker','name','sector','market','mcap','risk','thesis','currency','engine','catalyst','catalystDate','recommendation'];
 export const ASSET_JSON = ['strategies','time'];
 
 export function rowToAsset(r) {
@@ -138,6 +139,10 @@ export async function initSchema() {
   await ensureColumn('assets', 'wacc', 'REAL');
   // P1.4: revisión de estimaciones de EPS (% en 30 días) — momentum fundamental
   await ensureColumn('assets', 'epsRev', 'REAL');
+  // Consenso de analistas: precio objetivo medio, recomendación y nº de analistas
+  await ensureColumn('assets', 'targetMean', 'REAL');
+  await ensureColumn('assets', 'recommendation', 'TEXT');
+  await ensureColumn('assets', 'numAnalysts', 'REAL');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que
@@ -198,10 +203,10 @@ const DEMO_POS = { 'BRK.B': 12, 'MSFT': 8, 'O': 60, 'AMAT': 10 };
 // roic / fcfy / wacc orientativos para la cartera demo (MSFT/AMAT/BRK crean
 // valor: ROIC>WACC; O lo destruye: ROIC<WACC, típico de un REIT)
 const DEMO_QUALITY = {
-  'BRK.B': { roic: 9.0, fcfy: 4.5, wacc: 7.5, epsRev: 0.8 },
-  'MSFT':  { roic: 28.0, fcfy: 2.8, wacc: 8.5, epsRev: 1.5 },
-  'O':     { roic: 4.0, fcfy: 6.0, wacc: 6.5, epsRev: -5.0 },
-  'AMAT':  { roic: 30.0, fcfy: 4.0, wacc: 11.0, epsRev: 12.0 },
+  'BRK.B': { roic: 9.0, fcfy: 4.5, wacc: 7.5, epsRev: 0.8, targetMean: 520, recommendation: 'buy', numAnalysts: 6 },
+  'MSFT':  { roic: 28.0, fcfy: 2.8, wacc: 8.5, epsRev: 1.5, targetMean: 560, recommendation: 'strong_buy', numAnalysts: 55 },
+  'O':     { roic: 4.0, fcfy: 6.0, wacc: 6.5, epsRev: -5.0, targetMean: 62, recommendation: 'buy', numAnalysts: 20 },
+  'AMAT':  { roic: 30.0, fcfy: 4.0, wacc: 11.0, epsRev: 12.0, targetMean: 250, recommendation: 'strong_buy', numAnalysts: 36 },
 };
 async function backfillDemoPositions() {
   for (const [ticker, shares] of Object.entries(DEMO_POS)) {
@@ -215,10 +220,14 @@ async function backfillDemoPositions() {
       'UPDATE assets SET roic = ?, fcfy = ?, wacc = ? WHERE ticker = ? AND userId = ? AND roic IS NULL',
       [q.roic, q.fcfy, q.wacc, ticker, DEMO_UID]
     );
-    // epsRev con su propio guard (puede rellenarse después de roic)
+    // epsRev y consenso con su propio guard (pueden rellenarse después de roic)
     await run(
       'UPDATE assets SET epsRev = ? WHERE ticker = ? AND userId = ? AND epsRev IS NULL',
       [q.epsRev, ticker, DEMO_UID]
+    );
+    await run(
+      'UPDATE assets SET targetMean = ?, recommendation = ?, numAnalysts = ? WHERE ticker = ? AND userId = ? AND targetMean IS NULL',
+      [q.targetMean, q.recommendation, q.numAnalysts, ticker, DEMO_UID]
     );
   }
 }

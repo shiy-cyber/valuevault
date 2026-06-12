@@ -5,6 +5,12 @@ import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insid
 
 const ENGINE_LABEL = { momentum: 'A · Momentum', value: 'B · Valor', hidden: 'C · Gema oculta' };
 const scoreColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 45 ? 'var(--orange)' : 'var(--red)';
+// Recomendación de consenso → etiqueta + color
+const REC_MAP = {
+  strong_buy: ['Compra fuerte', 'var(--green)'], buy: ['Compra', 'var(--green)'],
+  hold: ['Mantener', 'var(--orange)'], underperform: ['Infraponderar', 'var(--red)'],
+  sell: ['Venta', 'var(--red)'], strong_sell: ['Venta fuerte', 'var(--red)'],
+};
 
 // Barra de un pilar del score (0-100)
 function ScoreBar({ label, score }) {
@@ -99,6 +105,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
   const sc = compositeScore(a);
   const pos = positionMetrics(a, fxRates || {});
   const spread = (a.roic != null && a.wacc != null) ? +(a.roic - a.wacc).toFixed(1) : null;
+  const rec = REC_MAP[a.recommendation] || null;
+  const upside = (a.targetMean > 0 && a.current > 0) ? +((a.targetMean / a.current - 1) * 100).toFixed(1) : null;
 
   const doRefresh = async () => {
     if (busyData || !onRefreshData) return;
@@ -191,6 +199,20 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <MV label="EPS Gr.5Y" val={a.epsg} suffix="%" good={10} warn={5} />
             <div className="mv-item"><div className="mv-label">Rev. EPS 30d</div><div className="mv-val" style={{ color: a.epsRev == null ? 'var(--muted)' : a.epsRev > 0 ? 'var(--green)' : a.epsRev < 0 ? 'var(--red)' : 'var(--text)' }}>{a.epsRev == null ? '—' : (a.epsRev > 0 ? '+' : '') + a.epsRev + '%'}</div></div>
           </div>
+
+          <div className="mv-section-label">
+            Consenso de Analistas
+            {rec && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff', background: rec[1] }}>{rec[0]}</span>}
+          </div>
+          <div className="mv-grid">
+            <div className="mv-item"><div className="mv-label">Precio Objetivo</div><div className="mv-val">{a.targetMean > 0 ? fmt(a.targetMean) + (a.currency ? ' ' + a.currency : '') : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Potencial</div><div className="mv-val" style={{ color: upside == null ? 'var(--muted)' : upside >= 0 ? 'var(--green)' : 'var(--red)' }}>{upside == null ? '—' : (upside >= 0 ? '+' : '') + upside + '%'}</div></div>
+            <div className="mv-item"><div className="mv-label">Recomendación</div><div className="mv-val" style={{ color: rec ? rec[1] : 'var(--muted)' }}>{rec ? rec[0] : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Nº Analistas</div><div className="mv-val">{a.numAnalysts > 0 ? a.numAnalysts : '—'}</div></div>
+          </div>
+          {a.targetMean == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 Fundamentales» para traer el consenso de analistas.</div>
+          )}
 
           <div className="mv-section-label">Calidad del Negocio</div>
           <div className="mv-grid">
