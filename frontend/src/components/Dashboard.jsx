@@ -3,7 +3,7 @@ import AssetRow from './AssetRow.jsx';
 import RiskPanel from './RiskPanel.jsx';
 import { portfolioStats, fmtBase } from '../lib/format.js';
 
-export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, goAssets, onRefresh, refreshing, lastRefresh }) {
+export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality, goAssets, onRefresh, refreshing, lastRefresh }) {
   const noteCount = (id) => notes.filter(n => n.assetId === id).length;
   const lowRisk = assets.filter(a => a.risk === 'low').length;
   const recent = assets.slice(-5).reverse();
@@ -43,7 +43,7 @@ export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEd
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
         {recent.length
-          ? recent.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} />)
+          ? recent.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} />)
           : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">Añade tu primer activo</div></div>}
       </div>
     </div>

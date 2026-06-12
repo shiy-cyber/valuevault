@@ -41,7 +41,8 @@ export const run = async (sql, args = []) => {
 // ─── Columnas numéricas/JSON para (de)serialización ──────────
 // shares = tamaño de posición · target/stop = precio objetivo / invalidación
 // fxEntry = tipo de cambio (EUR por 1 ud. de la divisa del activo) en la compra
-export const ASSET_NUM = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop','fxEntry'];
+// roic = retorno sobre capital invertido · fcfy = FCF yield (%) · wacc = coste medio de capital (%)
+export const ASSET_NUM = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop','fxEntry','roic','fcfy','wacc'];
 // currency = divisa del activo · engine = motor de alfa (momentum/value/hidden)
 // catalyst/catalystDate = catalizador y su fecha esperada
 export const ASSET_TXT = ['ticker','name','sector','market','mcap','risk','thesis','currency','engine','catalyst','catalystDate'];
@@ -124,6 +125,10 @@ export async function initSchema() {
   await ensureColumn('assets', 'engine', 'TEXT');
   await ensureColumn('assets', 'catalyst', 'TEXT');
   await ensureColumn('assets', 'catalystDate', 'TEXT');
+  // P1.3: calidad del capital — ROIC, FCF yield y WACC
+  await ensureColumn('assets', 'roic', 'REAL');
+  await ensureColumn('assets', 'fcfy', 'REAL');
+  await ensureColumn('assets', 'wacc', 'REAL');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que
@@ -181,11 +186,25 @@ export async function seedIfEmpty() {
 // demo (cuenta demo), para que la cartera de muestra valore en EUR. No toca
 // filas que ya tengan tamaño definido ni activos de usuarios reales.
 const DEMO_POS = { 'BRK.B': 12, 'MSFT': 8, 'O': 60, 'AMAT': 10 };
+// roic / fcfy / wacc orientativos para la cartera demo (MSFT/AMAT/BRK crean
+// valor: ROIC>WACC; O lo destruye: ROIC<WACC, típico de un REIT)
+const DEMO_QUALITY = {
+  'BRK.B': { roic: 9.0, fcfy: 4.5, wacc: 7.5 },
+  'MSFT':  { roic: 28.0, fcfy: 2.8, wacc: 8.5 },
+  'O':     { roic: 4.0, fcfy: 6.0, wacc: 6.5 },
+  'AMAT':  { roic: 30.0, fcfy: 4.0, wacc: 11.0 },
+};
 async function backfillDemoPositions() {
   for (const [ticker, shares] of Object.entries(DEMO_POS)) {
     await run(
       "UPDATE assets SET shares = ?, currency = COALESCE(currency,'USD'), fxEntry = COALESCE(fxEntry, 0.92) WHERE ticker = ? AND userId = ? AND shares IS NULL",
       [shares, ticker, DEMO_UID]
+    );
+  }
+  for (const [ticker, q] of Object.entries(DEMO_QUALITY)) {
+    await run(
+      'UPDATE assets SET roic = ?, fcfy = ?, wacc = ? WHERE ticker = ? AND userId = ? AND roic IS NULL',
+      [q.roic, q.fcfy, q.wacc, ticker, DEMO_UID]
     );
   }
 }

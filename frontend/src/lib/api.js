@@ -60,4 +60,5 @@ export const api = {
   history: (symbol, range) => req('GET', `/api/history/${encodeURIComponent(symbol)}?range=${range}`),
   refreshPrices: () => req('POST', '/api/assets/refresh-prices'),
   refreshAssetData: (id) => req('POST', `/api/assets/${id}/refresh-data`),
+  refreshQuality: (id) => req('POST', `/api/assets/${id}/quality`),
 };

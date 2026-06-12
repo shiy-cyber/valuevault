@@ -177,6 +177,16 @@ export default function App() {
     } catch (e) { toast('⚠ ' + e.message); }
   };
 
+  // Calcula calidad del capital (ROIC/FCF/WACC) bajo demanda (Alpha Vantage)
+  const refreshQuality = async (id) => {
+    if (!requireAuth()) return;
+    try {
+      const r = await api.refreshQuality(id);
+      setAssets(prev => prev.map(x => (x.id === id ? r.asset : x)));
+      toast(r.asset.roic != null ? `✓ ${r.asset.ticker}: ROIC ${r.asset.roic}% · WACC ${r.asset.wacc ?? '—'}%` : `↻ ${r.asset.ticker}: sin datos suficientes`);
+    } catch (e) { toast('⚠ ' + e.message); }
+  };
+
   // ─── Notas ──────────────────────────────────────────────
   const saveNote = async (payload) => {
     try {
@@ -218,7 +228,7 @@ export default function App() {
   const closeAssetModal = () => setAssetModal({ open: false, editing: null, presetType: 'portfolio' });
   const detailAsset = detailId ? assets.find(a => a.id === detailId) : null;
 
-  const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset, onRefreshData: refreshAssetData };
+  const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset, onRefreshData: refreshAssetData, onRefreshQuality: refreshQuality };
 
   return (
     <>

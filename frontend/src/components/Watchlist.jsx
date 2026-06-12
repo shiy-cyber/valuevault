@@ -2,7 +2,7 @@ import React from 'react';
 import AssetRow from './AssetRow.jsx';
 
 // Lista de seguimiento: activos que vigilas sin tenerlos en cartera.
-export default function Watchlist({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onAdd }) {
+export default function Watchlist({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality, onAdd }) {
   const noteCount = (id) => notes.filter(n => n.assetId === id).length;
 
   return (
@@ -16,7 +16,7 @@ export default function Watchlist({ assets, notes, theme, fxRates, onNotes, onEd
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
         {assets.length
-          ? assets.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} />)
+          ? assets.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} />)
           : <div className="empty-state"><div className="empty-icon">★</div><div className="empty-text">Tu watchlist está vacía. Añade activos para seguirlos sin comprarlos.</div></div>}
       </div>
     </div>

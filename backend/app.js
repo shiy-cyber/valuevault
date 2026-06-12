@@ -120,6 +120,20 @@ export async function createApp() {
     res.json({ ok: true });
   }));
 
+  // Calcula y persiste calidad del capital (ROIC/FCF yield/WACC) de un activo.
+  // Bajo demanda (Alpha Vantage 25/día) y solo para usuarios con sesión.
+  app.post('/api/assets/:id/quality', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const existing = await get('SELECT * FROM assets WHERE id = ? AND userId = ?', [id, uid]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const f = await getFundamentals(existing.ticker);
+    const upd = { roic: f.roic ?? null, fcfy: f.fcfy ?? null, wacc: f.wacc ?? null };
+    await run('UPDATE assets SET roic = ?, fcfy = ?, wacc = ? WHERE id = ? AND userId = ?', [upd.roic, upd.fcfy, upd.wacc, id, uid]);
+    const updated = rowToAsset(await get('SELECT * FROM assets WHERE id = ?', [id]));
+    res.json({ asset: updated, fundamentals: f });
+  }));
+
   // ─── NOTES (aisladas por usuario) ──────────────────────────
   app.get('/api/notes', h(async (req, res) => {
     const rows = await all('SELECT * FROM notes WHERE userId = ? ORDER BY id DESC', [readUid(req)]);

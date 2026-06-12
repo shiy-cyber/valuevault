@@ -89,19 +89,26 @@ function PriceHistory({ ticker, theme }) {
 }
 
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
-export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData }) {
+export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
   const [open, setOpen] = useState(false);
   const [busyData, setBusyData] = useState(false);
+  const [busyQual, setBusyQual] = useState(false);
   const chg = changePct(a).toFixed(2);
   const isPos = chg >= 0;
   const live = timeAgo(a.priceUpdatedAt);
   const sc = compositeScore(a);
   const pos = positionMetrics(a, fxRates || {});
+  const spread = (a.roic != null && a.wacc != null) ? +(a.roic - a.wacc).toFixed(1) : null;
 
   const doRefresh = async () => {
     if (busyData || !onRefreshData) return;
     setBusyData(true);
     try { await onRefreshData(a.id); } finally { setBusyData(false); }
+  };
+  const doQuality = async () => {
+    if (busyQual || !onRefreshQuality) return;
+    setBusyQual(true);
+    try { await onRefreshQuality(a.id); } finally { setBusyQual(false); }
   };
 
   return (
@@ -134,11 +141,18 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
 
       {open && (
         <div className="arow-panel">
-          {onRefreshData && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-              <button className="btn btn-outline" disabled={busyData} onClick={doRefresh} style={{ fontSize: '11px', padding: '6px 12px' }}>
-                {busyData ? '⏳ Actualizando…' : '🔄 Actualizar datos de mercado'}
-              </button>
+          {(onRefreshData || onRefreshQuality) && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px' }}>
+              {onRefreshQuality && (
+                <button className="btn btn-outline" disabled={busyQual} onClick={doQuality} style={{ fontSize: '11px', padding: '6px 12px' }}>
+                  {busyQual ? '⏳ Calculando…' : '📊 ROIC / FCF'}
+                </button>
+              )}
+              {onRefreshData && (
+                <button className="btn btn-outline" disabled={busyData} onClick={doRefresh} style={{ fontSize: '11px', padding: '6px 12px' }}>
+                  {busyData ? '⏳ Actualizando…' : '🔄 Actualizar datos de mercado'}
+                </button>
+              )}
             </div>
           )}
           <PriceHistory ticker={a.ticker} theme={theme} />
@@ -180,6 +194,25 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <MV label="ROE" val={a.roe} suffix="%" good={15} warn={8} /><MV label="ROA" val={a.roa} suffix="%" good={10} warn={5} /><MV label="Gross Mg." val={a.gm} suffix="%" good={40} warn={20} />
             <MV label="Mg.Operativo" val={a.om} suffix="%" good={20} warn={10} /><MV label="Mg.Neto" val={a.nm} suffix="%" good={15} warn={8} />
           </div>
+
+          <div className="mv-section-label">
+            Calidad del Capital
+            {spread != null && (
+              <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff',
+                background: spread > 0 ? 'var(--green)' : 'var(--red)' }}>
+                {spread > 0 ? `✓ crea valor (+${spread})` : `✗ destruye valor (${spread})`}
+              </span>
+            )}
+          </div>
+          <div className="mv-grid">
+            <MV label="ROIC" val={a.roic} suffix="%" good={15} warn={8} />
+            <MV label="WACC" val={a.wacc} suffix="%" />
+            <div className="mv-item"><div className="mv-label">ROIC − WACC</div><div className="mv-val" style={{ color: spread == null ? 'var(--muted)' : spread > 0 ? 'var(--green)' : 'var(--red)' }}>{spread == null ? '—' : (spread > 0 ? '+' : '') + spread + ' pp'}</div></div>
+            <MV label="FCF Yield" val={a.fcfy} suffix="%" good={5} warn={3} />
+          </div>
+          {a.roic == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 ROIC / FCF» para calcularlo (Alpha Vantage).</div>
+          )}
 
           <div className="mv-section-label">Solidez Financiera</div>
           <div className="mv-grid">

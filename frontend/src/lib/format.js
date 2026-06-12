@@ -167,12 +167,15 @@ export function compositeScore(a) {
   const value = avg([
     sub(a.pe, 'low', 15, 25), sub(a.fpe, 'low', 14, 22), sub(a.pb, 'low', 2, 4),
     sub(a.ps, 'low', 2, 5), sub(a.peg, 'low', 1, 2), sub(a.evebitda, 'low', 10, 16),
-    sub(a.dy, 'high', 3, 1.5),
+    sub(a.dy, 'high', 3, 1.5), sub(a.fcfy, 'high', 5, 3), // FCF yield (P1.3)
   ]);
+  // Spread ROIC−WACC: >0 = el negocio crea valor (P1.3)
+  const spread = (a.roic != null && a.wacc != null) ? a.roic - a.wacc : null;
   const quality = avg([
     sub(a.roe, 'high', 15, 8), sub(a.roa, 'high', 10, 5), sub(a.gm, 'high', 40, 20),
     sub(a.om, 'high', 20, 10), sub(a.nm, 'high', 15, 8), sub(a.de, 'low', 1, 2),
     sub(a.cr, 'high', 1.5, 1), sub(a.qr, 'high', 1, 0.7),
+    sub(a.roic, 'high', 15, 8), sub(spread, 'high', 5, 0), // ROIC y creación de valor (P1.3)
   ]);
   // Posición en el rango de 52 semanas (0..1): cerca de máximos = momentum alto
   let pos52 = null;

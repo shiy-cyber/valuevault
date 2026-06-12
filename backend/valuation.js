@@ -87,6 +87,25 @@ export async function getFundamentals(ticker) {
   const nopat = ebit != null ? ebit * (1 - taxRate) : null;
   const roic = (nopat != null && investedCapital && investedCapital > 0) ? +((nopat / investedCapital) * 100).toFixed(2) : null;
 
+  // FCF yield = FCF / capitalización (valor de mercado del equity)
+  const marketCap = (price != null && shares != null && shares > 0) ? price * shares : null;
+  const fcfy = (fcf != null && marketCap && marketCap > 0) ? +((fcf / marketCap) * 100).toFixed(2) : null;
+
+  // WACC = We·ke + Wd·kd·(1−tax). ke por CAPM (rf + β·ERP). Supuestos: rf 4%,
+  // ERP 5%, coste de deuda 5%. Sin estructura de deuda → WACC = coste de equity.
+  const RF = 0.04, ERP = 0.05, KD = 0.05;
+  let costEquity = null, wacc = null;
+  if (beta != null) {
+    costEquity = RF + beta * ERP;
+    if (marketCap != null && debt != null && marketCap + debt > 0) {
+      const we = marketCap / (marketCap + debt), wd = debt / (marketCap + debt);
+      wacc = +((we * costEquity + wd * KD * (1 - taxRate)) * 100).toFixed(2);
+    } else {
+      wacc = +(costEquity * 100).toFixed(2);
+    }
+    costEquity = +(costEquity * 100).toFixed(2);
+  }
+
   const data = {
     ticker: sym,
     name: overview.Name || sym,
@@ -105,6 +124,10 @@ export async function getFundamentals(ticker) {
     investedCapital,
     nopat,
     roic,
+    marketCap,
+    fcfy,
+    costEquity,
+    wacc,
     roe: num(overview.ReturnOnEquityTTM) != null ? +(num(overview.ReturnOnEquityTTM) * 100).toFixed(1) : null,
   };
   cache.set(sym, { ts: Date.now(), data });
