@@ -208,6 +208,9 @@ tr:hover td{background:var(--surface2);}
 .mv-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--text);}
 .mv-section-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;margin-top:4px;}
 
+/* Sentimiento — fila superior (gauge + VIX + Crypto), colapsa en móvil */
+.sent-top{display:grid;grid-template-columns:minmax(280px,1.4fr) repeat(2,minmax(180px,1fr));gap:14px;margin-bottom:18px;}
+
 /* MOBILE — sidebar oculto, layout full width */
 @media(max-width:768px){
   .sidebar{transform:translateX(-100%);transition:transform .3s;}
@@ -219,6 +222,7 @@ tr:hover td{background:var(--surface2);}
   .charts-grid{grid-template-columns:1fr;}
   .arow-tags{display:none;}
   .arow-risk{display:none;}
+  .sent-top{grid-template-columns:1fr;}
   .mv-grid{grid-template-columns:repeat(3,1fr);}
   .screener-grid{grid-template-columns:repeat(2,1fr);}
   #macro-grid{grid-template-columns:1fr!important;}

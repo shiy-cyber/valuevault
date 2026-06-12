@@ -122,7 +122,7 @@ export default function Sentiment({ theme, toast }) {
       </div>
 
       {/* Fila superior: GAUGE + VIX + CRYPTO */}
-      <div style={{ display:'grid', gridTemplateColumns:'minmax(280px,1.4fr) repeat(2, minmax(180px,1fr))', gap:'14px', marginBottom:'18px' }}>
+      <div className="sent-top">
         {/* CNN Fear & Greed gauge */}
         <div style={{ ...cardBase, display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center' }}>
           <div style={{ ...capTitle, alignSelf:'flex-start' }}>Fear &amp; Greed Index · CNN</div>
