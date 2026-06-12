@@ -95,10 +95,26 @@ export async function initSchema() {
       key   TEXT PRIMARY KEY,
       value TEXT
     );
+    CREATE TABLE IF NOT EXISTS users (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      email        TEXT UNIQUE NOT NULL,
+      passwordHash TEXT NOT NULL,
+      created_at   TEXT DEFAULT (datetime('now'))
+    );
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");
   await ensureColumn('assets', 'priceUpdatedAt', 'TEXT');
+  // Multi-usuario: cada activo/nota pertenece a un usuario
+  await ensureColumn('assets', 'userId', 'INTEGER');
+  await ensureColumn('notes', 'userId', 'INTEGER');
+}
+
+// Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que
+// cualquiera pueda probar sin registrarse. Las cuentas reales empiezan vacías.
+export const DEMO_UID = 1;
+async function ensureDemoUser() {
+  await run("INSERT OR IGNORE INTO users (id, email, passwordHash) VALUES (?, 'demo@valuevault.local', 'x')", [DEMO_UID]);
 }
 
 // ─── Datos semilla ───────────────────────────────────────────
@@ -148,6 +164,13 @@ export async function seedIfEmpty() {
 // Inicialización única por instancia (esquema + semilla)
 let _ready;
 export function ready() {
-  _ready ??= (async () => { await initSchema(); await seedIfEmpty(); })();
+  _ready ??= (async () => {
+    await initSchema();
+    await ensureDemoUser();
+    await seedIfEmpty();
+    // Los datos semilla (y cualquier fila antigua sin dueño) pasan a la cuenta demo
+    await run('UPDATE assets SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
+    await run('UPDATE notes SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
+  })();
   return _ready;
 }

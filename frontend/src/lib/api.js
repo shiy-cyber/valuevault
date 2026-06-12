@@ -3,8 +3,19 @@
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const u = (path) => `${BASE}${path}`;
 
+// ─── Sesión (token JWT en localStorage) ─────────────────────
+let token = (typeof localStorage !== 'undefined' && localStorage.getItem('vv_token')) || null;
+export function setToken(t) {
+  token = t || null;
+  if (typeof localStorage !== 'undefined') {
+    if (t) localStorage.setItem('vv_token', t); else localStorage.removeItem('vv_token');
+  }
+}
+export function getToken() { return token; }
+
 async function req(method, path, body) {
   const opts = { method, headers: {} };
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
   if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   const r = await fetch(u(path), opts);
   const text = await r.text();
@@ -14,6 +25,10 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  register: (email, password) => req('POST', '/api/auth/register', { email, password }),
+  login:    (email, password) => req('POST', '/api/auth/login', { email, password }),
+  me:       () => req('GET', '/api/auth/me'),
+
   getAssets:   () => req('GET', '/api/assets'),
   createAsset: (a) => req('POST', '/api/assets', a),
   updateAsset: (id, a) => req('PUT', `/api/assets/${id}`, a),
