@@ -10,6 +10,7 @@ import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap }
 import { getSentiment } from './sentiment.js';
 import { getMacro } from './macro.js';
 import { getFundamentals } from './valuation.js';
+import { getVolProfile } from './volprofile.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
 
@@ -139,6 +140,7 @@ export async function createApp() {
   app.get('/api/indices', h(async (req, res) => { res.json(await getIndices(req.query.fresh === '1')); }));
   app.get('/api/sentiment', h(async (req, res) => { res.json(await getSentiment(req.query.fresh === '1')); }));
   app.get('/api/macro', h(async (req, res) => { res.json(await getMacro(req.query.fresh === '1')); }));
+  app.get('/api/volprofile/:symbol', h(async (req, res) => { res.json(await getVolProfile(req.params.symbol, req.query.range, req.query.anchor)); }));
   app.get('/api/market-map', h(async (_req, res) => { res.json(await getMarketMap()); }));
   app.get('/api/quote/:symbol', h(async (req, res) => { res.json(await getQuote(req.params.symbol)); }));
   app.get('/api/history/:symbol', h(async (req, res) => { res.json(await getHistory(req.params.symbol, req.query.range || '6mo')); }));

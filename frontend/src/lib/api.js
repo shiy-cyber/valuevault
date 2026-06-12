@@ -30,6 +30,7 @@ export const api = {
 
   lookup:  (ticker) => req('GET', `/api/lookup/${encodeURIComponent(ticker)}`),
   fundamentals: (ticker) => req('GET', `/api/fundamentals/${encodeURIComponent(ticker)}`),
+  volprofile: (symbol, range, anchor) => req('GET', `/api/volprofile/${encodeURIComponent(symbol)}?range=${range}&anchor=${anchor}`),
   sectors: () => req('GET', '/api/sectors'),
   indices: (fresh) => req('GET', `/api/indices${fresh ? '?fresh=1' : ''}`),
   sentiment: (fresh) => req('GET', `/api/sentiment${fresh ? '?fresh=1' : ''}`),

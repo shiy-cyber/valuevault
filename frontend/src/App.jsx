@@ -9,6 +9,7 @@ import Compare from './components/Compare.jsx';
 import Charts from './components/Charts.jsx';
 import Screener from './components/Screener.jsx';
 import Valuation from './components/Valuation.jsx';
+import VolProfile from './components/VolProfile.jsx';
 import Learning from './components/Learning.jsx';
 import Trends from './components/Trends.jsx';
 import Indices from './components/Indices.jsx';
@@ -209,6 +210,7 @@ export default function App() {
           {section === 'charts' && <Charts assets={portfolio} theme={theme} />}
           {section === 'screener' && <Screener />}
           {section === 'valuation' && <Valuation toast={toast} />}
+          {section === 'volprofile' && <VolProfile theme={theme} toast={toast} />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={(id) => setLearnModal({ open: true, linkedAssetId: id })} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
           {section === 'indices' && <Indices theme={theme} toast={toast} />}
