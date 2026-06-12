@@ -3,17 +3,17 @@ import { Line, Bar } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const PERIODS = [['1m','1 Mes'],['3m','3 Meses'],['6m','6 Meses'],['1y','1 Año'],['ytd','YTD']];
+const PERIODS = [['1m','1 Mes'],['3m','3 Meses'],['6m','6 Meses'],['ytd','YTD'],['1y','1 Año'],['3y','3 Años'],['5y','5 Años'],['10y','10 Años']];
+// Periodos intra-mes (puntos diarios) → etiqueta "12 May"; el resto → "May '25".
+const INTRADAY = new Set(['1m', '3m', '6m', 'ytd']);
 
 const lastVal = (s, p) => s[p][s[p].length - 1];
 
-// Formatea un timestamp (ms) según el periodo. En 1 Año los puntos son
-// mensuales → "May '25"; en periodos cortos son intra-mes → "12 May".
 const fmtLabel = (ts, period) => {
   const d = new Date(ts);
   const mes = MESES[d.getMonth()];
-  if (period === '1y') return `${mes} '${String(d.getFullYear()).slice(2)}`;
-  return `${d.getDate()} ${mes}`;
+  if (INTRADAY.has(period)) return `${d.getDate()} ${mes}`;
+  return `${mes} '${String(d.getFullYear()).slice(2)}`;
 };
 
 export default function Trends({ theme, toast }) {

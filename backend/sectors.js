@@ -111,24 +111,38 @@ function buildSeriesByTime(points, years) {
 let cache = { ts: 0, data: null };
 const TTL = 10 * 60 * 1000; // 10 min
 
+// Periodos cortos → datos diarios (1 año). Periodos largos → histórico máximo
+// mensual, con la ventana seleccionada por nº de años (buildSeriesByTime).
+const SEC_LONG_YEARS = { '3y': 3, '5y': 5, '10y': 10 };
+const SEC_PERIODS = [...PERIODS, ...Object.keys(SEC_LONG_YEARS)];
+
 export async function getSectors() {
   if (cache.data && Date.now() - cache.ts < TTL) return cache.data;
 
   const results = await Promise.all(SECTOR_META.map(async (m) => {
     const base = { ...m };
     try {
-      const { points, meta } = await fetchChart(m.etf, '1y', '1d');
-      const closes = points.map(p => p.close);
+      // Diario (1a) para periodos cortos + mensual (máx histórico) para los largos
+      const [daily, monthly] = await Promise.all([
+        fetchChart(m.etf, '1y', '1d'),
+        fetchChart(m.etf, 'max', '1mo'),
+      ]);
+      const closes = daily.points.map(p => p.close);
       if (closes.length < 2) throw new Error('sin datos');
 
-      const last = meta.regularMarketPrice ?? closes[closes.length - 1];
+      const last = daily.meta.regularMarketPrice ?? closes[closes.length - 1];
       const prev = closes[closes.length - 2];
       base.price = +Number(last).toFixed(2);
       base.changePercent = +(((closes[closes.length - 1] - prev) / prev) * 100).toFixed(2);
 
       base.labels = {};
       for (const p of PERIODS) {
-        const { series, labels } = buildSeries(points, windowLength(p, points));
+        const { series, labels } = buildSeries(daily.points, windowLength(p, daily.points));
+        base[p] = series;
+        base.labels[p] = labels;
+      }
+      for (const [p, years] of Object.entries(SEC_LONG_YEARS)) {
+        const { series, labels } = buildSeriesByTime(monthly.points, years);
         base[p] = series;
         base.labels[p] = labels;
       }
@@ -139,7 +153,7 @@ export async function getSectors() {
       base.changePercent = 0;
       base.labels = {};
       const now = Date.now();
-      for (const p of PERIODS) {
+      for (const p of SEC_PERIODS) {
         base[p] = new Array(POINTS).fill(0);
         // etiquetas de respaldo: 12 puntos hacia atrás desde hoy
         base.labels[p] = Array.from({ length: POINTS }, (_, i) => now - (POINTS - 1 - i) * 86400000);
