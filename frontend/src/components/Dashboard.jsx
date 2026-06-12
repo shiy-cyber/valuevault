@@ -1,5 +1,6 @@
 import React from 'react';
 import AssetRow from './AssetRow.jsx';
+import RiskPanel from './RiskPanel.jsx';
 import { portfolioStats, fmtBase } from '../lib/format.js';
 
 export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, goAssets, onRefresh, refreshing, lastRefresh }) {
@@ -29,6 +30,9 @@ export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEd
         <div className="kpi-card"><div className="kpi-label">Riesgo Bajo</div><div className="kpi-value kpi-pos">{lowRisk}</div><div className="kpi-sub">percibido (manual)</div></div>
         <div className="kpi-card"><div className="kpi-label">Total Activos</div><div className="kpi-value">{assets.length}</div><div className="kpi-sub">en cartera</div></div>
       </div>
+
+      <RiskPanel assets={assets} fxRates={fxRates} />
+
       <div className="section-header">
         <div className="section-title">Últimos Activos</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

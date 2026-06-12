@@ -87,6 +87,50 @@ export function portfolioStats(assets, fxRates = {}) {
   };
 }
 
+// Pesos de cartera (suman 1) por valor en EUR. Si nadie tiene tamaño, reparte
+// a partes iguales. Devuelve array alineado con `assets`.
+export function portfolioWeights(assets, fxRates = {}) {
+  const vals = assets.map(a => { const m = positionMetrics(a, fxRates); return m.sized ? m.valueBase : 0; });
+  const total = vals.reduce((s, x) => s + x, 0);
+  if (total > 0) return { weights: vals.map(v => v / total), byValue: true };
+  const n = assets.length || 1;
+  return { weights: assets.map(() => 1 / n), byValue: false };
+}
+
+// Volatilidad de cartera vía matriz de covarianzas: σp = √(wᵀ Σ w),
+// con Σ_ij = corr_ij · vol_i · vol_j. vols/corr de /api/risk; pesos por €.
+// corr null (muestra insuficiente) → se trata como 0.
+export function portfolioVol(weights, vols, corr) {
+  let varSum = 0;
+  for (let i = 0; i < weights.length; i++) {
+    for (let j = 0; j < weights.length; j++) {
+      const vi = vols[i], vj = vols[j];
+      if (vi == null || vj == null) continue;
+      const c = i === j ? 1 : (corr?.[i]?.[j] ?? 0);
+      varSum += weights[i] * weights[j] * (vi / 100) * (vj / 100) * c;
+    }
+  }
+  return varSum > 0 ? +(Math.sqrt(varSum) * 100).toFixed(1) : null;
+}
+
+// Correlación media entre pares (off-diagonal, ignorando nulls)
+export function avgCorrelation(corr) {
+  let sum = 0, n = 0;
+  for (let i = 0; i < corr.length; i++)
+    for (let j = i + 1; j < corr.length; j++)
+      if (corr[i][j] != null) { sum += corr[i][j]; n++; }
+  return n ? +(sum / n).toFixed(2) : null;
+}
+
+// Color para celdas de correlación (alta = rojo, baja/negativa = verde)
+export function corrColor(c) {
+  if (c == null) return 'var(--border)';
+  if (c >= 0.7) return 'rgba(231,76,60,.38)';
+  if (c >= 0.4) return 'rgba(230,126,34,.32)';
+  if (c >= 0.1) return 'rgba(241,196,15,.22)';
+  return 'rgba(46,204,113,.30)';
+}
+
 // Formatea importe en divisa base (EUR) de forma compacta
 export function fmtBase(v) {
   if (v === null || v === undefined || isNaN(v)) return '—';

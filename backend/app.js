@@ -13,6 +13,7 @@ import { getSentiment } from './sentiment.js';
 import { getMacro } from './macro.js';
 import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
+import { getRisk } from './risk.js';
 import { getSMC } from './smc.js';
 import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
 
@@ -186,6 +187,10 @@ export async function createApp() {
   app.get('/api/fx', h(async (req, res) => {
     const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean);
     res.json(await getFx(symbols));
+  }));
+  app.get('/api/risk', h(async (req, res) => {
+    const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean);
+    res.json(await getRisk(symbols, req.query.range || '1y'));
   }));
   app.get('/api/quote/:symbol', h(async (req, res) => { res.json(await getQuote(req.params.symbol)); }));
   app.get('/api/history/:symbol', h(async (req, res) => { res.json(await getHistory(req.params.symbol, req.query.range || '6mo')); }));
