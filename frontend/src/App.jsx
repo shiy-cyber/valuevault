@@ -212,7 +212,7 @@ export default function App() {
           {section === 'indices' && <Indices theme={theme} toast={toast} />}
           {section === 'sentiment' && <Sentiment theme={theme} toast={toast} />}
           {section === 'marketmap' && <MarketMap theme={theme} toast={toast} />}
-          {section === 'macro' && <Macro />}
+          {section === 'macro' && <Macro theme={theme} toast={toast} />}
         </div>
       </div>
 
