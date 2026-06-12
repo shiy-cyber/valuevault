@@ -61,12 +61,12 @@ function detectFVG(bars) {
   return out;
 }
 
-function detectOB(bars) {
+function detectOB(bars, impulse = IMPULSE) {
   const seen = new Set();
   const out = [];
   for (let i = 2; i < bars.length; i++) {
     const b = bars[i];
-    const strong = (b.h - b.l) / b.c >= IMPULSE && b.c !== b.o;
+    const strong = (b.h - b.l) / b.c >= impulse && b.c !== b.o;
     if (!strong) continue;
     if (b.c > b.o && b.c > bars[i - 1].h) {            // impulso alcista
       for (let k = i - 1; k >= Math.max(0, i - 6); k--) {
@@ -152,6 +152,21 @@ export async function getSMC(symbol, range = '6mo') {
   const price = round(meta.regularMarketPrice ?? bars[bars.length - 1].c);
   const zones = [...detectFVG(bars), ...detectOB(bars)].sort((a, b) => a.t - b.t);
 
+  // Multi-timeframe: Order Blocks SEMANALES (mejor fiabilidad). Marca los OB
+  // diarios cuya zona solapa con un OB semanal del mismo tipo (confluencia HTF).
+  try {
+    const wk = await fetchOHLC(sym, '2y', '1wk');
+    if (wk.bars.length >= 5) {
+      // Umbral de impulso más exigente en semanal (7%) y solo zonas NO rotas:
+      // así la confluencia HTF es selectiva, no ruido.
+      const weeklyOBs = detectOB(wk.bars, 0.07).filter(w => !w.broken);
+      const overlap = (a, b) => a.bottom <= b.top && b.bottom <= a.top;
+      for (const z of zones) {
+        if (z.kind === 'OB') z.htf = weeklyOBs.some(w => w.type === z.type && overlap(z, w));
+      }
+    }
+  } catch { /* sin datos semanales → sin confluencia HTF */ }
+
   // Soporte = zona alcista NO rellena con techo por debajo del precio (la más cercana)
   // Resistencia = zona bajista NO rellena con suelo por encima del precio (la más cercana)
   const active = zones.filter(z => !z.filled);
@@ -159,15 +174,18 @@ export async function getSMC(symbol, range = '6mo') {
   const resistance = active.filter(z => z.type === 'bear' && z.bottom >= price).sort((a, b) => a.bottom - b.bottom)[0] || null;
 
   const recent = (arr) => arr.slice(-MAX_ZONES);
+  const fvgList = recent(zones.filter(z => z.kind === 'FVG'));
+  const obList = recent(zones.filter(z => z.kind === 'OB'));
   const data = {
     symbol: sym, range: r, price,
     closes: bars.map(b => ({ t: b.t, c: round(b.c) })),
-    fvgs: recent(zones.filter(z => z.kind === 'FVG')),
-    orderBlocks: recent(zones.filter(z => z.kind === 'OB')),
+    fvgs: fvgList,
+    orderBlocks: obList,
     support, resistance,
     counts: {
-      fvgUnfilled: zones.filter(z => z.kind === 'FVG' && !z.filled).length,
-      obUnmitigated: zones.filter(z => z.kind === 'OB' && !z.mitigated).length,
+      fvgUnfilled: fvgList.filter(z => !z.filled).length,
+      obUnmitigated: obList.filter(z => !z.mitigated).length,
+      obHtf: obList.filter(z => z.htf).length,
     },
   };
   cache.set(key, { ts: Date.now(), data });

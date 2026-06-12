@@ -93,6 +93,7 @@ export default function SMC({ theme, toast }) {
               <tr key={i} style={{ fontSize: '11px', borderTop: '1px solid var(--border)', opacity: z.filled && !z.broken ? 0.55 : 1 }}>
                 <td style={{ padding: '6px', color: z.type === 'bull' ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
                   {z.type === 'bull' ? '▲ alcista' : '▼ bajista'}
+                  {z.htf && <span title="Confluencia con un Order Block semanal — mayor fiabilidad" style={{ marginLeft: '5px', fontSize: '9px', padding: '0 5px', borderRadius: '8px', background: 'rgba(201,168,76,.22)', color: 'var(--gold)' }}>✦ semanal</span>}
                   {z.broken && <span title={`Breaker: roto, ahora actúa como ${z.role}`} style={{ marginLeft: '5px', fontSize: '9px', padding: '0 5px', borderRadius: '8px', background: 'rgba(155,89,182,.25)', color: '#b07bd0' }}>⇄ {z.role}</span>}
                 </td>
                 <td style={{ padding: '6px', textAlign: 'right' }}>${z.bottom}–${z.top}</td>
@@ -146,6 +147,7 @@ export default function SMC({ theme, toast }) {
             {stat('FVG activas', String(data.counts.fvgUnfilled), 'sin rellenar', '#c9a84c')}
             {stat('Order Blocks activos', String(data.counts.obUnmitigated), 'sin mitigar', '#c9a84c')}
             {strongestOB != null && stat('OB más fuerte', String(strongestOB), 'fuerza 0-100', strengthColor(strongestOB))}
+            {data.counts.obHtf != null && stat('Confluencia semanal', String(data.counts.obHtf), 'OB en diario + semanal', 'var(--gold)')}
           </div>
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
@@ -167,7 +169,7 @@ export default function SMC({ theme, toast }) {
       {!loading && !data && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontSize: '12px', padding: '40px' }}>No se pudieron cargar datos para <b>{symbol}</b>. Prueba con el símbolo exacto.</div>}
 
       <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
-        ⚡ Detección algorítmica sobre velas diarias (Yahoo). "Mitigada" = el precio volvió a tocar la zona; "llena/activa" según si la rellenó o sigue intacta. La <b>fuerza (0-100)</b> de cada Order Block combina volumen del impulso vs su media (40%), tamaño del impulso (30%) y desplazamiento posterior (30%); el rayo ⚡ marca impulsos con volumen ≥1,5× la media. <b>Dist.</b> = % desde el precio actual hasta la zona (↑ por encima, ↓ por debajo). Una etiqueta <span style={{ color: '#b07bd0' }}>⇄ breaker</span> indica un OB roto (el precio cerró atravesándolo), que invierte su papel: un OB alcista roto pasa a actuar como resistencia y viceversa. Metodología discutida y no estandarizada — herramienta de análisis exploratorio, no asesoramiento de inversión.
+        ⚡ Detección algorítmica sobre velas diarias (Yahoo). "Mitigada" = el precio volvió a tocar la zona; "llena/activa" según si la rellenó o sigue intacta. La <b>fuerza (0-100)</b> de cada Order Block combina volumen del impulso vs su media (40%), tamaño del impulso (30%) y desplazamiento posterior (30%); el rayo ⚡ marca impulsos con volumen ≥1,5× la media. <b>Dist.</b> = % desde el precio actual hasta la zona (↑ por encima, ↓ por debajo). Una etiqueta <span style={{ color: '#b07bd0' }}>⇄ breaker</span> indica un OB roto (el precio cerró atravesándolo), que invierte su papel: un OB alcista roto pasa a actuar como resistencia y viceversa. La etiqueta <span style={{ color: 'var(--gold)' }}>✦ semanal</span> señala confluencia con un Order Block del gráfico semanal (mismo tipo y zona solapada): son los más fiables. Metodología discutida y no estandarizada — herramienta de análisis exploratorio, no asesoramiento de inversión.
       </div>
     </div>
   );
