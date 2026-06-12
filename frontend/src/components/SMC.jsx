@@ -10,6 +10,7 @@ export default function SMC({ theme, toast }) {
   const [symbol, setSymbol] = useState('AAPL');
   const [input, setInput] = useState('AAPL');
   const [range, setRange] = useState('6mo');
+  const [obSort, setObSort] = useState('date'); // 'date' | 'near'
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const isDark = theme === 'dark';
@@ -74,9 +75,23 @@ export default function SMC({ theme, toast }) {
 
   const strengthColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
 
-  const zoneTable = (title, zones, emptyMsg, withStrength = false) => (
+  const zoneTable = (title, zones, emptyMsg, withStrength = false) => {
+    const mid = (z) => (z.top + z.bottom) / 2;
+    let rows = [...zones].reverse(); // por defecto: más recientes primero
+    if (withStrength && obSort === 'near' && data?.price) {
+      rows = [...zones].sort((a, b) => Math.abs(mid(a) - data.price) - Math.abs(mid(b) - data.price));
+    }
+    return (
     <div style={{ ...cardBase, overflowX: 'auto' }}>
-      <div style={cap}>{title}</div>
+      <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <span>{title}</span>
+        {withStrength && (
+          <span style={{ display: 'flex', gap: '4px' }}>
+            <button className={`filter-chip${obSort === 'date' ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setObSort('date')}>Fecha</button>
+            <button className={`filter-chip${obSort === 'near' ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setObSort('near')}>Cercanía</button>
+          </span>
+        )}
+      </div>
       {zones.length ? (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace" }}>
           <thead><tr style={{ color: 'var(--muted)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -86,11 +101,11 @@ export default function SMC({ theme, toast }) {
             <th style={{ textAlign: 'right', padding: '5px 6px' }}>Fecha</th><th style={{ textAlign: 'right', padding: '5px 6px' }}>Estado</th>
           </tr></thead>
           <tbody>
-            {[...zones].reverse().map((z, i) => {
-              const mid = (z.top + z.bottom) / 2;
-              const dist = data?.price ? (mid - data.price) / data.price * 100 : null;
+            {rows.map((z, i) => {
+              const dist = data?.price ? (mid(z) - data.price) / data.price * 100 : null;
+              const near = withStrength && dist != null && Math.abs(dist) < 2;
               return (
-              <tr key={i} style={{ fontSize: '11px', borderTop: '1px solid var(--border)', opacity: z.filled && !z.broken ? 0.55 : 1 }}>
+              <tr key={i} style={{ fontSize: '11px', borderTop: '1px solid var(--border)', opacity: z.filled && !z.broken ? 0.55 : 1, background: near ? 'rgba(201,168,76,.10)' : 'transparent', boxShadow: near ? 'inset 3px 0 0 var(--gold)' : 'none' }}>
                 <td style={{ padding: '6px', color: z.type === 'bull' ? 'var(--green)' : 'var(--red)', whiteSpace: 'nowrap' }}>
                   {z.type === 'bull' ? '▲ alcista' : '▼ bajista'}
                   {z.htf && <span title="Confluencia con un Order Block semanal — mayor fiabilidad" style={{ marginLeft: '5px', fontSize: '9px', padding: '0 5px', borderRadius: '8px', background: 'rgba(201,168,76,.22)', color: 'var(--gold)' }}>✦ semanal</span>}
@@ -117,7 +132,8 @@ export default function SMC({ theme, toast }) {
         </table>
       ) : <div style={{ color: 'var(--muted)', fontSize: '11px' }}>{emptyMsg}</div>}
     </div>
-  );
+    );
+  };
 
   return (
     <div className="section active">
@@ -169,7 +185,7 @@ export default function SMC({ theme, toast }) {
       {!loading && !data && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontSize: '12px', padding: '40px' }}>No se pudieron cargar datos para <b>{symbol}</b>. Prueba con el símbolo exacto.</div>}
 
       <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
-        ⚡ Detección algorítmica sobre velas diarias (Yahoo). "Mitigada" = el precio volvió a tocar la zona; "llena/activa" según si la rellenó o sigue intacta. La <b>fuerza (0-100)</b> de cada Order Block combina volumen del impulso vs su media (40%), tamaño del impulso (30%) y desplazamiento posterior (30%); el rayo ⚡ marca impulsos con volumen ≥1,5× la media. <b>Dist.</b> = % desde el precio actual hasta la zona (↑ por encima, ↓ por debajo). Una etiqueta <span style={{ color: '#b07bd0' }}>⇄ breaker</span> indica un OB roto (el precio cerró atravesándolo), que invierte su papel: un OB alcista roto pasa a actuar como resistencia y viceversa. La etiqueta <span style={{ color: 'var(--gold)' }}>✦ semanal</span> señala confluencia con un Order Block del gráfico semanal (mismo tipo y zona solapada): son los más fiables. Metodología discutida y no estandarizada — herramienta de análisis exploratorio, no asesoramiento de inversión.
+        ⚡ Detección algorítmica sobre velas diarias (Yahoo). "Mitigada" = el precio volvió a tocar la zona; "llena/activa" según si la rellenó o sigue intacta. La <b>fuerza (0-100)</b> de cada Order Block combina volumen del impulso vs su media (40%), tamaño del impulso (30%) y desplazamiento posterior (30%); el rayo ⚡ marca impulsos con volumen ≥1,5× la media. <b>Dist.</b> = % desde el precio actual hasta la zona (↑ por encima, ↓ por debajo); ordena la tabla por <b>Fecha</b> o <b>Cercanía</b>, y las zonas a menos del 2% del precio se resaltan en dorado. Una etiqueta <span style={{ color: '#b07bd0' }}>⇄ breaker</span> indica un OB roto (el precio cerró atravesándolo), que invierte su papel: un OB alcista roto pasa a actuar como resistencia y viceversa. La etiqueta <span style={{ color: 'var(--gold)' }}>✦ semanal</span> señala confluencia con un Order Block del gráfico semanal (mismo tipo y zona solapada): son los más fiables. Metodología discutida y no estandarizada — herramienta de análisis exploratorio, no asesoramiento de inversión.
       </div>
     </div>
   );
