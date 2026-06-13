@@ -15,6 +15,13 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const RANGE_INTERVAL = { '6mo': '1d', '1y': '1d', '2y': '1d' };
 const TRADING_DAYS = 252;
 
+// Anti-"hambruna de datos": para que la SMA200 (y demás indicadores con
+// lookback largo) estén calculados YA desde la primera vela visible, se
+// descarga MÁS histórico del que se muestra (warmup ≥ SMA_SLOW velas) y
+// luego se recorta la serie de salida a la ventana pedida por el usuario.
+const VIEW_DAYS = { '6mo': 126, '1y': 252, '2y': 504 };   // velas visibles aprox.
+const FETCH_RANGE = { '6mo': '2y', '1y': '2y', '2y': '5y' }; // rango real descargado
+
 // Parámetros del modelo
 const SMA_FAST = 50, SMA_SLOW = 200, EMA_LEN = 20;
 const ATR_LEN = 14, DONCHIAN = 20, SLOPE_LB = 20, VOL_LB = 20;
@@ -191,10 +198,14 @@ export async function getTrendFollowing(symbol, range = '1y') {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.data;
 
-  const { bars, meta } = await fetchOHLCV(yahooSymbol(sym), rg, RANGE_INTERVAL[rg]);
-  if (bars.length < SMA_FAST + 5) throw new Error(`Histórico insuficiente para ${sym}`);
+  // Se descarga el rango con warmup (FETCH_RANGE) y se calcula sobre TODO,
+  // luego se recorta la serie a las últimas VIEW_DAYS velas (la ventana pedida).
+  const { bars: full, meta } = await fetchOHLCV(yahooSymbol(sym), FETCH_RANGE[rg], '1d');
+  if (full.length < SMA_FAST + 5) throw new Error(`Histórico insuficiente para ${sym}`);
 
-  const a = analyze(bars);
+  const a = analyze(full);
+  const viewN = Math.min(VIEW_DAYS[rg], full.length);
+  const start = full.length - viewN;
   const data = {
     symbol: sym, range: rg, currency: meta.currency || 'USD',
     price: a.price, sma50: a.sma50, sma200: a.sma200, ema: a.ema,
@@ -203,12 +214,12 @@ export async function getTrendFollowing(symbol, range = '1y') {
     stop: a.stop, stopPct: a.stopPct,
     realizedVol: a.realizedVol, targetVol: a.targetVol, volTargetSize: a.volTargetSize,
     series: {
-      labels: bars.map(b => b.t),
-      close: bars.map(b => r2(b.c)),
-      sma50: a.sma50Series.map(r2),
-      sma200: a.sma200Series.map(r2),
-      donHigh: a.donHiSeries.map(r2),
-      donLow: a.donLoSeries.map(r2),
+      labels: full.slice(start).map(b => b.t),
+      close: full.slice(start).map(b => r2(b.c)),
+      sma50: a.sma50Series.slice(start).map(r2),
+      sma200: a.sma200Series.slice(start).map(r2),
+      donHigh: a.donHiSeries.slice(start).map(r2),
+      donLow: a.donLoSeries.slice(start).map(r2),
     },
   };
   cache.set(key, { ts: Date.now(), data });
@@ -247,7 +258,7 @@ export async function getTrendUniverse(range = '1y') {
   if (hit && Date.now() - hit.ts < UNI_TTL) return hit.data;
 
   const results = await Promise.allSettled(UNIVERSE.map(m => withTimeout((async () => {
-    const { bars } = await fetchOHLCV(yahooSymbol(m.symbol), rg, RANGE_INTERVAL[rg]);
+    const { bars } = await fetchOHLCV(yahooSymbol(m.symbol), FETCH_RANGE[rg] || '2y', '1d');
     if (bars.length < SMA_FAST + 5) throw new Error('insuficiente');
     const a = analyze(bars);
     const prev = bars.length >= 2 ? bars[bars.length - 2].c : null;

@@ -27,6 +27,7 @@ export default function TrendFollowing({ theme, toast }) {
   const [range, setRange] = useState('1y');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [targetVol, setTargetVol] = useState(15); // objetivo de volatilidad editable (%)
 
   const load = useCallback(async (sym, rg) => {
     setLoading(true);
@@ -70,11 +71,11 @@ export default function TrendFollowing({ theme, toast }) {
   const chartData = data ? {
     labels: data.series.labels.map(fmtDay),
     datasets: [
-      { label: 'Donchian ↑', data: data.series.donHigh, borderColor: 'rgba(201,168,76,.45)', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, fill: false, tension: 0 },
-      { label: 'Donchian ↓', data: data.series.donLow, borderColor: 'rgba(201,168,76,.45)', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, fill: '-1', backgroundColor: 'rgba(201,168,76,.05)', tension: 0 },
+      { label: 'Donchian ↑', data: data.series.donHigh, borderColor: 'rgba(122,134,148,.4)', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, fill: false, tension: 0 },
+      { label: 'Donchian ↓', data: data.series.donLow, borderColor: 'rgba(122,134,148,.4)', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, fill: '-1', backgroundColor: 'rgba(122,134,148,.07)', tension: 0 },
       { label: 'Precio', data: data.series.close, borderColor: '#3a8eff', backgroundColor: 'rgba(58,142,255,.06)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.15, fill: false },
-      { label: 'SMA 50', data: data.series.sma50, borderColor: '#2ecc71', borderWidth: 1.6, pointRadius: 0, tension: 0.15, fill: false, spanGaps: true },
-      { label: 'SMA 200', data: data.series.sma200, borderColor: '#e67e22', borderWidth: 1.6, pointRadius: 0, tension: 0.15, fill: false, spanGaps: true },
+      { label: 'SMA 50', data: data.series.sma50, borderColor: '#2ecc71', borderWidth: 2, pointRadius: 0, tension: 0.15, fill: false, spanGaps: true },
+      { label: 'SMA 200', data: data.series.sma200, borderColor: '#e67e22', borderWidth: 2.4, pointRadius: 0, tension: 0.15, fill: false, spanGaps: true },
     ],
   } : null;
   const chartOpts = {
@@ -110,6 +111,8 @@ export default function TrendFollowing({ theme, toast }) {
   })();
 
   const s = data ? sigOf(data.signal) : SIG.flat;
+  // Sizing recalculado en vivo según el objetivo de volatilidad elegido
+  const sizeNow = data && data.realizedVol ? Math.round(Math.max(0, Math.min(300, (targetVol / data.realizedVol) * 100))) : null;
 
   // ── Render tab Universo ──
   const renderUniverse = () => {
@@ -214,8 +217,16 @@ export default function TrendFollowing({ theme, toast }) {
                 {stat('ATR', data.atr != null ? '$' + data.atr : '—', data.atrPct != null ? data.atrPct + '% / día' : '', '#9b59b6')}
                 {stat('Stop (2·ATR)', data.stop != null ? '$' + data.stop : '—', data.stopPct != null ? (data.stopPct > 0 ? '+' : '') + data.stopPct + '%' : 'sin posición', data.stop != null ? '#e74c3c' : 'var(--muted)')}
                 {stat('Vol. realizada', data.realizedVol != null ? data.realizedVol + '%' : '—', 'anualizada', '#3a8eff')}
-                {stat('Sizing vol-target', data.volTargetSize != null ? data.volTargetSize + '%' : '—', 'objetivo ' + data.targetVol + '%', '#c9a84c')}
+                {stat('Sizing vol-target', sizeNow != null ? sizeNow + '%' : '—', 'objetivo ' + targetVol + '%', '#c9a84c')}
                 {stat('Donchian 20d', data.donchianHigh != null ? `$${data.donchianLow}–$${data.donchianHigh}` : '—', data.breakout ? 'breakout ' + (data.breakout === 'up' ? '↑' : '↓') : 'dentro de canal', data.breakout === 'up' ? 'var(--green)' : data.breakout === 'down' ? 'var(--red)' : 'var(--muted)')}
+              </div>
+
+              {/* Objetivo de volatilidad editable → recalcula el sizing en vivo */}
+              <div style={{ ...cardBase, marginBottom: '18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '14px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>Objetivo de volatilidad</div>
+                <input type="range" min="5" max="30" step="1" value={targetVol} onChange={e => setTargetVol(+e.target.value)} style={{ flex: 1, minWidth: '150px', accentColor: 'var(--gold)' }} />
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: '16px', fontWeight: 700, color: 'var(--gold)', minWidth: '46px', textAlign: 'right' }}>{targetVol}%</div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: '11px', color: 'var(--muted)' }}>→ sizing <b style={{ color: 'var(--text)' }}>{sizeNow != null ? sizeNow + '%' : '—'}</b> <span style={{ opacity: .7 }}>({targetVol > 15 ? 'más agresivo' : targetVol < 15 ? 'más conservador' : 'estándar'})</span></div>
               </div>
 
               {/* Lectura institucional */}
