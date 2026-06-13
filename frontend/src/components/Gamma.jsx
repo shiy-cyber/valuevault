@@ -90,6 +90,43 @@ export default function Gamma({ theme, toast }) {
       y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, callback: v => v + 'bn' } },
     },
   };
+  // Plugin: líneas horizontales de spot y flip sobre el perfil por strike.
+  // El eje Y es categórico (strikes), así que interpolamos la posición del
+  // precio entre los dos strikes que lo rodean.
+  const barRefs = {
+    id: 'gammaBarRefs',
+    afterDraw(chart) {
+      const { ctx, chartArea } = chart;
+      const n = byStrike.length;
+      if (!n) return;
+      const yFor = (price) => {
+        if (price == null) return null;
+        if (price >= byStrike[0].strike) return chartArea.top + (0.5 / n) * chartArea.height;
+        if (price <= byStrike[n - 1].strike) return chartArea.top + ((n - 0.5) / n) * chartArea.height;
+        for (let i = 0; i < n - 1; i++) {
+          const hi = byStrike[i].strike, lo = byStrike[i + 1].strike;
+          if (price <= hi && price >= lo) {
+            const f = (hi - price) / ((hi - lo) || 1);
+            return chartArea.top + ((i + f + 0.5) / n) * chartArea.height;
+          }
+        }
+        return null;
+      };
+      const hline = (price, color, label) => {
+        const y = yFor(price);
+        if (y == null) return;
+        ctx.save();
+        ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(chartArea.left, y); ctx.lineTo(chartArea.right, y); ctx.stroke();
+        ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "10px 'DM Mono', monospace"; ctx.textAlign = 'right';
+        ctx.fillText(label, chartArea.right - 4, y - 3); ctx.textAlign = 'left';
+        ctx.restore();
+      };
+      hline(data?.spot, spotColor, 'spot $' + data?.spot);
+      hline(data?.gammaFlip, flipColor, 'flip $' + data?.gammaFlip);
+    },
+  };
+
   // Plugin: líneas verticales de spot y flip + base cero sobre la curva
   const refLines = {
     id: 'gammaRefs',
@@ -164,9 +201,9 @@ export default function Gamma({ theme, toast }) {
           <div style={{ ...cardBase, marginBottom: '18px' }}>
             <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <span>Perfil de gamma por strike · venc. {data.expiry} <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted)' }}>(top {byStrike.length} por gamma)</span></span>
-              <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> gamma + · <span style={{ color: negColor }}>■</span> gamma − · <span style={{ color: flipColor }}>▭</span> wall</span>
+              <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> + · <span style={{ color: negColor }}>■</span> − · <span style={{ color: flipColor }}>▭</span> wall · <span style={{ color: spotColor }}>┄</span> spot · <span style={{ color: flipColor }}>┄</span> flip</span>
             </div>
-            <div style={{ position: 'relative', height: '360px' }}>{!loading && barData && <Bar data={barData} options={barOpts} />}</div>
+            <div style={{ position: 'relative', height: '360px' }}>{!loading && barData && <Bar data={barData} options={barOpts} plugins={[barRefs]} />}</div>
           </div>
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
