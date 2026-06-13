@@ -17,6 +17,7 @@ import { getRisk } from './risk.js';
 import { getEstimates } from './estimates.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
+import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
 import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
@@ -220,6 +221,8 @@ export async function createApp() {
   app.get('/api/volprofile/:symbol', h(async (req, res) => { res.json(await getVolProfile(req.params.symbol, req.query.range, req.query.anchor)); }));
   app.get('/api/smc/:symbol', h(async (req, res) => { res.json(await getSMC(req.params.symbol, req.query.range)); }));
   app.get('/api/gamma/:symbol', h(async (req, res) => { res.json(await getGamma(req.params.symbol, req.query.date)); }));
+  app.get('/api/trendfollow/:symbol', h(async (req, res) => { res.json(await getTrendFollowing(req.params.symbol, req.query.range)); }));
+  app.get('/api/trend-universe', h(async (req, res) => { res.json(await getTrendUniverse(req.query.range)); }));
   app.get('/api/market-map', h(async (req, res) => { res.json(await getMarketMap(req.query.fresh === '1')); }));
   app.get('/api/fx', h(async (req, res) => {
     const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean);

@@ -50,6 +50,8 @@ export const api = {
   volprofile: (symbol, range, anchor) => req('GET', `/api/volprofile/${encodeURIComponent(symbol)}?range=${range}&anchor=${anchor}`),
   smc: (symbol, range) => req('GET', `/api/smc/${encodeURIComponent(symbol)}?range=${range}`),
   gamma: (symbol, date) => req('GET', `/api/gamma/${encodeURIComponent(symbol)}${date ? `?date=${date}` : ''}`),
+  trendfollow: (symbol, range = '1y') => req('GET', `/api/trendfollow/${encodeURIComponent(symbol)}?range=${range}`),
+  trendUniverse: (range = '1y') => req('GET', `/api/trend-universe?range=${range}`),
   sectors: (fresh) => req('GET', `/api/sectors${fresh ? '?fresh=1' : ''}`),
   indices: (fresh) => req('GET', `/api/indices${fresh ? '?fresh=1' : ''}`),
   sentiment: (fresh) => req('GET', `/api/sentiment${fresh ? '?fresh=1' : ''}`),
