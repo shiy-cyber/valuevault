@@ -33,7 +33,7 @@ export default function Gamma({ theme, toast }) {
   // ── 1) Perfil por strike (barras horizontales, strike más alto arriba) ──
   // Limita a los ~40 strikes con mayor gamma (los relevantes) para que la
   // gráfica no crezca sin control en subyacentes con cientos de strikes.
-  const MAX_STRIKES = 40;
+  const MAX_STRIKES = 28;
   const byStrike = data
     ? [...data.strikes].sort((a, b) => Math.abs(b.netGEX) - Math.abs(a.netGEX)).slice(0, MAX_STRIKES).sort((a, b) => b.strike - a.strike)
     : [];
@@ -166,7 +166,7 @@ export default function Gamma({ theme, toast }) {
               <span>Perfil de gamma por strike · venc. {data.expiry} <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted)' }}>(top {byStrike.length} por gamma)</span></span>
               <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> gamma + · <span style={{ color: negColor }}>■</span> gamma − · <span style={{ color: flipColor }}>▭</span> wall</span>
             </div>
-            <div style={{ position: 'relative', height: Math.min(560, Math.max(320, byStrike.length * 14)) + 'px' }}>{!loading && barData && <Bar data={barData} options={barOpts} />}</div>
+            <div style={{ position: 'relative', height: Math.min(430, Math.max(260, byStrike.length * 12)) + 'px' }}>{!loading && barData && <Bar data={barData} options={barOpts} />}</div>
           </div>
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
