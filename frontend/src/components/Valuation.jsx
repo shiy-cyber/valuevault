@@ -69,7 +69,11 @@ export default function Valuation({ toast }) {
       if (d.beta != null) setBeta(d.beta);
       if (d.roic != null) setRoic(d.roic);
       if (d.fcfCAGR != null) setGrowth(Math.max(0, Math.min(15, d.fcfCAGR)));
-      setMeta({ name: d.name, sector: d.sector, roic: d.roic, fcfCAGR: d.fcfCAGR, roe: d.roe });
+      // WACC estimado por ESTRUCTURA DE CAPITAL (ke vía CAPM + peso de deuda,
+      // ponderado con capitalización de MERCADO, no con el equity intrínseco)
+      // → sustituye al 9% genérico. Lo calcula el backend en valuation.js.
+      if (d.wacc != null) setWacc(d.wacc);
+      setMeta({ name: d.name, sector: d.sector, roic: d.roic, fcfCAGR: d.fcfCAGR, roe: d.roe, wacc: d.wacc, costEquity: d.costEquity });
       toast?.(`✓ Datos de ${sym} cargados`);
     } catch (e) {
       toast?.('⚠ ' + (e.message || 'No se pudo cargar'));
@@ -94,7 +98,8 @@ export default function Valuation({ toast }) {
     const equity = ev - nd;
     const perShare = sh > 0 ? equity / sh : null;
     const upside = (perShare != null && p > 0) ? (perShare / p - 1) * 100 : null;
-    return { rows, pvSum, pvTv, ev, equity, perShare, upside, n };
+    const tvWeight = ev > 0 ? (pvTv / ev) * 100 : null; // % del EV que viene de la perpetuidad
+    return { rows, pvSum, pvTv, tv, tvWeight, ev, equity, perShare, upside, n };
   }, [fcf0, growth, years, termGrowth, wacc, shares, netDebt, price]);
 
   const spread = +(N(roic) - N(wacc)).toFixed(2);
@@ -143,6 +148,11 @@ export default function Valuation({ toast }) {
           <div style={cap}>Supuestos del modelo</div>
           <Field label="FCF base (último año)" value={fcf0} onChange={setFcf0} suffix="M$" hint="flujo caja libre" />
           <Field label="Crecimiento anual FCF" value={growth} onChange={setGrowth} suffix="%/año" />
+          {meta?.fcfCAGR != null && meta.fcfCAGR < 1 && (
+            <div style={{ marginTop: '-6px', marginBottom: '12px', padding: '7px 9px', background: 'rgba(230,126,34,.1)', borderRadius: '7px', fontSize: '10px', color: '#e67e22', fontFamily: "'DM Mono',monospace", lineHeight: 1.5 }}>
+              ⚠ CAGR histórico {meta.fcfCAGR}% — casi plano. El CAGR de 2 extremos se distorsiona con años atípicos{meta.roic != null ? `; un negocio con ROIC ${meta.roic}% no crece al ${meta.fcfCAGR}%` : ''}. Revisa este crecimiento a mano (FCF normalizado).
+            </div>
+          )}
           <Field label="Años de proyección" value={years} onChange={setYears} suffix="años" step="1" />
           <Field label="Crecimiento terminal (g)" value={termGrowth} onChange={setTermGrowth} suffix="%" hint="a perpetuidad" />
           <Field label="WACC (tasa de descuento)" value={wacc} onChange={setWacc} suffix="%" />
@@ -160,6 +170,12 @@ export default function Valuation({ toast }) {
               <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>Coste de capital (ke) = <b style={{ color: 'var(--gold)' }}>{ke}%</b></span>
               <button className="btn btn-outline" style={{ padding: '4px 10px', fontSize: '10px' }} onClick={() => setWacc(ke)}>Usar como WACC</button>
             </div>
+            {meta?.wacc != null && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>WACC auto (estructura) = <b style={{ color: 'var(--gold)' }}>{meta.wacc}%</b><br /><span style={{ fontSize: '9px' }}>ke {meta.costEquity}% + peso deuda (cap. mercado)</span></span>
+                <button className="btn btn-outline" style={{ padding: '4px 10px', fontSize: '10px' }} onClick={() => setWacc(meta.wacc)}>Aplicar</button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -226,7 +242,7 @@ export default function Valuation({ toast }) {
             </div>
             <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.6 }}>
               {spread >= 0
-                ? '✓ ROIC > WACC: la empresa CREA valor — cada euro invertido renta más que su coste de capital. Sello de calidad.'
+                ? '✓ ROIC > WACC: la empresa CREA valor — cada unidad de capital invertido renta más que su coste de capital. Sello de calidad.'
                 : '✗ ROIC < WACC: destruye valor — invierte por debajo de su coste de capital. Posible trampa de valor.'}
             </div>
           </div>
@@ -248,12 +264,17 @@ export default function Valuation({ toast }) {
                     </tr>
                   ))}
                   <tr style={{ fontSize: '12px', borderTop: '1px solid var(--border)' }}>
-                    <td style={{ textAlign: 'left', padding: '6px', color: 'var(--muted)' }}>VT</td>
-                    <td style={{ textAlign: 'right', padding: '6px', color: 'var(--muted)' }}>valor terminal</td>
-                    <td style={{ textAlign: 'right', padding: '6px' }}>{fmtB(dcf.pvTv)}</td>
+                    <td style={{ textAlign: 'left', padding: '6px', color: 'var(--gold)' }}>VT <span style={{ color: 'var(--muted)', fontSize: '9px' }}>perpetuidad</span></td>
+                    <td style={{ textAlign: 'right', padding: '6px' }}>{fmtB(dcf.tv)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px', color: 'var(--text)' }}>{fmtB(dcf.pvTv)}</td>
                   </tr>
                 </tbody>
               </table>
+              {dcf.tvWeight != null && (
+                <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>
+                  El valor terminal aporta el <b style={{ color: dcf.tvWeight > 80 ? '#e67e22' : 'var(--text)' }}>{dcf.tvWeight.toFixed(0)}%</b> del EV{dcf.tvWeight > 80 ? ' — modelo muy dependiente de la perpetuidad; afina crecimiento/WACC.' : ' (normal en un DCF: suele ser 60-80%).'}
+                </div>
+              )}
             </div>
           )}
         </div>
