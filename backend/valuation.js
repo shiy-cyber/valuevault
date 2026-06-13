@@ -27,6 +27,33 @@ async function av(fn, sym) {
   return j;
 }
 
+// Crecimiento del FCF ROBUSTO: regresión log-lineal sobre la serie (usa TODOS
+// los años, no solo 2 extremos → inmune a un año atípico). Banda = rango de los
+// crecimientos año a año. Degrada a CAGR de 2 puntos si solo hay 2 años útiles.
+// history: [{year:'YYYY', fcf}] (más reciente primero). FCF>0 para poder usar ln.
+function robustGrowth(history) {
+  const pts = (history || [])
+    .map(h => ({ x: Number(h.year), y: h.fcf }))
+    .filter(p => Number.isFinite(p.x) && p.y > 0)
+    .sort((a, b) => a.x - b.x); // cronológico
+  const n = pts.length;
+  if (n < 2) return { growth: null, low: null, high: null, method: 'insuficiente', nYears: n };
+
+  // Regresión OLS de ln(y) sobre x → pendiente b ; crecimiento anual = e^b − 1
+  const xs = pts.map(p => p.x), ys = pts.map(p => Math.log(p.y));
+  const mx = xs.reduce((s, v) => s + v, 0) / n, my = ys.reduce((s, v) => s + v, 0) / n;
+  let sxy = 0, sxx = 0;
+  for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; }
+  const g = Math.exp(sxx ? sxy / sxx : 0) - 1;
+
+  // Banda observada: rango de crecimientos año a año
+  const yoy = [];
+  for (let i = 1; i < n; i++) yoy.push(pts[i].y / pts[i - 1].y - 1);
+  const pct = (v) => +(v * 100).toFixed(1);
+  const lo = yoy.length ? Math.min(...yoy) : g, hi = yoy.length ? Math.max(...yoy) : g;
+  return { growth: pct(g), low: pct(Math.min(lo, g)), high: pct(Math.max(hi, g)), method: n >= 3 ? `regresión ${n}a` : 'cagr 2 puntos', nYears: n };
+}
+
 const cache = new Map(); // ticker → { ts, data }
 const TTL = 24 * 60 * 60 * 1000;
 
@@ -60,12 +87,14 @@ export async function getFundamentals(ticker) {
     .map(r => ({ year: r.fiscalDateEnding?.slice(0, 4), fcf: fcfOf(r) }))
     .filter(r => r.fcf != null);
 
-  // CAGR histórico del FCF (de más antiguo a más reciente)
+  // CAGR de 2 extremos (legacy, se conserva para transparencia/comparación)
   let fcfCAGR = null;
   if (fcfHistory.length >= 2) {
     const newest = fcfHistory[0].fcf, oldest = fcfHistory[fcfHistory.length - 1].fcf, yrs = fcfHistory.length - 1;
     if (newest > 0 && oldest > 0) fcfCAGR = +(((Math.pow(newest / oldest, 1 / yrs)) - 1) * 100).toFixed(1);
   }
+  // Crecimiento ROBUSTO (regresión log-lineal) → el que autocompleta el modelo
+  const rg = robustGrowth(fcfHistory);
 
   const shares = num(overview.SharesOutstanding);
   const beta = num(overview.Beta);
@@ -116,6 +145,11 @@ export async function getFundamentals(ticker) {
     fcf,
     fcfHistory,
     fcfCAGR,
+    fcfGrowth: rg.growth,            // crecimiento robusto (regresión) — autocompleta el modelo
+    fcfGrowthLow: rg.low,
+    fcfGrowthHigh: rg.high,
+    fcfGrowthMethod: rg.method,
+    fcfGrowthYears: rg.nYears,
     debt,
     cash: cashEq,
     netDebt,

@@ -68,12 +68,14 @@ export default function Valuation({ toast }) {
       if (d.price != null) setPrice(d.price);
       if (d.beta != null) setBeta(d.beta);
       if (d.roic != null) setRoic(d.roic);
-      if (d.fcfCAGR != null) setGrowth(Math.max(0, Math.min(15, d.fcfCAGR)));
+      // Crecimiento ROBUSTO (regresión log-lineal del backend); cae al CAGR si falta
+      const autoG = d.fcfGrowth != null ? d.fcfGrowth : d.fcfCAGR;
+      if (autoG != null) setGrowth(Math.max(0, Math.min(15, autoG)));
       // WACC estimado por ESTRUCTURA DE CAPITAL (ke vía CAPM + peso de deuda,
       // ponderado con capitalización de MERCADO, no con el equity intrínseco)
       // → sustituye al 9% genérico. Lo calcula el backend en valuation.js.
       if (d.wacc != null) setWacc(d.wacc);
-      setMeta({ name: d.name, sector: d.sector, roic: d.roic, fcfCAGR: d.fcfCAGR, roe: d.roe, wacc: d.wacc, costEquity: d.costEquity });
+      setMeta({ name: d.name, sector: d.sector, roic: d.roic, fcfCAGR: d.fcfCAGR, fcfGrowth: d.fcfGrowth, fcfGrowthLow: d.fcfGrowthLow, fcfGrowthHigh: d.fcfGrowthHigh, fcfGrowthMethod: d.fcfGrowthMethod, fcfGrowthYears: d.fcfGrowthYears, roe: d.roe, wacc: d.wacc, costEquity: d.costEquity });
       toast?.(`✓ Datos de ${sym} cargados`);
     } catch (e) {
       toast?.('⚠ ' + (e.message || 'No se pudo cargar'));
@@ -101,6 +103,14 @@ export default function Valuation({ toast }) {
     const tvWeight = ev > 0 ? (pvTv / ev) * 100 : null; // % del EV que viene de la perpetuidad
     return { rows, pvSum, pvTv, tv, tvWeight, ev, equity, perShare, upside, n };
   }, [fcf0, growth, years, termGrowth, wacc, shares, netDebt, price]);
+
+  // Fiabilidad del crecimiento autocompletado: banda ancha (FCF volátil),
+  // pocos años de histórico o crecimiento casi plano → avisar y pedir revisión.
+  const gBand = (meta?.fcfGrowthHigh != null && meta?.fcfGrowthLow != null) ? meta.fcfGrowthHigh - meta.fcfGrowthLow : null;
+  const gVolatile = gBand != null && gBand > 25;
+  const gFew = meta?.fcfGrowthYears != null && meta.fcfGrowthYears < 3;
+  const gFlat = meta?.fcfGrowth != null && meta.fcfGrowth < 1;
+  const gWarn = !!meta && (gVolatile || gFew || gFlat);
 
   const spread = +(N(roic) - N(wacc)).toFixed(2);
   const cardBase = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '18px' };
@@ -135,7 +145,7 @@ export default function Valuation({ toast }) {
         </div>
         {meta && (
           <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>
-            {meta.name}{meta.sector ? ` · ${meta.sector}` : ''}{meta.roic != null ? ` · ROIC ${meta.roic}%` : ''}{meta.fcfCAGR != null ? ` · CAGR FCF ${meta.fcfCAGR}%` : ''}
+            {meta.name}{meta.sector ? ` · ${meta.sector}` : ''}{meta.roic != null ? ` · ROIC ${meta.roic}%` : ''}{meta.fcfGrowth != null ? ` · crec. FCF ${meta.fcfGrowth}% (${meta.fcfGrowthMethod})` : (meta.fcfCAGR != null ? ` · CAGR FCF ${meta.fcfCAGR}%` : '')}
           </div>
         )}
         <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--muted)' }}>⚠ Alpha Vantage gratis limita a 25 consultas/día. Si se agota, los datos se introducen a mano (la calculadora funciona igual).</div>
@@ -148,9 +158,9 @@ export default function Valuation({ toast }) {
           <div style={cap}>Supuestos del modelo</div>
           <Field label="FCF base (último año)" value={fcf0} onChange={setFcf0} suffix="M$" hint="flujo caja libre" />
           <Field label="Crecimiento anual FCF" value={growth} onChange={setGrowth} suffix="%/año" />
-          {meta?.fcfCAGR != null && meta.fcfCAGR < 1 && (
+          {gWarn && (
             <div style={{ marginTop: '-6px', marginBottom: '12px', padding: '7px 9px', background: 'rgba(230,126,34,.1)', borderRadius: '7px', fontSize: '10px', color: '#e67e22', fontFamily: "'DM Mono',monospace", lineHeight: 1.5 }}>
-              ⚠ CAGR histórico {meta.fcfCAGR}% — casi plano. El CAGR de 2 extremos se distorsiona con años atípicos{meta.roic != null ? `; un negocio con ROIC ${meta.roic}% no crece al ${meta.fcfCAGR}%` : ''}. Revisa este crecimiento a mano (FCF normalizado).
+              ⚠ Crecimiento auto {meta.fcfGrowth}% ({meta.fcfGrowthMethod}{gBand != null ? `, banda YoY ${meta.fcfGrowthLow}–${meta.fcfGrowthHigh}%` : ''}). {gVolatile ? 'FCF muy volátil' : gFew ? 'Pocos años de histórico' : 'Crecimiento casi plano'} — es orientativo; ajústalo a mano con el FCF normalizado{gFlat && meta.roic != null ? ` (un ROIC ${meta.roic}% no crece al ${meta.fcfGrowth}%)` : ''}.
             </div>
           )}
           <Field label="Años de proyección" value={years} onChange={setYears} suffix="años" step="1" />
