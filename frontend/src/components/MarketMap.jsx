@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Chart } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
@@ -23,6 +23,8 @@ function nodeStock(ctx) {
 export default function MarketMap({ theme, toast }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(null);
   const isDark = theme === 'dark';
   const chartRef = useRef(null);
   const wrapRef = useRef(null);
@@ -51,13 +53,21 @@ export default function MarketMap({ theme, toast }) {
     return () => wrap.removeEventListener('dblclick', openTicker);
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    api.marketMap()
-      .then(d => { if (alive) { setData(d); setLoading(false); if (d.some(x => x.live === false)) toast?.('⚠ Algunos valores usan datos de respaldo'); } })
-      .catch(e => { if (alive) { setLoading(false); toast?.('⚠ No se pudo cargar el mapa: ' + e.message); } });
-    return () => { alive = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // fresh=true salta la caché de 15 min del backend
+  const load = useCallback(async (fresh) => {
+    if (fresh) setRefreshing(true);
+    try {
+      const d = await api.marketMap(fresh);
+      setData(d);
+      setUpdatedAt(new Date());
+      if (d.some(x => x.live === false)) toast?.('⚠ Algunos valores usan datos de respaldo');
+      else if (fresh) toast?.('↻ Mapa actualizado');
+    } catch (e) {
+      toast?.('⚠ No se pudo cargar el mapa: ' + e.message);
+    } finally { setLoading(false); setRefreshing(false); }
+  }, [toast]);
+
+  useEffect(() => { load(false); }, [load]);
 
   const chartData = useMemo(() => {
     if (!data) return null;
@@ -147,7 +157,11 @@ export default function MarketMap({ theme, toast }) {
             Tamaño = capitalización · color = variación del día · {loading ? 'cargando…' : 'datos Yahoo Finance'}
           </div>
         </div>
-        <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" className="insider-link" style={{ fontSize: '11px' }}>Finviz Map completo ↗</a>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+          {updatedAt && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>↻ {updatedAt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</span>}
+          <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? '⏳ Actualizando…' : '↻ Actualizar'}</button>
+          <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" className="insider-link" style={{ fontSize: '11px' }}>Finviz Map completo ↗</a>
+        </div>
       </div>
 
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px' }}>

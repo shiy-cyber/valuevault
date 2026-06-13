@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from './lib/api.js';
+import { api, setToken } from './lib/api.js';
 import { NAV, PAGE_TITLES } from './data/constants.js';
 import { timeAgo } from './lib/format.js';
 import Dashboard from './components/Dashboard.jsx';
@@ -8,6 +8,12 @@ import Watchlist from './components/Watchlist.jsx';
 import Compare from './components/Compare.jsx';
 import Charts from './components/Charts.jsx';
 import Screener from './components/Screener.jsx';
+import Valuation from './components/Valuation.jsx';
+import VolProfile from './components/VolProfile.jsx';
+import SMC from './components/SMC.jsx';
+import Gamma from './components/Gamma.jsx';
+import TrendFollowing from './components/TrendFollowing.jsx';
+import Guide from './components/Guide.jsx';
 import Learning from './components/Learning.jsx';
 import Trends from './components/Trends.jsx';
 import Indices from './components/Indices.jsx';
@@ -17,6 +23,7 @@ import Macro from './components/Macro.jsx';
 import AssetModal from './components/AssetModal.jsx';
 import LearnModal from './components/LearnModal.jsx';
 import DetailModal from './components/DetailModal.jsx';
+import AuthModal from './components/AuthModal.jsx';
 
 export default function App() {
   const [assets, setAssets] = useState([]);
@@ -31,6 +38,10 @@ export default function App() {
   const [detailId, setDetailId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [presetCode, setPresetCode] = useState(null);
+  const [fxRates, setFxRates] = useState({ EUR: 1 });
 
   // Cartera vs seguimiento
   const portfolio = assets.filter(a => a.type !== 'watchlist');
@@ -43,15 +54,14 @@ export default function App() {
     toast._t = window.setTimeout(() => setToastMsg(''), 2800);
   }, []);
 
-  // ─── Carga inicial ──────────────────────────────────────
-  useEffect(() => {
-    Promise.all([api.getAssets(), api.getNotes(), api.getConfig()])
-      .then(([a, n, c]) => {
+  // ─── Carga de la cartera (del usuario o demo) ───────────
+  const reloadPortfolio = useCallback(() => {
+    return Promise.all([api.getAssets(), api.getNotes()])
+      .then(([a, n]) => {
         setAssets(a); setNotes(n);
-        const t = c.theme || 'dark'; setTheme(t);
         const stamps = a.map(x => x.priceUpdatedAt).filter(Boolean).sort();
-        if (stamps.length) setLastRefresh(timeAgo(stamps[stamps.length - 1]));
-        // Primera carga sin precios refrescados (datos semilla) → traer precios en vivo
+        setLastRefresh(stamps.length ? timeAgo(stamps[stamps.length - 1]) : null);
+        // Demo sin precios refrescados (datos semilla) → traer precios en vivo
         if (a.length && a.every(x => !x.priceUpdatedAt)) {
           api.refreshPrices()
             .then(r => { if (r.assets) { setAssets(r.assets); setLastRefresh(timeAgo(r.at)); } })
@@ -60,6 +70,45 @@ export default function App() {
       })
       .catch(e => toast('⚠ No se pudo conectar con el backend: ' + e.message));
   }, [toast]);
+
+  // ─── Carga inicial: tema + sesión + cartera ─────────────
+  useEffect(() => {
+    api.getConfig().then(c => setTheme(c.theme || 'dark')).catch(() => {});
+    api.me().then(r => setUser(r.user)).catch(() => {});
+    reloadPortfolio();
+  }, [reloadPortfolio]);
+
+  // ─── Tipos de cambio (FX) → divisa base EUR ─────────────
+  // Refresca cuando cambian las divisas presentes en la cartera.
+  const ccyKey = [...new Set(assets.map(a => (a.currency || 'USD').toUpperCase()))].sort().join(',');
+  useEffect(() => {
+    const ccys = ccyKey ? ccyKey.split(',') : [];
+    if (!ccys.length) return;
+    api.fx(ccys).then(r => setFxRates({ EUR: 1, ...(r.rates || {}) })).catch(() => {});
+  }, [ccyKey]);
+
+  // ─── Autenticación ──────────────────────────────────────
+  const onAuth = ({ token, user: u }) => {
+    setToken(token); setUser(u); setAuthOpen(false);
+    reloadPortfolio();
+  };
+  const logout = () => {
+    setToken(null); setUser(null);
+    toast('Sesión cerrada');
+    reloadPortfolio();
+  };
+  const showRecoveryCode = async () => {
+    if (!window.confirm('Se generará un código de recuperación NUEVO y el anterior dejará de funcionar. ¿Continuar?')) return;
+    try { const r = await api.regenerateCode(); setPresetCode(r.recoveryCode); setAuthOpen(true); }
+    catch (e) { toast('⚠ ' + e.message); }
+  };
+  // Exige sesión para acciones de escritura; si no, abre el modal
+  const requireAuth = () => {
+    if (user) return true;
+    setAuthOpen(true);
+    toast('Crea una cuenta para gestionar tu propia cartera');
+    return false;
+  };
 
   // ─── Tema ───────────────────────────────────────────────
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
@@ -79,6 +128,14 @@ export default function App() {
         setAssets(prev => prev.map(a => a.id === editId ? updated : a));
         toast(`✓ ${updated.ticker} actualizado`);
       } else {
+        // Fija el FX de entrada (EUR por 1 ud. de su divisa) para poder
+        // separar después retorno de activo vs retorno de divisa.
+        if (!payload.fxEntry) {
+          const ccy = (payload.currency || 'USD').toUpperCase();
+          let rate = fxRates[ccy];
+          if (rate == null) { try { rate = (await api.fx([ccy])).rates?.[ccy]; } catch {} }
+          if (rate != null) payload.fxEntry = rate;
+        }
         const created = await api.createAsset(payload);
         setAssets(prev => [...prev, created]);
         toast(`✓ ${created.ticker} registrado`);
@@ -88,6 +145,7 @@ export default function App() {
   };
 
   const deleteAsset = async (a) => {
+    if (!requireAuth()) return;
     if (!window.confirm(`¿Eliminar ${a.ticker}?`)) return;
     try {
       await api.deleteAsset(a.id);
@@ -121,6 +179,20 @@ export default function App() {
     } catch (e) { toast('⚠ ' + e.message); }
   };
 
+  // Calcula calidad del capital (ROIC/FCF/WACC) bajo demanda (Alpha Vantage)
+  const refreshQuality = async (id) => {
+    if (!requireAuth()) return;
+    try {
+      const r = await api.refreshQuality(id);
+      setAssets(prev => prev.map(x => (x.id === id ? r.asset : x)));
+      const a = r.asset, est = r.estimates;
+      const parts = [];
+      if (a.roic != null) parts.push(`ROIC ${a.roic}% vs WACC ${a.wacc ?? '—'}%`);
+      if (est?.targetUpside != null) parts.push(`target ${est.targetUpside >= 0 ? '+' : ''}${est.targetUpside}% (${est.recommendation || '—'})`);
+      toast(parts.length ? `✓ ${a.ticker}: ${parts.join(' · ')}` : `↻ ${a.ticker}: ${(r.errors || []).join(' · ') || 'sin datos'}`);
+    } catch (e) { toast('⚠ ' + e.message); }
+  };
+
   // ─── Notas ──────────────────────────────────────────────
   const saveNote = async (payload) => {
     try {
@@ -145,6 +217,7 @@ export default function App() {
   };
 
   const resetData = async () => {
+    if (!requireAuth()) return;
     if (!window.confirm('¿Borrar todos los activos y notas? No se puede deshacer.')) return;
     try {
       await Promise.all(assets.map(a => api.deleteAsset(a.id)));
@@ -155,12 +228,13 @@ export default function App() {
   };
 
   const openNotes = (id) => setDetailId(id);
-  const openEdit = (a) => setAssetModal({ open: true, editing: a, presetType: a.type || 'portfolio' });
-  const newAsset = (presetType = 'portfolio') => setAssetModal({ open: true, editing: null, presetType });
+  const openEdit = (a) => { if (!requireAuth()) return; setAssetModal({ open: true, editing: a, presetType: a.type || 'portfolio' }); };
+  const newAsset = (presetType = 'portfolio') => { if (!requireAuth()) return; setAssetModal({ open: true, editing: null, presetType }); };
+  const addNote = (id) => { if (!requireAuth()) return; setLearnModal({ open: true, linkedAssetId: id }); };
   const closeAssetModal = () => setAssetModal({ open: false, editing: null, presetType: 'portfolio' });
   const detailAsset = detailId ? assets.find(a => a.id === detailId) : null;
 
-  const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset, onRefreshData: refreshAssetData };
+  const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset, onRefreshData: refreshAssetData, onRefreshQuality: refreshQuality };
 
   return (
     <>
@@ -178,6 +252,17 @@ export default function App() {
           )}
         </div>
         <div className="sidebar-bottom">
+          {user ? (
+            <>
+              <div className="stat-row" style={{ alignItems: 'center' }}>
+                <span className="stat-label" title={user.email} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>👤 {user.email}</span>
+                <button className="sb-btn" onClick={logout} style={{ padding: '3px 9px', flex: 'none' }}>Salir</button>
+              </div>
+              <button className="sb-btn" style={{ width: '100%', marginBottom: '10px', fontSize: '11px' }} onClick={showRecoveryCode}>🔑 Código de recuperación</button>
+            </>
+          ) : (
+            <button className="sb-btn" style={{ width: '100%', marginBottom: '10px' }} onClick={() => setAuthOpen(true)}>🔑 Iniciar sesión / Registrarse</button>
+          )}
           <div className="stat-row"><span className="stat-label">Activos</span><span className="stat-val">{assets.length}</span></div>
           <div className="stat-row"><span className="stat-label">Notas</span><span className="stat-val">{notes.length}</span></div>
           <div className="sb-btns">
@@ -201,13 +286,24 @@ export default function App() {
         </div>
 
         <div className="content">
-          {section === 'dashboard' && <Dashboard assets={portfolio} notes={notes} theme={theme} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />}
-          {section === 'assets' && <Assets assets={portfolio} notes={notes} theme={theme} {...navHandlers} />}
-          {section === 'watchlist' && <Watchlist assets={watchlist} notes={notes} theme={theme} {...navHandlers} onAdd={() => newAsset('watchlist')} />}
+          {!user && ['dashboard', 'assets', 'watchlist', 'compare', 'charts', 'learning'].includes(section) && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '4px solid var(--gold)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '12px', color: 'var(--muted)', lineHeight: 1.6 }}>
+              👁 Estás viendo la cartera <b>DEMO</b> compartida (solo lectura). <span onClick={() => setAuthOpen(true)} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>Crea tu cuenta privada</span> para gestionar tus propios activos y notas.
+            </div>
+          )}
+          {section === 'dashboard' && <Dashboard assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />}
+          {section === 'assets' && <Assets assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} />}
+          {section === 'watchlist' && <Watchlist assets={watchlist} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} onAdd={() => newAsset('watchlist')} />}
           {section === 'compare' && <Compare assets={assets} />}
-          {section === 'charts' && <Charts assets={portfolio} theme={theme} />}
+          {section === 'charts' && <Charts assets={portfolio} theme={theme} fxRates={fxRates} />}
           {section === 'screener' && <Screener />}
-          {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={(id) => setLearnModal({ open: true, linkedAssetId: id })} />}
+          {section === 'valuation' && <Valuation toast={toast} />}
+          {section === 'volprofile' && <VolProfile theme={theme} toast={toast} />}
+          {section === 'smc' && <SMC theme={theme} toast={toast} />}
+          {section === 'gamma' && <Gamma theme={theme} toast={toast} />}
+          {section === 'trendfollow' && <TrendFollowing theme={theme} toast={toast} />}
+          {section === 'guide' && <Guide go={go} />}
+          {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={addNote} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
           {section === 'indices' && <Indices theme={theme} toast={toast} />}
           {section === 'sentiment' && <Sentiment theme={theme} toast={toast} />}
@@ -218,7 +314,8 @@ export default function App() {
 
       <AssetModal open={assetModal.open} editing={assetModal.editing} presetType={assetModal.presetType} onClose={closeAssetModal} onSave={saveAsset} toast={toast} />
       <LearnModal open={learnModal.open} assets={assets} linkedAssetId={learnModal.linkedAssetId} onClose={() => setLearnModal({ open: false, linkedAssetId: null })} onSave={saveNote} toast={toast} />
-      <DetailModal asset={detailAsset} notes={notes} onClose={() => setDetailId(null)} onAddNote={(id) => { setDetailId(null); setLearnModal({ open: true, linkedAssetId: id }); }} />
+      <DetailModal asset={detailAsset} notes={notes} onClose={() => setDetailId(null)} onAddNote={(id) => { setDetailId(null); addNote(id); }} />
+      <AuthModal open={authOpen} presetCode={presetCode} onClose={() => { setAuthOpen(false); setPresetCode(null); }} onAuth={onAuth} toast={toast} />
 
       <div className={`toast${toastMsg ? ' show' : ''}`}>{toastMsg}</div>
     </>

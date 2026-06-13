@@ -116,8 +116,8 @@ const TTL = 10 * 60 * 1000; // 10 min
 const SEC_LONG_YEARS = { '3y': 3, '5y': 5, '10y': 10 };
 const SEC_PERIODS = [...PERIODS, ...Object.keys(SEC_LONG_YEARS)];
 
-export async function getSectors() {
-  if (cache.data && Date.now() - cache.ts < TTL) return cache.data;
+export async function getSectors(force = false) {
+  if (!force && cache.data && Date.now() - cache.ts < TTL) return cache.data;
 
   const results = await Promise.all(SECTOR_META.map(async (m) => {
     const base = { ...m };
@@ -326,8 +326,8 @@ function dailyChange(points, meta) {
 }
 
 let mmCache = { ts: 0, data: null };
-export async function getMarketMap() {
-  if (mmCache.data && Date.now() - mmCache.ts < 15 * 60 * 1000) return mmCache.data;
+export async function getMarketMap(force = false) {
+  if (!force && mmCache.data && Date.now() - mmCache.ts < 15 * 60 * 1000) return mmCache.data;
 
   const out = await Promise.all(MARKET_BASKET.map(async (s) => {
     try {
@@ -362,11 +362,40 @@ export async function getQuotes(symbols) {
     try {
       const { points, meta } = await fetchChart(yahooSymbol(s), '5d', '1d');
       const { price, prev, change } = dailyChange(points, meta);
-      return { symbol: s, price, previousClose: prev, changePercent: change };
+      return { symbol: s, price, previousClose: prev, changePercent: change, currency: meta.currency || null };
     } catch (e) {
       return { symbol: s, price: null, error: e.message };
     }
   }));
+}
+
+// ─────────────────────────────────────────────────────────────
+// TIPOS DE CAMBIO (FX) vía Yahoo. Base fija EUR (la del inversor).
+// Devuelve, por divisa, cuántos EUR vale 1 unidad de esa divisa.
+// Ej. { EUR:1, USD:0.92, GBP:1.17 }. Cache 1 h. Tolera fallos por divisa.
+// ─────────────────────────────────────────────────────────────
+const FX_BASE = 'EUR';
+let fxCache = { ts: 0, rates: {} };
+const FX_TTL = 60 * 60 * 1000;
+
+export async function getFx(symbols = []) {
+  const want = [...new Set(symbols.map(c => String(c || '').trim().toUpperCase()).filter(Boolean))];
+  const fresh = Date.now() - fxCache.ts < FX_TTL;
+  const missing = want.filter(c => !(fresh && c in fxCache.rates));
+  const rates = fresh ? { ...fxCache.rates } : {};
+  rates[FX_BASE] = 1;
+
+  await Promise.all(missing.map(async (ccy) => {
+    if (ccy === FX_BASE) { rates[ccy] = 1; return; }
+    try {
+      const { points, meta } = await fetchChart(`${ccy}${FX_BASE}=X`, '5d', '1d');
+      const last = meta.regularMarketPrice ?? points.at(-1)?.close ?? null;
+      if (last != null) rates[ccy] = +Number(last).toFixed(6);
+    } catch (e) { /* divisa sin dato → se omite */ }
+  }));
+
+  fxCache = { ts: Date.now(), rates: { ...fxCache.rates, ...rates } };
+  return { base: FX_BASE, rates };
 }
 
 // Serie histórica de cierres para el gráfico por activo

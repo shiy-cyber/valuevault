@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
 
-const NUM_FIELDS = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l'];
+const NUM_FIELDS = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop'];
 const STRATS = [['value','Value'],['growth','Growth'],['dividend','Dividend'],['momentum','Momentum'],['garp','GARP'],['hidden','Gema Oculta']];
 const TIMES = [['short','Corto Plazo'],['medium','Medio Plazo'],['long','Largo Plazo']];
 const RISKS = [['low','Bajo'],['medium','Medio'],['high','Alto']];
+const CCYS = ['USD','EUR','GBP','JPY','HKD','CHF','CAD','AUD','CNY'];
+const ENGINES = [['','—'],['momentum','A · Momentum / Moda'],['value','B · Valor real'],['hidden','C · Gema oculta']];
 
 const empty = () => ({
   ticker:'', name:'', sector:'', market:'', mcap:'', thesis:'',
   price:'', current:'', pe:'', fpe:'', pb:'', peg:'', evebitda:'', ps:'',
   eps:'', epsd:'', epsny:'', epsg:'', roe:'', roa:'', gm:'', om:'', nm:'',
   de:'', cr:'', qr:'', dy:'', pr:'', beta:'', w52h:'', w52l:'',
+  shares:'', currency:'USD', engine:'', target:'', stop:'', catalyst:'', catalystDate:'',
   strategies: [], time: [], risk: '', type: 'portfolio',
 });
 
@@ -94,9 +97,17 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
 
           <F label="Nombre Empresa" id="name" form={form} set={set} type="text" placeholder="Auto · editable" />
           <F label="Sector" id="sector" form={form} set={set} type="text" placeholder="Auto · editable" />
-          <F label="Precio Entrada ($)" id="price" form={form} set={set} placeholder="Tu precio de compra" />
-          <F label="Precio Actual ($)" id="current" form={form} set={set} placeholder="Auto · editable" />
+          <F label="Precio Entrada" id="price" form={form} set={set} placeholder="Tu precio de compra" />
+          <F label="Precio Actual" id="current" form={form} set={set} placeholder="Auto · editable" />
           <F label="Mercado" id="market" form={form} set={set} type="text" placeholder="Auto · editable" />
+
+          <F label="Nº Acciones / Tamaño" id="shares" form={form} set={set} placeholder="Tu posición" />
+          <div className="form-group">
+            <label>Divisa</label>
+            <select value={form.currency || 'USD'} onChange={e => set('currency', e.target.value)}>
+              {CCYS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
 
           <F label="P/E Ratio" id="pe" form={form} set={set} />
           <F label="Forward P/E" id="fpe" form={form} set={set} />
@@ -155,6 +166,18 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
               ))}
             </div>
           </div>
+          <div className="form-group full"><label>Motor de Alfa (¿por qué subirá?)</label>
+            <div className="checkbox-group">
+              {ENGINES.filter(([v]) => v).map(([v, l]) => (
+                <label key={v} className={`check-item${form.engine === v ? ' selected' : ''}`} onClick={() => set('engine', form.engine === v ? '' : v)}>{l}</label>
+              ))}
+            </div>
+          </div>
+          <F label="Precio Objetivo" id="target" form={form} set={set} placeholder="Tu valoración" />
+          <F label="Stop / Invalidación" id="stop" form={form} set={set} placeholder="Nivel que rompe la tesis" />
+          <F label="Catalizador" id="catalyst" form={form} set={set} type="text" placeholder="Evento que la activa" />
+          <F label="Fecha Catalizador" id="catalystDate" form={form} set={set} type="date" placeholder="" />
+
           <div className="form-group full"><label>Tesis de Inversión / Fundamentos de Valor</label>
             <textarea value={form.thesis} placeholder="Ventajas competitivas, catalizadores, métricas clave, margen de seguridad…" onChange={e => set('thesis', e.target.value)} />
           </div>

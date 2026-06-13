@@ -1,26 +1,38 @@
 import React from 'react';
 import AssetRow from './AssetRow.jsx';
-import { avgPnl } from '../lib/format.js';
+import RiskPanel from './RiskPanel.jsx';
+import { portfolioStats, fmtBase } from '../lib/format.js';
 
-export default function Dashboard({ assets, notes, theme, onNotes, onEdit, onDelete, onRefreshData, goAssets, onRefresh, refreshing, lastRefresh }) {
+export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality, goAssets, onRefresh, refreshing, lastRefresh }) {
   const noteCount = (id) => notes.filter(n => n.assetId === id).length;
   const lowRisk = assets.filter(a => a.risk === 'low').length;
   const recent = assets.slice(-5).reverse();
-  const pnl = avgPnl(assets);
-  const pnlColor = pnl === null ? 'var(--text)' : pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const st = portfolioStats(assets, fxRates);
+  const ret = st.returnPct;
+  const retColor = ret === null ? 'var(--text)' : ret >= 0 ? 'var(--green)' : 'var(--red)';
 
   return (
     <div className="section active">
       <div className="kpi-grid">
-        <div className="kpi-card"><div className="kpi-label">Total Activos</div><div className="kpi-value">{assets.length}</div><div className="kpi-sub">en cartera</div></div>
         <div className="kpi-card">
-          <div className="kpi-label">Rendimiento Medio</div>
-          <div className="kpi-value" style={{ color: pnlColor }}>{pnl === null ? '—' : (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + '%'}</div>
-          <div className="kpi-sub">desde precio de entrada</div>
+          <div className="kpi-label">Valor Cartera</div>
+          <div className="kpi-value">{fmtBase(st.valueBase)}</div>
+          <div className="kpi-sub">{st.sized} con tamaño{st.unsized ? ` · ${st.unsized} sin definir` : ''}</div>
         </div>
-        <div className="kpi-card"><div className="kpi-label">Riesgo Bajo</div><div className="kpi-value kpi-pos">{lowRisk}</div><div className="kpi-sub">en cartera</div></div>
-        <div className="kpi-card"><div className="kpi-label">Notas</div><div className="kpi-value">{notes.length}</div><div className="kpi-sub">de aprendizaje</div></div>
+        <div className="kpi-card">
+          <div className="kpi-label">Rendimiento (ponderado, €)</div>
+          <div className="kpi-value" style={{ color: retColor }}>{ret === null ? '—' : (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%'}</div>
+          <div className="kpi-sub">
+            {st.pnlBase === null ? 'añade tamaño de posición' : `P&L ${fmtBase(st.pnlBase)}`}
+            {st.currencyPct != null ? ` · divisa ${st.currencyPct >= 0 ? '+' : ''}${st.currencyPct.toFixed(1)}%` : ''}
+          </div>
+        </div>
+        <div className="kpi-card"><div className="kpi-label">Riesgo Bajo</div><div className="kpi-value kpi-pos">{lowRisk}</div><div className="kpi-sub">percibido (manual)</div></div>
+        <div className="kpi-card"><div className="kpi-label">Total Activos</div><div className="kpi-value">{assets.length}</div><div className="kpi-sub">en cartera</div></div>
       </div>
+
+      <RiskPanel assets={assets} fxRates={fxRates} />
+
       <div className="section-header">
         <div className="section-title">Últimos Activos</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -31,7 +43,7 @@ export default function Dashboard({ assets, notes, theme, onNotes, onEdit, onDel
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
         {recent.length
-          ? recent.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} />)
+          ? recent.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} />)
           : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">Añade tu primer activo</div></div>}
       </div>
     </div>

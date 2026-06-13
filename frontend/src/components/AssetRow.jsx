@@ -1,7 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
-import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo } from '../lib/format.js';
+import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo, compositeScore, positionMetrics, fmtBase } from '../lib/format.js';
+
+const ENGINE_LABEL = { momentum: 'A · Momentum', value: 'B · Valor', hidden: 'C · Gema oculta' };
+const scoreColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 45 ? 'var(--orange)' : 'var(--red)';
+// Recomendación de consenso → etiqueta + color
+const REC_MAP = {
+  strong_buy: ['Compra fuerte', 'var(--green)'], buy: ['Compra', 'var(--green)'],
+  hold: ['Mantener', 'var(--orange)'], underperform: ['Infraponderar', 'var(--red)'],
+  sell: ['Venta', 'var(--red)'], strong_sell: ['Venta fuerte', 'var(--red)'],
+};
+
+// Barra de un pilar del score (0-100)
+function ScoreBar({ label, score }) {
+  return (
+    <div className="mv-item">
+      <div className="mv-label">{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ flex: 1, height: '5px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${score ?? 0}%`, background: scoreColor(score), borderRadius: '3px' }} />
+        </div>
+        <div className="mv-val" style={{ color: scoreColor(score), minWidth: '28px', textAlign: 'right' }}>{score ?? '—'}</div>
+      </div>
+    </div>
+  );
+}
 
 function MV({ label, val, suffix = '', good, warn }) {
   const v = parseFloat(val);
@@ -71,17 +95,28 @@ function PriceHistory({ ticker, theme }) {
 }
 
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
-export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelete, onRefreshData }) {
+export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
   const [open, setOpen] = useState(false);
   const [busyData, setBusyData] = useState(false);
+  const [busyQual, setBusyQual] = useState(false);
   const chg = changePct(a).toFixed(2);
   const isPos = chg >= 0;
   const live = timeAgo(a.priceUpdatedAt);
+  const sc = compositeScore(a);
+  const pos = positionMetrics(a, fxRates || {});
+  const spread = (a.roic != null && a.wacc != null) ? +(a.roic - a.wacc).toFixed(1) : null;
+  const rec = REC_MAP[a.recommendation] || null;
+  const upside = (a.targetMean > 0 && a.current > 0) ? +((a.targetMean / a.current - 1) * 100).toFixed(1) : null;
 
   const doRefresh = async () => {
     if (busyData || !onRefreshData) return;
     setBusyData(true);
     try { await onRefreshData(a.id); } finally { setBusyData(false); }
+  };
+  const doQuality = async () => {
+    if (busyQual || !onRefreshQuality) return;
+    setBusyQual(true);
+    try { await onRefreshQuality(a.id); } finally { setBusyQual(false); }
   };
 
   return (
@@ -114,14 +149,43 @@ export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelet
 
       {open && (
         <div className="arow-panel">
-          {onRefreshData && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-              <button className="btn btn-outline" disabled={busyData} onClick={doRefresh} style={{ fontSize: '11px', padding: '6px 12px' }}>
-                {busyData ? '⏳ Actualizando…' : '🔄 Actualizar datos de mercado'}
-              </button>
+          {(onRefreshData || onRefreshQuality) && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px' }}>
+              {onRefreshQuality && (
+                <button className="btn btn-outline" disabled={busyQual} onClick={doQuality} style={{ fontSize: '11px', padding: '6px 12px' }}>
+                  {busyQual ? '⏳ Calculando…' : '📊 Fundamentales'}
+                </button>
+              )}
+              {onRefreshData && (
+                <button className="btn btn-outline" disabled={busyData} onClick={doRefresh} style={{ fontSize: '11px', padding: '6px 12px' }}>
+                  {busyData ? '⏳ Actualizando…' : '🔄 Actualizar datos de mercado'}
+                </button>
+              )}
             </div>
           )}
           <PriceHistory ticker={a.ticker} theme={theme} />
+
+          <div className="mv-section-label">Score Compuesto <span style={{ color: scoreColor(sc.total) }}>· {sc.total ?? '—'}/100</span></div>
+          <div className="mv-grid">
+            <ScoreBar label="Valor" score={sc.value} />
+            <ScoreBar label="Calidad" score={sc.quality} />
+            <ScoreBar label={a.epsRev != null ? 'Momentum' : 'Momentum*'} score={sc.momentum} />
+          </div>
+          {a.epsRev == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>*Momentum = proxy (rango 52s + crecimiento EPS). Pulsa «📊 Fundamentales» para añadir revisiones de analistas.</div>
+          )}
+
+          <div className="mv-section-label">Posición & Proceso</div>
+          <div className="mv-grid">
+            <div className="mv-item"><div className="mv-label">Tamaño</div><div className="mv-val">{a.shares > 0 ? `${fmt(a.shares)} ${a.currency || ''}` : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Valor (EUR)</div><div className="mv-val">{pos.sized ? fmtBase(pos.valueBase) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">P&L (EUR)</div><div className="mv-val" style={{ color: pos.sized && pos.pnlBase >= 0 ? 'var(--green)' : pos.sized ? 'var(--red)' : 'var(--muted)' }}>{pos.sized ? fmtBase(pos.pnlBase) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Ret. divisa</div><div className="mv-val">{pos.curRet != null ? `${pos.curRet >= 0 ? '+' : ''}${(pos.curRet * 100).toFixed(1)}%` : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Motor α</div><div className="mv-val">{ENGINE_LABEL[a.engine] || '—'}</div></div>
+            <MV label="Objetivo" val={a.target} suffix={a.currency ? ' ' + a.currency : ''} />
+            <MV label="Stop" val={a.stop} suffix={a.currency ? ' ' + a.currency : ''} />
+            <div className="mv-item"><div className="mv-label">Catalizador</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.catalyst ? a.catalyst + (a.catalystDate ? ` (${a.catalystDate})` : '') : '—'}</div></div>
+          </div>
 
           <div className="mv-section-label">Valoración</div>
           <div className="mv-grid">
@@ -129,17 +193,51 @@ export default function AssetRow({ a, noteCount, theme, onNotes, onEdit, onDelet
             <MV label="PEG" val={a.peg} /><MV label="EV/EBITDA" val={a.evebitda} suffix="x" /><MV label="P/Sales" val={a.ps} suffix="x" />
           </div>
 
-          <div className="mv-section-label">EPS</div>
+          <div className="mv-section-label">EPS & Revisiones</div>
           <div className="mv-grid">
             <MV label="EPS" val={a.eps} suffix="$" /><MV label="EPS Diluted" val={a.epsd} suffix="$" /><MV label="EPS Next Y" val={a.epsny} suffix="$" />
             <MV label="EPS Gr.5Y" val={a.epsg} suffix="%" good={10} warn={5} />
+            <div className="mv-item"><div className="mv-label">Rev. EPS 30d</div><div className="mv-val" style={{ color: a.epsRev == null ? 'var(--muted)' : a.epsRev > 0 ? 'var(--green)' : a.epsRev < 0 ? 'var(--red)' : 'var(--text)' }}>{a.epsRev == null ? '—' : (a.epsRev > 0 ? '+' : '') + a.epsRev + '%'}</div></div>
           </div>
+
+          <div className="mv-section-label">
+            Consenso de Analistas
+            {rec && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff', background: rec[1] }}>{rec[0]}</span>}
+          </div>
+          <div className="mv-grid">
+            <div className="mv-item"><div className="mv-label">Precio Objetivo</div><div className="mv-val">{a.targetMean > 0 ? fmt(a.targetMean) + (a.currency ? ' ' + a.currency : '') : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Potencial</div><div className="mv-val" style={{ color: upside == null ? 'var(--muted)' : upside >= 0 ? 'var(--green)' : 'var(--red)' }}>{upside == null ? '—' : (upside >= 0 ? '+' : '') + upside + '%'}</div></div>
+            <div className="mv-item"><div className="mv-label">Recomendación</div><div className="mv-val" style={{ color: rec ? rec[1] : 'var(--muted)' }}>{rec ? rec[0] : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Nº Analistas</div><div className="mv-val">{a.numAnalysts > 0 ? a.numAnalysts : '—'}</div></div>
+          </div>
+          {a.targetMean == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 Fundamentales» para traer el consenso de analistas.</div>
+          )}
 
           <div className="mv-section-label">Calidad del Negocio</div>
           <div className="mv-grid">
             <MV label="ROE" val={a.roe} suffix="%" good={15} warn={8} /><MV label="ROA" val={a.roa} suffix="%" good={10} warn={5} /><MV label="Gross Mg." val={a.gm} suffix="%" good={40} warn={20} />
             <MV label="Mg.Operativo" val={a.om} suffix="%" good={20} warn={10} /><MV label="Mg.Neto" val={a.nm} suffix="%" good={15} warn={8} />
           </div>
+
+          <div className="mv-section-label">
+            Calidad del Capital
+            {spread != null && (
+              <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff',
+                background: spread > 0 ? 'var(--green)' : 'var(--red)' }}>
+                {spread > 0 ? `✓ crea valor (+${spread})` : `✗ destruye valor (${spread})`}
+              </span>
+            )}
+          </div>
+          <div className="mv-grid">
+            <MV label="ROIC" val={a.roic} suffix="%" good={15} warn={8} />
+            <MV label="WACC" val={a.wacc} suffix="%" />
+            <div className="mv-item"><div className="mv-label">ROIC − WACC</div><div className="mv-val" style={{ color: spread == null ? 'var(--muted)' : spread > 0 ? 'var(--green)' : 'var(--red)' }}>{spread == null ? '—' : (spread > 0 ? '+' : '') + spread + ' pp'}</div></div>
+            <MV label="FCF Yield" val={a.fcfy} suffix="%" good={5} warn={3} />
+          </div>
+          {a.roic == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 ROIC / FCF» para calcularlo (Alpha Vantage).</div>
+          )}
 
           <div className="mv-section-label">Solidez Financiera</div>
           <div className="mv-grid">

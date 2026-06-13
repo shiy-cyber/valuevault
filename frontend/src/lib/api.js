@@ -3,8 +3,19 @@
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const u = (path) => `${BASE}${path}`;
 
+// ─── Sesión (token JWT en localStorage) ─────────────────────
+let token = (typeof localStorage !== 'undefined' && localStorage.getItem('vv_token')) || null;
+export function setToken(t) {
+  token = t || null;
+  if (typeof localStorage !== 'undefined') {
+    if (t) localStorage.setItem('vv_token', t); else localStorage.removeItem('vv_token');
+  }
+}
+export function getToken() { return token; }
+
 async function req(method, path, body) {
   const opts = { method, headers: {} };
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
   if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   const r = await fetch(u(path), opts);
   const text = await r.text();
@@ -14,6 +25,12 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  register: (email, password) => req('POST', '/api/auth/register', { email, password }),
+  login:    (email, password) => req('POST', '/api/auth/login', { email, password }),
+  me:       () => req('GET', '/api/auth/me'),
+  reset:    (email, code, password) => req('POST', '/api/auth/reset', { email, code, password }),
+  regenerateCode: () => req('POST', '/api/auth/recovery-code'),
+
   getAssets:   () => req('GET', '/api/assets'),
   createAsset: (a) => req('POST', '/api/assets', a),
   updateAsset: (id, a) => req('PUT', `/api/assets/${id}`, a),
@@ -29,13 +46,22 @@ export const api = {
   getExport: () => req('GET', '/api/export'),
 
   lookup:  (ticker) => req('GET', `/api/lookup/${encodeURIComponent(ticker)}`),
-  sectors: () => req('GET', '/api/sectors'),
+  fundamentals: (ticker) => req('GET', `/api/fundamentals/${encodeURIComponent(ticker)}`),
+  volprofile: (symbol, range, anchor) => req('GET', `/api/volprofile/${encodeURIComponent(symbol)}?range=${range}&anchor=${anchor}`),
+  smc: (symbol, range) => req('GET', `/api/smc/${encodeURIComponent(symbol)}?range=${range}`),
+  gamma: (symbol, date) => req('GET', `/api/gamma/${encodeURIComponent(symbol)}${date ? `?date=${date}` : ''}`),
+  trendfollow: (symbol, range = '1y') => req('GET', `/api/trendfollow/${encodeURIComponent(symbol)}?range=${range}`),
+  trendUniverse: (range = '1y') => req('GET', `/api/trend-universe?range=${range}`),
+  sectors: (fresh) => req('GET', `/api/sectors${fresh ? '?fresh=1' : ''}`),
   indices: (fresh) => req('GET', `/api/indices${fresh ? '?fresh=1' : ''}`),
   sentiment: (fresh) => req('GET', `/api/sentiment${fresh ? '?fresh=1' : ''}`),
   macro: (fresh) => req('GET', `/api/macro${fresh ? '?fresh=1' : ''}`),
-  marketMap: () => req('GET', '/api/market-map'),
+  marketMap: (fresh) => req('GET', `/api/market-map${fresh ? '?fresh=1' : ''}`),
+  fx: (symbols) => req('GET', `/api/fx?symbols=${encodeURIComponent((symbols || []).join(','))}`),
+  risk: (symbols, range = '1y') => req('GET', `/api/risk?symbols=${encodeURIComponent((symbols || []).join(','))}&range=${range}`),
   quote:   (symbol) => req('GET', `/api/quote/${encodeURIComponent(symbol)}`),
   history: (symbol, range) => req('GET', `/api/history/${encodeURIComponent(symbol)}?range=${range}`),
   refreshPrices: () => req('POST', '/api/assets/refresh-prices'),
   refreshAssetData: (id) => req('POST', `/api/assets/${id}/refresh-data`),
+  refreshQuality: (id) => req('POST', `/api/assets/${id}/quality`),
 };
