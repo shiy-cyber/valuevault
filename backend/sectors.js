@@ -116,8 +116,8 @@ const TTL = 10 * 60 * 1000; // 10 min
 const SEC_LONG_YEARS = { '3y': 3, '5y': 5, '10y': 10 };
 const SEC_PERIODS = [...PERIODS, ...Object.keys(SEC_LONG_YEARS)];
 
-export async function getSectors() {
-  if (cache.data && Date.now() - cache.ts < TTL) return cache.data;
+export async function getSectors(force = false) {
+  if (!force && cache.data && Date.now() - cache.ts < TTL) return cache.data;
 
   const results = await Promise.all(SECTOR_META.map(async (m) => {
     const base = { ...m };
@@ -326,8 +326,8 @@ function dailyChange(points, meta) {
 }
 
 let mmCache = { ts: 0, data: null };
-export async function getMarketMap() {
-  if (mmCache.data && Date.now() - mmCache.ts < 15 * 60 * 1000) return mmCache.data;
+export async function getMarketMap(force = false) {
+  if (!force && mmCache.data && Date.now() - mmCache.ts < 15 * 60 * 1000) return mmCache.data;
 
   const out = await Promise.all(MARKET_BASKET.map(async (s) => {
     try {

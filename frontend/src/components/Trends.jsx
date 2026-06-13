@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
@@ -21,21 +21,26 @@ export default function Trends({ theme, toast }) {
   const [period, setPeriod] = useState('1m');
   const [active, setActive] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(null);
   const isDark = theme === 'dark';
 
-  useEffect(() => {
-    let alive = true;
-    api.sectors()
-      .then(data => {
-        if (!alive) return;
-        setSectors(data);
-        setActive(new Set(data.map(s => s.name)));
-        setLoading(false);
-        if (data.some(s => s.live === false)) toast?.('⚠ Algunos sectores usan datos de respaldo');
-      })
-      .catch(e => { if (alive) { setLoading(false); toast?.('⚠ No se pudieron cargar los sectores: ' + e.message); } });
-    return () => { alive = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // fresh=true salta la caché de 10 min del backend y conserva la selección
+  const load = useCallback(async (fresh) => {
+    if (fresh) setRefreshing(true);
+    try {
+      const data = await api.sectors(fresh);
+      setSectors(data);
+      setActive(prev => prev.size ? prev : new Set(data.map(s => s.name)));
+      setUpdatedAt(new Date());
+      if (data.some(s => s.live === false)) toast?.('⚠ Algunos sectores usan datos de respaldo');
+      else if (fresh) toast?.('↻ Sectores actualizados');
+    } catch (e) {
+      toast?.('⚠ No se pudieron cargar los sectores: ' + e.message);
+    } finally { setLoading(false); setRefreshing(false); }
+  }, [toast]);
+
+  useEffect(() => { load(false); }, [load]);
 
   const sorted = useMemo(() => [...sectors].sort((a, b) => lastVal(b, period) - lastVal(a, period)), [sectors, period]);
 
@@ -107,10 +112,16 @@ export default function Trends({ theme, toast }) {
             Rendimiento relativo de los principales sectores · {loading ? 'cargando…' : 'datos Yahoo Finance en vivo'}
           </div>
         </div>
-        <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
-          {PERIODS.map(([k, l]) => (
-            <button key={k} className={`filter-chip${period === k ? ' active' : ''}`} onClick={() => setPeriod(k)}>{l}</button>
-          ))}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'10px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+            {updatedAt && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>↻ {updatedAt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</span>}
+            <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? '⏳ Actualizando…' : '↻ Actualizar'}</button>
+          </div>
+          <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', justifyContent:'flex-end' }}>
+            {PERIODS.map(([k, l]) => (
+              <button key={k} className={`filter-chip${period === k ? ' active' : ''}`} onClick={() => setPeriod(k)}>{l}</button>
+            ))}
+          </div>
         </div>
       </div>
 

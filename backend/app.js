@@ -213,14 +213,14 @@ export async function createApp() {
   }));
 
   // ─── YAHOO / MERCADO (público) ─────────────────────────────
-  app.get('/api/sectors', h(async (_req, res) => { res.json(await getSectors()); }));
+  app.get('/api/sectors', h(async (req, res) => { res.json(await getSectors(req.query.fresh === '1')); }));
   app.get('/api/indices', h(async (req, res) => { res.json(await getIndices(req.query.fresh === '1')); }));
   app.get('/api/sentiment', h(async (req, res) => { res.json(await getSentiment(req.query.fresh === '1')); }));
   app.get('/api/macro', h(async (req, res) => { res.json(await getMacro(req.query.fresh === '1')); }));
   app.get('/api/volprofile/:symbol', h(async (req, res) => { res.json(await getVolProfile(req.params.symbol, req.query.range, req.query.anchor)); }));
   app.get('/api/smc/:symbol', h(async (req, res) => { res.json(await getSMC(req.params.symbol, req.query.range)); }));
   app.get('/api/gamma/:symbol', h(async (req, res) => { res.json(await getGamma(req.params.symbol, req.query.date)); }));
-  app.get('/api/market-map', h(async (_req, res) => { res.json(await getMarketMap()); }));
+  app.get('/api/market-map', h(async (req, res) => { res.json(await getMarketMap(req.query.fresh === '1')); }));
   app.get('/api/fx', h(async (req, res) => {
     const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean);
     res.json(await getFx(symbols));
