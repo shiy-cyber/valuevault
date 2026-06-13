@@ -179,7 +179,8 @@ export default function Gamma({ theme, toast }) {
           {data && data.expirations?.length > 0 && (
             <div style={{ minWidth: '150px' }}>
               <label style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>Vencimiento</label>
-              <select value={date ?? data.expirationDate} onChange={e => setDate(Number(e.target.value))} style={{ width: '100%', marginTop: '4px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '7px', padding: '8px 10px', color: 'var(--text)', fontFamily: "'DM Mono',monospace", fontSize: '13px' }}>
+              <select value={date ?? data.expirationDate} onChange={e => { const v = e.target.value; setDate(v === 'all' ? 'all' : Number(v)); }} style={{ width: '100%', marginTop: '4px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '7px', padding: '8px 10px', color: 'var(--text)', fontFamily: "'DM Mono',monospace", fontSize: '13px' }}>
+                <option value="all">Agregado (Todos los Vencimientos)</option>
                 {data.expirations.map(e => <option key={e.date} value={e.date}>{e.label}</option>)}
               </select>
             </div>
@@ -190,7 +191,7 @@ export default function Gamma({ theme, toast }) {
       {data && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,150px),1fr))', gap: '10px', marginBottom: '18px' }}>
-            {stat('Precio', '$' + data.spot, `${data.symbol} · ${data.daysToExpiry}d a venc.`)}
+            {stat('Precio', '$' + data.spot, `${data.symbol} · ${data.aggregated ? data.nExpirations + ' venc. agregados' : data.daysToExpiry + 'd a venc.'}`)}
             {stat('GEX Neto', (data.netGEX >= 0 ? '+' : '−') + '$' + bn(Math.abs(data.netGEX)), regimePos ? 'gamma larga (estabiliza)' : 'gamma corta (amplifica)', regimePos ? posColor : negColor)}
             {stat('Gamma Flip', data.gammaFlip != null ? '$' + data.gammaFlip : '—', flipVsSpot ? `precio ${flipVsSpot}` : 'sin cruce', 'var(--gold)')}
             {stat('Call Wall', data.callWall != null ? '$' + data.callWall : '—', 'resistencia', negColor)}
@@ -200,7 +201,7 @@ export default function Gamma({ theme, toast }) {
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
             <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <span>Perfil de gamma por strike · venc. {data.expiry} <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted)' }}>(top {byStrike.length} por gamma)</span></span>
+              <span>Perfil de gamma por strike · {data.aggregated ? `${data.nExpirations} venc. agregados` : `venc. ${data.expiry}`} <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted)' }}>(top {byStrike.length} por gamma)</span></span>
               <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> + · <span style={{ color: negColor }}>■</span> − · <span style={{ color: flipColor }}>▭</span> wall · <span style={{ color: spotColor }}>┄</span> spot · <span style={{ color: flipColor }}>┄</span> flip</span>
             </div>
             <div style={{ position: 'relative', height: '360px' }}>{!loading && barData && <Bar data={barData} options={barOpts} plugins={[barRefs]} />}</div>
@@ -220,7 +221,7 @@ export default function Gamma({ theme, toast }) {
       {!loading && !data && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontSize: '12px', padding: '40px' }}>No hay cadena de opciones para <b>{symbol}</b>. Prueba con un subyacente líquido de EE. UU. (SPY, QQQ, AAPL, NVDA…).</div>}
 
       <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
-        ⚡ Gamma Black-Scholes sobre OI e IV de Yahoo, convención de dealer largo de calls / corto de puts (SqueezeMetrics). GEX en $ por cada 1% de movimiento del subyacente. Es una estimación —el posicionamiento real de los dealers no es público— y solo cubre la cadena de un vencimiento. Herramienta de análisis, no asesoramiento.
+        ⚡ Gamma Black-Scholes sobre OI e IV de Yahoo, convención de dealer largo de calls / corto de puts (SqueezeMetrics). GEX en $ por cada 1% de movimiento del subyacente. Es una estimación —el posicionamiento real de los dealers no es público— y {data?.aggregated ? `agrega los ${data.nExpirations} vencimientos más cercanos (muro de contención global del libro)` : 'cubre la cadena de un solo vencimiento'}. Herramienta de análisis, no asesoramiento.
       </div>
     </div>
   );

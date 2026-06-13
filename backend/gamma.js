@@ -46,62 +46,102 @@ async function fetchChainJson(sym, date) {
   return res;
 }
 
+// Construye un "tramo" (leg) = un vencimiento con sus filas por strike y su T.
+function buildLeg(chain) {
+  if (!chain) return null;
+  const days = Math.max((chain.expirationDate * 1000 - Date.now()) / 86400000, 0.5);
+  const T = days / 365;
+  const byStrike = new Map();
+  const put = (k) => byStrike.get(k) || byStrike.set(k, { strike: k, callOI: 0, putOI: 0, callIV: 0, putIV: 0 }).get(k);
+  for (const c of chain.calls || []) { const r = put(c.strike); r.callOI = c.openInterest || 0; r.callIV = c.impliedVolatility || 0; }
+  for (const p of chain.puts || []) { const r = put(p.strike); r.putOI = p.openInterest || 0; r.putIV = p.impliedVolatility || 0; }
+  const rows = [...byStrike.values()].filter(r => r.strike > 0 && (r.callOI > 0 || r.putOI > 0));
+  if (rows.length < 3) return null;
+  return { rows, T, days, expirationDate: chain.expirationDate };
+}
+
+// GEX por strike al precio actual, SUMANDO todos los tramos (single o agregado).
+// Los walls = strike con mayor gamma·OI agregada a través de los vencimientos.
+function computeGEX(spot, legs) {
+  const map = new Map();
+  let netGEX = 0, callOItot = 0, putOItot = 0;
+  for (const { rows, T } of legs) {
+    for (const r of rows) {
+      const gc = bsGamma(spot, r.strike, T, r.callIV);
+      const gp = bsGamma(spot, r.strike, T, r.putIV);
+      const callGEX = gc * r.callOI * CONTRACT * spot * spot * 0.01;
+      const putGEX = -gp * r.putOI * CONTRACT * spot * spot * 0.01; // dealers cortos de puts
+      const net = callGEX + putGEX;
+      netGEX += net; callOItot += r.callOI; putOItot += r.putOI;
+      const e = map.get(r.strike) || { strike: r.strike, callOI: 0, putOI: 0, net: 0, cw: 0, pw: 0 };
+      e.callOI += r.callOI; e.putOI += r.putOI; e.net += net;
+      e.cw += gc * r.callOI; e.pw += gp * r.putOI;
+      map.set(r.strike, e);
+    }
+  }
+  let callWall = null, putWall = null;
+  for (const e of map.values()) {
+    if (!callWall || e.cw > callWall._m) callWall = { strike: e.strike, _m: e.cw };
+    if (!putWall || e.pw > putWall._m) putWall = { strike: e.strike, _m: e.pw };
+  }
+  const strikes = [...map.values()]
+    .map(e => ({ strike: e.strike, callOI: e.callOI, putOI: e.putOI, netGEX: +e.net.toFixed(0) }))
+    .sort((a, b) => a.strike - b.strike);
+  return { netGEX, callOItot, putOItot, callWall, putWall, strikes };
+}
+
+const MAX_EXP_AGG = 8; // vencimientos máximos a agregar (control de latencia serverless)
 const cache = new Map();
 const TTL = 10 * 60 * 1000;
 
 export async function getGamma(symbol, dateParam) {
   const sym = yahooSymbol(symbol);
-  const key = `${sym}|${dateParam || 'near'}`;
+  const aggregate = dateParam === 'all';
+  const key = `${sym}|${aggregate ? 'all' : (dateParam || 'near')}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.data;
 
-  const res = await fetchChainJson(sym, dateParam ? Number(dateParam) : undefined);
-  const spot = res.quote?.regularMarketPrice;
+  // Cadena base: la pedida (single) o la cercana (para spot + lista de venc.)
+  const baseRes = await fetchChainJson(sym, aggregate ? undefined : (dateParam ? Number(dateParam) : undefined));
+  const spot = baseRes.quote?.regularMarketPrice;
   if (!(spot > 0)) throw Object.assign(new Error('Sin precio de subyacente'), { status: 404 });
+  const allExp = baseRes.expirationDates || [];
 
-  const chain = res.options?.[0];
-  if (!chain) throw Object.assign(new Error(`Sin cadena de opciones para ${sym}`), { status: 404 });
-  const expiryMs = chain.expirationDate * 1000;
-  const days = Math.max((expiryMs - Date.now()) / 86400000, 0.5);
-  const T = days / 365;
+  // Tramos (legs): 1 en modo single; varios (vencimientos en paralelo) en agregado
+  let legs = [];
+  if (aggregate) {
+    const dates = allExp.slice(0, MAX_EXP_AGG);
+    const baseExp = baseRes.options?.[0]?.expirationDate;
+    const settled = await Promise.allSettled(dates.map(d =>
+      d === baseExp ? Promise.resolve(baseRes) : fetchChainJson(sym, d)
+    ));
+    for (const s of settled) {
+      if (s.status !== 'fulfilled') continue;
+      const leg = buildLeg(s.value.options?.[0]);
+      if (leg) legs.push(leg);
+    }
+  } else {
+    const leg = buildLeg(baseRes.options?.[0]);
+    if (leg) legs.push(leg);
+  }
+  if (!legs.length) throw Object.assign(new Error(`Datos de opciones insuficientes para ${sym}`), { status: 404 });
 
-  // Une calls y puts por strike
-  const byStrike = new Map();
-  const put = (k) => byStrike.get(k) || byStrike.set(k, { strike: k, callOI: 0, putOI: 0, callIV: 0, putIV: 0 }).get(k);
-  for (const c of chain.calls || []) { const r = put(c.strike); r.callOI = c.openInterest || 0; r.callIV = c.impliedVolatility || 0; }
-  for (const p of chain.puts || []) { const r = put(p.strike); r.putOI = p.openInterest || 0; r.putIV = p.impliedVolatility || 0; }
-
-  const rows = [...byStrike.values()].filter(r => r.strike > 0 && (r.callOI > 0 || r.putOI > 0));
-  if (rows.length < 3) throw Object.assign(new Error(`Datos de opciones insuficientes para ${sym}`), { status: 404 });
-
-  // GEX por strike al precio actual
-  let netGEX = 0, callOItot = 0, putOItot = 0;
-  let callWall = null, putWall = null;
-  const strikes = rows.map(r => {
-    const gc = bsGamma(spot, r.strike, T, r.callIV);
-    const gp = bsGamma(spot, r.strike, T, r.putIV);
-    const callGEX = gc * r.callOI * CONTRACT * spot * spot * 0.01;
-    const putGEX = -gp * r.putOI * CONTRACT * spot * spot * 0.01; // dealers cortos de puts
-    const net = callGEX + putGEX;
-    netGEX += net; callOItot += r.callOI; putOItot += r.putOI;
-    if (!callWall || gc * r.callOI > callWall._m) callWall = { strike: r.strike, _m: gc * r.callOI };
-    if (!putWall || gp * r.putOI > putWall._m) putWall = { strike: r.strike, _m: gp * r.putOI };
-    return { strike: r.strike, callOI: r.callOI, putOI: r.putOI, netGEX: +net.toFixed(0) };
-  }).sort((a, b) => a.strike - b.strike);
+  // GEX por strike al precio actual (suma de todos los tramos)
+  const { netGEX, callOItot, putOItot, callWall, putWall, strikes } = computeGEX(spot, legs);
 
   // Ventana legible alrededor del spot (±25%)
   const lo = spot * 0.75, hi = spot * 1.25;
   const windowStrikes = strikes.filter(s => s.strike >= lo && s.strike <= hi);
 
-  // Perfil de gamma: GEX total a distintos precios hipotéticos. El gamma flip
-  // es el precio donde la curva cruza cero (interpolación lineal del 1er cruce).
+  // Perfil de gamma: GEX total a distintos precios, SUMANDO todos los tramos. El
+  // gamma flip es el precio donde la curva cruza cero (interpolación del 1er cruce).
   let gammaFlip = null;
   const pLo = spot * 0.7, pHi = spot * 1.3, steps = 80;
   const profile = [];
   let prevP = null, prevG = null;
   for (let i = 0; i <= steps; i++) {
     const p = pLo + (pHi - pLo) * (i / steps);
-    const g = netGexAt(p, rows, T);
+    let g = 0; for (const lg of legs) g += netGexAt(p, lg.rows, lg.T);
     profile.push({ p: +p.toFixed(2), g: +g.toFixed(0) });
     if (gammaFlip == null && prevG != null) {
       if (prevG === 0) gammaFlip = +prevP.toFixed(2);
@@ -112,16 +152,22 @@ export async function getGamma(symbol, dateParam) {
     prevP = p; prevG = g;
   }
 
-  const expirations = (res.expirationDates || []).slice(0, 12).map(d => ({
+  const expirations = allExp.slice(0, 12).map(d => ({
     date: d, label: new Date(d * 1000).toISOString().slice(0, 10),
   }));
 
+  // Metadatos de vencimiento (single vs agregado)
+  const legDays = legs.map(l => Math.round(l.days)).sort((a, b) => a - b);
+  const single = !aggregate ? legs[0] : null;
   const data = {
     symbol: sym,
     spot: +spot.toFixed(2),
-    expiry: new Date(expiryMs).toISOString().slice(0, 10),
-    expirationDate: chain.expirationDate,
-    daysToExpiry: Math.round(days),
+    aggregated: aggregate,
+    nExpirations: legs.length,
+    expiry: aggregate ? `Agregado (${legs.length} venc.)` : new Date(single.expirationDate * 1000).toISOString().slice(0, 10),
+    expirationDate: aggregate ? null : single.expirationDate,
+    daysToExpiry: aggregate ? null : Math.round(single.days),
+    expiryRange: aggregate && legDays.length ? [legDays[0], legDays[legDays.length - 1]] : null,
     expirations,
     netGEX: +netGEX.toFixed(0),
     regime: netGEX >= 0 ? 'positive' : 'negative',
