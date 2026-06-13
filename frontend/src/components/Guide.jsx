@@ -2,6 +2,46 @@ import React, { useState } from 'react';
 
 const GUIDE = [
   {
+    id: 'dashboard', icon: '◈', title: 'Dashboard y Riesgo de Cartera', tag: 'Cartera',
+    what: 'Tu cartera valorada en euros: valor total, rendimiento ponderado por tamaño y un bloque de riesgo cuantitativo (volatilidad anualizada, máximo drawdown y matriz de correlación entre posiciones).',
+    use: [
+      'Añade cada activo con su Nº de acciones y divisa para que el valor y el P&L en € sean reales.',
+      'Pulsa "↻ Actualizar precios" para refrescar las cotizaciones de toda la cartera.',
+      'El bloque "Riesgo de Cartera" se calcula solo al abrir (histórico de 1 año, Yahoo).',
+    ],
+    read: [
+      'El "Rendimiento ponderado (€)" pesa cada posición por su tamaño: ya no es una media simple que engaña.',
+      'Volatilidad = cuánto oscila; Máx. drawdown = peor caída; Correlación media baja = buena diversificación.',
+      '"Riesgo bajo (percibido)" es tu etiqueta manual; el riesgo MEDIDO está en el bloque de abajo.',
+    ],
+  },
+  {
+    id: 'assets', icon: '◆', title: 'Ficha de Activo (Score · Calidad · Consenso)', tag: 'Cartera',
+    what: 'Al desplegar un activo: Score compuesto (Valor/Calidad/Momentum 0-100), Calidad del Capital (ROIC vs WACC + FCF yield), Revisiones de EPS, Consenso de analistas y los campos de proceso (motor de alfa, objetivo, stop, catalizador).',
+    use: [
+      'Pulsa "📊 Fundamentales" para traer ROIC/FCF/WACC + revisiones de EPS + consenso (requiere sesión; gasta cuota de Alpha Vantage solo cuando lo pides).',
+      'Edita el activo para fijar tamaño, divisa, motor de alfa, precio objetivo, stop y catalizador.',
+      '"🔄 Actualizar datos de mercado" refresca precio y fundamentales básicos.',
+    ],
+    read: [
+      'El Score convierte ~24 ratios en 3 decisiones. Momentum lleva * si aún no hay revisiones de analistas.',
+      'Badge ✓ crea valor = ROIC > WACC (negocio de calidad); ✗ destruye valor = ROIC < WACC.',
+      'Rev. EPS verde = los analistas suben previsiones (momentum fundamental). Consenso: precio objetivo y % potencial.',
+    ],
+  },
+  {
+    id: 'charts', icon: '◎', title: 'Gráficos · Concentración', tag: 'Cartera',
+    what: 'La composición REAL de tu cartera ponderada por valor en euros: por activo, sector, estrategia, riesgo y horizonte, todo en %.',
+    use: [
+      'Requiere que tus activos tengan tamaño (Nº de acciones) para ponderar por valor.',
+      'Cada porción muestra su % del total; el tooltip añade el importe en €.',
+    ],
+    read: [
+      'La "Concentración por Activo" revela si dependes demasiado de una posición (aviso si supera el 25%).',
+      'Es concentración de verdad: un activo grande pesa más que uno pequeño, no cuenta por unidades.',
+    ],
+  },
+  {
     id: 'indices', icon: '🌎', title: 'Índices Bursátiles', tag: 'En vivo',
     what: 'Los principales índices mundiales en tiempo real (Yahoo Finance): S&P 500, Nasdaq 100/Composite, Dow Jones, Russell 2000, VIX, Euro Stoxx 50, IBEX 35, DAX, CAC 40, FTSE 100, Nikkei 225 y Hang Seng.',
     use: [
@@ -80,14 +120,31 @@ const GUIDE = [
   },
   {
     id: 'smc', icon: '⚡', title: 'Smart Money (FVG / Order Blocks)', tag: 'Experimental',
-    what: 'Detección de Fair Value Gaps (huecos de ineficiencia de 3 velas) y Order Blocks (última vela opuesta antes de un impulso). Conceptos heurísticos y discutidos.',
+    what: 'Detección de Fair Value Gaps y Order Blocks, ahora con validación por volumen, score de fuerza (0-100), breaker blocks, confluencia multi-timeframe (diario + semanal) y distancia al precio.',
     use: [
       'Escribe un ticker y elige rango. Las bandas verde/roja marcan el soporte/resistencia activo más cercano.',
-      'Las tablas listan cada zona con su estado: activa, mitigada o llena.',
+      'En la tabla de Order Blocks ordena por "Fecha" o "Cercanía"; las zonas a <2% del precio se resaltan en dorado.',
+      'Lee la columna Fuerza (⚡ = volumen alto), la etiqueta ⇄ breaker y ✦ semanal (confluencia con el gráfico semanal).',
     ],
     read: [
-      'Las zonas son áreas de INTERÉS, no señales. El precio tiende a volver a los FVG sin rellenar.',
-      'Úsalas como contexto junto al Volume Profile y la valoración, nunca de forma aislada.',
+      'Las zonas son áreas de INTERÉS, no señales. Prioriza las de mayor Fuerza, con ⚡ y ✦ semanal.',
+      'Un breaker es un Order Block roto que invierte su papel (soporte ↔ resistencia).',
+      'Úsalas como contexto junto al Volume Profile, la gamma y la valoración, nunca de forma aislada.',
+    ],
+  },
+  {
+    id: 'gamma', icon: 'γ', title: 'Gamma / GEX (Opciones)', tag: 'Opciones',
+    what: 'Exposición a gamma de los dealers a partir de la cadena de opciones (open interest + volatilidad implícita): GEX neto, gamma flip, call/put wall y dos gráficas (perfil por strike y curva de gamma).',
+    use: [
+      'Escribe un subyacente líquido de EE. UU. (SPY, QQQ, NVDA…) y elige el vencimiento.',
+      'En el perfil por strike, las líneas ┄ marcan spot y flip; el borde dorado, los walls.',
+      'La curva de gamma cruza cero justo en el gamma flip.',
+    ],
+    read: [
+      'GEX > 0 (verde) = dealers en gamma larga → amortiguan el movimiento (menos volatilidad).',
+      'GEX < 0 (rojo) = gamma corta → amplifican el movimiento (más inestable).',
+      'Call wall = resistencia/imán por arriba; Put wall = soporte por abajo. Por debajo del flip, régimen inestable.',
+      'Es una ESTIMACIÓN (el posicionamiento real de dealers no es público) y cubre un vencimiento.',
     ],
   },
 ];
@@ -105,9 +162,18 @@ const GLOSSARY = [
   ['Core PCE / CPI', 'Inflación subyacente (sin energía ni alimentos). El objetivo de la Fed es ~2%.'],
   ['Fear & Greed', 'Índice 0-100 de sentimiento. Contrarian: miedo extremo ≈ suelos; codicia extrema ≈ techos.'],
   ['Margen de seguridad', 'Diferencia entre valor intrínseco y precio. Cuanto mayor, más colchón ante errores de estimación.'],
+  ['Score compuesto', 'Resumen 0-100 en tres pilares: Valor, Calidad y Momentum. Convierte muchos ratios en 3 decisiones.'],
+  ['FCF Yield', 'Flujo de caja libre respecto a la capitalización. El cash es más difícil de maquillar que el beneficio.'],
+  ['Revisión de EPS', 'Cambio reciente de las previsiones de beneficio de los analistas. Al alza = momentum fundamental positivo.'],
+  ['Volatilidad / Drawdown', 'Cuánto oscila un activo (anualizada) y su peor caída desde un máximo.'],
+  ['Correlación', 'Mide si tus posiciones se mueven juntas (cerca de 1) o se compensan (negativa). Baja = mejor diversificación.'],
+  ['GEX (Gamma Exposure)', 'Exposición a gamma de los dealers, en $ por cada 1% de movimiento. Positiva estabiliza el precio; negativa lo amplifica.'],
+  ['Gamma flip', 'Precio donde la GEX total cruza cero. Por encima suele dominar la estabilidad; por debajo, la inestabilidad.'],
+  ['Call / Put wall', 'Strike con mayor gamma de calls (resistencia/imán) o de puts (soporte).'],
+  ['Breaker block', 'Order Block roto: el precio lo atravesó y ahora actúa con el papel inverso (soporte ↔ resistencia).'],
 ];
 
-const tagColor = (t) => t === 'Experimental' ? '#e67e22' : t === 'Herramienta' ? '#9b59b6' : '#2ecc71';
+const tagColor = (t) => t === 'Experimental' ? '#e67e22' : t === 'Herramienta' ? '#9b59b6' : t === 'Cartera' ? '#3a8eff' : t === 'Opciones' ? '#c9a84c' : '#2ecc71';
 
 export default function Guide({ go }) {
   const [open, setOpen] = useState(() => new Set(['valuation']));
