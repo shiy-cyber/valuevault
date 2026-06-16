@@ -12,6 +12,13 @@ const RATING_ES = { 'extreme fear':'Miedo extremo', 'fear':'Miedo', 'neutral':'N
 const ratingEs = (r) => RATING_ES[String(r || '').toLowerCase()] || (r || '—');
 const CLASS_ES = { 'Extreme Fear':'Miedo extremo', 'Fear':'Miedo', 'Neutral':'Neutral', 'Greed':'Codicia', 'Extreme Greed':'Codicia extrema' };
 
+// Valoración del mercado (CAPE / P/E): alto = caro. Yield: alto = barato.
+const capeColor = (v) => v == null ? 'var(--muted)' : v < 20 ? '#16a085' : v < 28 ? '#2ecc71' : v < 35 ? '#c9a84c' : v < 40 ? '#e67e22' : '#e74c3c';
+const capeZone  = (v) => v == null ? '—' : v < 20 ? 'Barato' : v < 28 ? 'Razonable' : v < 35 ? 'Algo caro' : v < 40 ? 'Caro' : 'Muy caro';
+const peColor   = (v) => v == null ? 'var(--muted)' : v < 15 ? '#16a085' : v < 20 ? '#2ecc71' : v < 25 ? '#c9a84c' : v < 30 ? '#e67e22' : '#e74c3c';
+const peZone    = (v) => v == null ? '—' : v < 15 ? 'Barato' : v < 20 ? 'Razonable' : v < 25 ? 'Algo caro' : v < 30 ? 'Caro' : 'Muy caro';
+const dyColor   = (v) => v == null ? 'var(--muted)' : v >= 3 ? '#2ecc71' : v >= 2 ? '#c9a84c' : v >= 1.5 ? '#e67e22' : '#e74c3c';
+
 const fmtDay = (ts) => { const d = new Date(ts); return `${d.getDate()} ${MESES[d.getMonth()]}`; };
 
 // ─── Medidor semicircular tipo aguja (0-100) ────────────────
@@ -73,7 +80,7 @@ export default function Sentiment({ theme, toast }) {
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
 
-  const cnn = data?.cnn, crypto = data?.crypto, vix = data?.vix;
+  const cnn = data?.cnn, crypto = data?.crypto, vix = data?.vix, val = data?.valuation;
 
   // VIX: zona interpretativa
   const vixZone = (x) => x == null ? '—' : x < 13 ? 'Complacencia' : x < 20 ? 'Calma' : x < 30 ? 'Cautela' : x < 40 ? 'Miedo' : 'Pánico';
@@ -112,7 +119,7 @@ export default function Sentiment({ theme, toast }) {
         <div>
           <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>Sentimiento de Mercado</div>
           <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>
-            Miedo y codicia · {loading ? 'cargando…' : 'CNN · alternative.me · Yahoo'}
+            Miedo y codicia + valoración · {loading ? 'cargando…' : 'CNN · alternative.me · Yahoo · multpl'}
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
@@ -173,6 +180,40 @@ export default function Sentiment({ theme, toast }) {
         </div>
       </div>
 
+      {/* Valoración del S&P 500: Shiller CAPE + P/E + Dividend Yield */}
+      <div style={{ ...cardBase, marginBottom:'18px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', flexWrap:'wrap', gap:'6px' }}>
+          <div style={capTitle}>Valoración del S&amp;P 500 · ¿mercado caro o barato?</div>
+          {val?.asOf && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'9px', color:'var(--muted)' }}>{val.asOf}</div>}
+        </div>
+        {val ? (
+          <>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:'10px' }}>
+              <div style={{ background:'var(--surface2)', borderRadius:'10px', padding:'12px 14px' }}>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)' }}>Shiller CAPE (PE10)</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'26px', fontWeight:700, color: capeColor(val.cape) }}>{val.cape ?? '—'}</div>
+                <div style={{ display:'inline-block', fontFamily:"'DM Mono',monospace", fontSize:'9px', padding:'2px 8px', borderRadius:'10px', background: capeColor(val.cape)+'22', color: capeColor(val.cape) }}>{capeZone(val.cape)}</div>
+                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'6px' }}>media histórica ~17</div>
+              </div>
+              <div style={{ background:'var(--surface2)', borderRadius:'10px', padding:'12px 14px' }}>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)' }}>P/E S&amp;P 500 (12m)</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'26px', fontWeight:700, color: peColor(val.pe) }}>{val.pe ?? '—'}</div>
+                <div style={{ display:'inline-block', fontFamily:"'DM Mono',monospace", fontSize:'9px', padding:'2px 8px', borderRadius:'10px', background: peColor(val.pe)+'22', color: peColor(val.pe) }}>{peZone(val.pe)}</div>
+                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'6px' }}>media histórica ~16</div>
+              </div>
+              <div style={{ background:'var(--surface2)', borderRadius:'10px', padding:'12px 14px' }}>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)' }}>Dividend Yield</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'26px', fontWeight:700, color: dyColor(val.divYield) }}>{val.divYield != null ? val.divYield + '%' : '—'}</div>
+                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'10px' }}>media histórica ~1,8% · bajo = caro</div>
+              </div>
+            </div>
+            <div style={{ fontSize:'10px', color:'var(--muted)', lineHeight:1.6, marginTop:'10px' }}>
+              El <b>CAPE de Shiller</b> compara el precio con 10 años de beneficios ajustados por inflación: suaviza el ciclo y mide si el mercado está caro frente a su historia (media ~17). Un CAPE alto se asocia a <b>menores retornos a 10 años vista</b>, aunque es mal indicador de <em>timing</em>. Úsalo como contexto, no como señal de compra/venta.
+            </div>
+          </>
+        ) : <div style={{ color:'var(--muted)', fontSize:'12px' }}>{loading ? 'cargando…' : 'valoración no disponible'}</div>}
+      </div>
+
       {/* Componentes del índice CNN */}
       {cnn && (
         <div style={{ ...cardBase, marginBottom:'18px' }}>
@@ -210,7 +251,8 @@ export default function Sentiment({ theme, toast }) {
         🧭 El sentimiento es un indicador <em>contrarian</em>: el miedo extremo suele coincidir con suelos de mercado y la codicia extrema con techos. Fuentes:
         <a href="https://edition.cnn.com/markets/fear-and-greed" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> CNN Fear &amp; Greed</a> ·
         <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> Crypto F&amp;G</a> ·
-        <a href="https://www.cboe.com/tradable_products/vix/" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> CBOE VIX</a>
+        <a href="https://www.cboe.com/tradable_products/vix/" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> CBOE VIX</a> ·
+        <a href="https://www.multpl.com/shiller-pe" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> multpl (CAPE)</a>
       </div>
     </div>
   );

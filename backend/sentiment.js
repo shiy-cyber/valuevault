@@ -86,21 +86,49 @@ async function getVix() {
   };
 }
 
+// ─── Valoración del mercado (multpl.com): Shiller CAPE, P/E S&P 500, yield ──
+// Se actualiza mensual/diariamente; scraping del bloque #current. Timeout para
+// no colgar la respuesta de Sentimiento (que daría 502 en serverless).
+const MULTPL_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+async function multplValue(path) {
+  const r = await fetch(`https://www.multpl.com/${path}`, {
+    headers: { 'User-Agent': MULTPL_UA, 'Accept': 'text/html' },
+    signal: AbortSignal.timeout(9000),
+  });
+  if (!r.ok) throw new Error(`multpl ${path} HTTP ${r.status}`);
+  const html = (await r.text()).replace(/\s+/g, ' ');
+  const m = html.match(/id="current">.*?<\/b>\s*([\d.]+)/i);
+  const ts = (html.match(/id="timestamp">\s*([^<]+)/i)?.[1] || '').trim();
+  return { val: m ? parseFloat(m[1]) : null, ts };
+}
+async function getValuation() {
+  const [cape, pe, dy] = await Promise.allSettled([
+    multplValue('shiller-pe'),
+    multplValue('s-p-500-pe-ratio'),
+    multplValue('s-p-500-dividend-yield'),
+  ]);
+  const v = (s) => (s.status === 'fulfilled' ? s.value : null);
+  const c = v(cape), p = v(pe), d = v(dy);
+  if (c?.val == null && p?.val == null && d?.val == null) throw new Error('multpl sin datos');
+  return { cape: c?.val ?? null, pe: p?.val ?? null, divYield: d?.val ?? null, asOf: c?.ts || p?.ts || d?.ts || null };
+}
+
 let cache = { ts: 0, data: null };
 const TTL = 10 * 60 * 1000;
 
 export async function getSentiment(force = false) {
   if (!force && cache.data && Date.now() - cache.ts < TTL) return cache.data;
 
-  const [cnn, crypto, vix] = await Promise.allSettled([getCNN(), getCrypto(), getVix()]);
+  const [cnn, crypto, vix, val] = await Promise.allSettled([getCNN(), getCrypto(), getVix(), getValuation()]);
   const err = (s) => s.status === 'rejected' ? String(s.reason?.message || s.reason) : null;
 
   const data = {
     cnn:    cnn.status === 'fulfilled' ? cnn.value : null,
     crypto: crypto.status === 'fulfilled' ? crypto.value : null,
     vix:    vix.status === 'fulfilled' ? vix.value : null,
+    valuation: val.status === 'fulfilled' ? val.value : null,
     at: new Date().toISOString(),
-    errors: { cnn: err(cnn), crypto: err(crypto), vix: err(vix) },
+    errors: { cnn: err(cnn), crypto: err(crypto), vix: err(vix), valuation: err(val) },
   };
   cache = { ts: Date.now(), data };
   return data;

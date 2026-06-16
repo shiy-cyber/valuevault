@@ -42,6 +42,8 @@ const GLOSSARY = {
   gamma: ['Gamma / GEX', 'GEX (Gamma Exposure) = exposición a gamma de los market makers por strike. Marca "muros" de contención del precio. Sección "Gamma / GEX", con modo agregado de varios vencimientos.'],
   'trend following': ['Trend Following / CTA', 'Trend Following / CTA = estrategia de seguimiento de tendencia: señal por cruce de medias (MA50/200), canal Donchian, ATR para el stop y vol targeting para el tamaño. Sección "Trend Following / CTA".'],
   'fear and greed': ['Fear & Greed', 'Índice de miedo y codicia (CNN) + VIX + cripto. Miedo extremo puede ser señal contrarian de compra; codicia extrema, de cautela. Sección "Sentimiento".'],
+  cape: ['CAPE / Shiller PE', 'CAPE (Shiller PE / PE10) = precio del S&P 500 ÷ beneficios medios de 10 años ajustados por inflación. Mide si el MERCADO ENTERO está caro o barato vs su historia (media ~17). Un CAPE alto se asocia a menores retornos a 10 años, pero es mal indicador de timing. Lo tienes EN VIVO en la sección "Sentimiento".'],
+  shiller: ['CAPE / Shiller PE', 'El CAPE de Shiller (PE10) valora el S&P 500 con 10 años de beneficios ajustados por inflación. Media histórica ~17; alto = mercado caro. En vivo en la sección "Sentimiento".'],
   score: ['Score compuesto', 'Score compuesto (0-100) en 3 pilares: Valor, Calidad y Momentum. Convierte ~24 ratios en 3 decisiones. El de Momentum es un proxy si no hay revisiones de analistas.'],
 };
 function glossaryHit(q) {
