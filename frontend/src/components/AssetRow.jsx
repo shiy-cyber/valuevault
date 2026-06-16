@@ -189,6 +189,52 @@ function CapexNarrative({ assetId, cached, latestFiscalYear }) {
   );
 }
 
+// Introducción breve de la empresa. Alpha Vantage rellena un perfil en inglés
+// al buscar el ticker; el botón genera/regenera una intro en ESPAÑOL con IA
+// (Haiku, sin web_search) y la cachea en la columna `description` (sin coste
+// repetido al reabrir). brief() recorta solo el perfil largo en inglés.
+function aboutBrief(text, max = 700) {
+  const t = (text || '').trim();
+  if (t.length <= max) return t;
+  const slice = t.slice(0, max);
+  const dot = slice.lastIndexOf('. ');
+  return (dot > max * 0.5 ? slice.slice(0, dot + 1) : slice.trimEnd()) + ' …';
+}
+
+function CompanyIntro({ a }) {
+  const [desc, setDesc] = useState(a.description || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => { setDesc(a.description || ''); setErr(null); }, [a.id, a.description]);
+
+  const about = aboutBrief(desc);
+  const generate = async (force) => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.companyIntro(a.id, force);
+      if (r?.description) { setDesc(r.description); a.description = r.description; }
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      <div className="mv-section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Sobre la Empresa</span>
+        <button className="btn btn-outline" disabled={busy} onClick={() => generate(!!about)} style={{ fontSize: '10px', padding: '3px 9px' }}>
+          {busy ? '⏳…' : (about ? '🔄 Regenerar 🇪🇸' : '🇪🇸 Generar en español (IA)')}
+        </button>
+      </div>
+      {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '4px' }}>{err}</div>}
+      {about
+        ? <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7, padding: '12px', background: 'var(--surface)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', marginTop: '6px' }}>{about}</div>
+        : <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>Sin descripción. Pulsa «Generar en español» para una intro breve de la empresa (IA).</div>}
+    </div>
+  );
+}
+
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
 export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
   const [open, setOpen] = useState(false);
@@ -259,6 +305,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             </div>
           )}
           <PriceHistory ticker={a.ticker} theme={theme} />
+
+          <CompanyIntro a={a} />
 
           <div className="mv-section-label">Score Compuesto <span style={{ color: scoreColor(sc.total) }}>· {sc.total ?? '—'}/100</span></div>
           <div className="mv-grid">
