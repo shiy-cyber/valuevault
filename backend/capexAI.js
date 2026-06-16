@@ -52,27 +52,31 @@ FORMATO DE SALIDA — MUY IMPORTANTE:
   CONTEXTO SECTORIAL
   (Tu primera línea debe ser justo "EN QUÉ INVIERTE".) Si enumeras, usa guiones simples "- ".
 - Contenido: categorías concretas del gasto (I+D capitalizada, fábricas/plantas, data centers, equipamiento, tiendas, red/logística, licencias…) priorizando el 10-K más reciente; si es expansión o mantenimiento (apóyate en el ratio CapEx/Amortización que te doy); y comparación de intensidad con su sector.
+- USA SIEMPRE las cifras del ejercicio fiscal más reciente que te doy: son AUTORITATIVAS (calculadas del mismo informe), NO las recalcules ni las sustituyas por datos web de años anteriores. La búsqueda web es solo para el desglose cualitativo de categorías.
+- Menciona en la 1ª sección a qué ejercicio fiscal corresponden las cifras (p.ej. "En el ejercicio FY2025…"). No presentes datos de años pasados como si fueran los actuales.
 - Máx. ~250 palabras. Concreto. Si no encuentras el desglose real, dilo y razona con tu conocimiento del negocio, sin inventar cifras.`;
 
 const num = (v) => (v == null || isNaN(v) ? '—' : v);
 
 function userPrompt(a) {
+  const fy = a.capexHistory?.[0]?.year || null;
   const hist = Array.isArray(a.capexHistory) && a.capexHistory.length
     ? a.capexHistory.map(h => `${h.year}: CapEx ${h.capex != null ? '$' + Number(h.capex).toLocaleString('en-US') : '—'} (${h.capexToRevenue != null ? h.capexToRevenue + '% ingresos' : '—'})`).join('\n')
     : 'sin histórico';
   return `Empresa: ${a.name || a.ticker} (${a.ticker})${a.sector ? ' · Sector: ' + a.sector : ''}
+Ejercicio fiscal más reciente disponible: ${fy ? 'FY' + fy : 'desconocido'} → ancla TODO el análisis a este ejercicio.
 
-Cifras de CapEx (calculadas por nosotros):
+Cifras de CapEx del ejercicio ${fy ? 'FY' + fy : 'más reciente'} (calculadas por nosotros — AUTORITATIVAS, no las recalcules):
 - CapEx anual: ${a.capex != null ? '$' + Number(a.capex).toLocaleString('en-US') : '—'}
 - CapEx / Ingresos: ${num(a.capexToRevenue)}%
 - CapEx / Caja operativa: ${num(a.capexToOCF)}%
 - CapEx / Amortización: ${num(a.capexToDA)}x (>1.2 expansión · ~1 mantenimiento · <0.8 cosecha)
 - Perfil: ${a.capexProfile || '—'}
 
-Histórico:
+Histórico (más reciente primero):
 ${hist}
 
-Busca el informe anual / 10-K más reciente de ${a.ticker} y explica en qué invierte ese CapEx.`;
+Busca el 10-K / informe anual más reciente de ${a.ticker} para el DESGLOSE de categorías (en qué invierte), pero las cifras y ratios son los de arriba (ejercicio ${fy ? 'FY' + fy : 'más reciente'}). No uses cifras de años anteriores como actuales.`;
 }
 
 // Limpieza de seguridad: quita Markdown y cualquier preámbulo antes de la 1ª
