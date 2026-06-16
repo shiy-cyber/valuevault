@@ -19,6 +19,7 @@ import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
 import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
 import { generateCapexNarrative } from './capexAI.js';
+import { generateCompanyIntro } from './companyAI.js';
 import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
@@ -204,6 +205,27 @@ export async function createApp() {
     await run('UPDATE assets SET capexNarrative = ? WHERE id = ? AND userId = ?', [JSON.stringify(result), id, uid]);
     if (latestFY != null && tkr) await saveCapexReport(tkr, latestFY, result);
     res.json(result);
+  }));
+
+  // Introducción breve de la empresa en ESPAÑOL (IA, Haiku sin web_search).
+  // Se genera una vez por activo y se cachea en la columna `description`. El
+  // parámetro ?force=1 permite regenerar explícitamente (sobrescribe). Sin
+  // force, si ya hay descripción guardada se devuelve sin coste.
+  app.post('/api/assets/:id/company-intro', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const existing = await get('SELECT * FROM assets WHERE id = ? AND userId = ?', [id, uid]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const asset = rowToAsset(existing);
+
+    const force = req.query.force === '1' || req.query.force === 'true';
+    if (!force && asset.description && String(asset.description).trim()) {
+      return res.json({ description: asset.description, cached: true });
+    }
+
+    const result = await generateCompanyIntro(asset);
+    await run('UPDATE assets SET description = ? WHERE id = ? AND userId = ?', [result.description, id, uid]);
+    res.json({ ...result, cached: false });
   }));
 
   // ─── NOTES (aisladas por usuario) ──────────────────────────

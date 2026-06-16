@@ -46,7 +46,7 @@ export const run = async (sql, args = []) => {
 export const ASSET_NUM = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop','fxEntry','roic','fcfy','wacc','epsRev','targetMean','numAnalysts'];
 // currency = divisa del activo · engine = motor de alfa (momentum/value/hidden)
 // catalyst/catalystDate = catalizador y su fecha · recommendation = consenso analistas
-export const ASSET_TXT = ['ticker','name','sector','market','mcap','risk','thesis','currency','engine','catalyst','catalystDate','recommendation'];
+export const ASSET_TXT = ['ticker','name','sector','market','mcap','risk','thesis','currency','engine','catalyst','catalystDate','recommendation','description'];
 export const ASSET_JSON = ['strategies','time'];
 
 // Parseo tolerante de JSON persistido (no rompe la fila si el dato es inválido)
@@ -182,6 +182,9 @@ export async function initSchema() {
   await ensureColumn('assets', 'capexProfile', 'TEXT');
   await ensureColumn('assets', 'capexHistory', 'TEXT');
   await ensureColumn('assets', 'capexNarrative', 'TEXT');
+  // Introducción breve de la empresa (perfil de negocio). Origen: campo
+  // Description de Alpha Vantage OVERVIEW; editable por el usuario.
+  await ensureColumn('assets', 'description', 'TEXT');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que

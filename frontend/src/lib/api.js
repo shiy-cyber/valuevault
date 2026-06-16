@@ -65,4 +65,5 @@ export const api = {
   refreshAssetData: (id) => req('POST', `/api/assets/${id}/refresh-data`),
   refreshQuality: (id) => req('POST', `/api/assets/${id}/quality`),
   capexNarrative: (id) => req('POST', `/api/assets/${id}/capex-narrative`),
+  companyIntro: (id, force) => req('POST', `/api/assets/${id}/company-intro${force ? '?force=1' : ''}`),
 };

@@ -9,7 +9,7 @@ const CCYS = ['USD','EUR','GBP','JPY','HKD','CHF','CAD','AUD','CNY'];
 const ENGINES = [['','—'],['momentum','A · Momentum / Moda'],['value','B · Valor real'],['hidden','C · Gema oculta']];
 
 const empty = () => ({
-  ticker:'', name:'', sector:'', market:'', mcap:'', thesis:'',
+  ticker:'', name:'', sector:'', market:'', mcap:'', thesis:'', description:'',
   price:'', current:'', pe:'', fpe:'', pb:'', peg:'', evebitda:'', ps:'',
   eps:'', epsd:'', epsny:'', epsg:'', roe:'', roa:'', gm:'', om:'', nm:'',
   de:'', cr:'', qr:'', dy:'', pr:'', beta:'', w52h:'', w52l:'',
@@ -54,6 +54,7 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
         const next = { ...prev, ticker };
         const apply = (k, v) => { if (v !== null && v !== undefined && v !== '') next[k] = v; };
         apply('name', d.name); apply('sector', d.sector); apply('market', d.market);
+        if (!prev.description) apply('description', d.description);
         next.current = d.current; if (!prev.price) next.price = d.current;
         ['pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','beta','w52h','w52l','mcap'].forEach(k => {
           if (!prev[k] && d[k] !== null && d[k] !== undefined) next[k] = d[k];
@@ -177,6 +178,10 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
           <F label="Stop / Invalidación" id="stop" form={form} set={set} placeholder="Nivel que rompe la tesis" />
           <F label="Catalizador" id="catalyst" form={form} set={set} type="text" placeholder="Evento que la activa" />
           <F label="Fecha Catalizador" id="catalystDate" form={form} set={set} type="date" placeholder="" />
+
+          <div className="form-group full"><label>Sobre la Empresa (perfil de negocio)</label>
+            <textarea value={form.description} placeholder="Breve introducción: a qué se dedica la empresa, su negocio principal y mercado. Se autocompleta al pulsar 🔍 Buscar." onChange={e => set('description', e.target.value)} />
+          </div>
 
           <div className="form-group full"><label>Tesis de Inversión / Fundamentos de Valor</label>
             <textarea value={form.thesis} placeholder="Ventajas competitivas, catalizadores, métricas clave, margen de seguridad…" onChange={e => set('thesis', e.target.value)} />

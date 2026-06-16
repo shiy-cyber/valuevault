@@ -54,6 +54,7 @@ export async function lookupTicker(ticker) {
     name: oData.Name || null,
     sector: oData.Sector || null,
     market: oData.Exchange || null,
+    description: oData.Description && oData.Description !== 'None' ? oData.Description : null,
     current: +price.toFixed(2),
     changePercent: q['10. change percent'] ? parseFloat(q['10. change percent']).toFixed(2) + '%' : '',
     pe: num(oData.PERatio),
