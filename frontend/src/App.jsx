@@ -24,6 +24,7 @@ import AssetModal from './components/AssetModal.jsx';
 import LearnModal from './components/LearnModal.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
+import Assistant from './components/Assistant.jsx';
 
 export default function App() {
   const [assets, setAssets] = useState([]);
@@ -316,6 +317,8 @@ export default function App() {
       <LearnModal open={learnModal.open} assets={assets} linkedAssetId={learnModal.linkedAssetId} onClose={() => setLearnModal({ open: false, linkedAssetId: null })} onSave={saveNote} toast={toast} />
       <DetailModal asset={detailAsset} notes={notes} onClose={() => setDetailId(null)} onAddNote={(id) => { setDetailId(null); addNote(id); }} />
       <AuthModal open={authOpen} presetCode={presetCode} onClose={() => { setAuthOpen(false); setPresetCode(null); }} onAuth={onAuth} toast={toast} />
+
+      <Assistant assets={assets} notes={notes} fxRates={fxRates} go={go} />
 
       <div className={`toast${toastMsg ? ' show' : ''}`}>{toastMsg}</div>
     </>
