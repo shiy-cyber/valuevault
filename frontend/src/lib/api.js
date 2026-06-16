@@ -64,4 +64,5 @@ export const api = {
   refreshPrices: () => req('POST', '/api/assets/refresh-prices'),
   refreshAssetData: (id) => req('POST', `/api/assets/${id}/refresh-data`),
   refreshQuality: (id) => req('POST', `/api/assets/${id}/quality`),
+  capexNarrative: (id) => req('POST', `/api/assets/${id}/capex-narrative`),
 };

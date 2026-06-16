@@ -12,6 +12,7 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.69.0",
     "@libsql/client": "^0.17.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

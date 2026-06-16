@@ -49,13 +49,35 @@ export const ASSET_NUM = ['price','current','pe','fpe','pb','peg','evebitda','ps
 export const ASSET_TXT = ['ticker','name','sector','market','mcap','risk','thesis','currency','engine','catalyst','catalystDate','recommendation'];
 export const ASSET_JSON = ['strategies','time'];
 
+// Parseo tolerante de JSON persistido (no rompe la fila si el dato es inválido)
+const safeJson = (s, fallback) => { try { return s ? JSON.parse(s) : fallback; } catch { return fallback; } };
+
 export function rowToAsset(r) {
   if (!r) return null;
-  return { ...r, strategies: JSON.parse(r.strategies || '[]'), time: JSON.parse(r.time || '[]') };
+  return {
+    ...r,
+    strategies: JSON.parse(r.strategies || '[]'),
+    time: JSON.parse(r.time || '[]'),
+    // CapEx: columnas independientes (no en ASSET_JSON → no las pisa el formulario de edición)
+    capexHistory: safeJson(r.capexHistory, []),
+    capexNarrative: safeJson(r.capexNarrative, null),
+  };
 }
 export function rowToNote(r) {
   if (!r) return null;
   return { ...r, tags: JSON.parse(r.tags || '[]') };
+}
+
+// ─── Memoria GLOBAL de narrativas CapEx (compartida entre usuarios) ──────
+// Clave (ticker, ejercicio fiscal). Es dato de empresa pública, no del usuario:
+// un informe se genera una sola vez para toda la app y se reutiliza sin coste
+// hasta que haya un ejercicio más reciente.
+export async function getCapexReport(ticker, fiscalYear) {
+  const r = await get('SELECT data FROM capex_reports WHERE ticker = ? AND fiscalYear = ?', [String(ticker), String(fiscalYear)]);
+  return r ? safeJson(r.data, null) : null;
+}
+export async function saveCapexReport(ticker, fiscalYear, data) {
+  await run('INSERT OR REPLACE INTO capex_reports (ticker, fiscalYear, data) VALUES (?, ?, ?)', [String(ticker), String(fiscalYear), JSON.stringify(data)]);
 }
 
 // ─── Esquema + migraciones (idempotente) ─────────────────────
@@ -108,6 +130,13 @@ export async function initSchema() {
       key   TEXT PRIMARY KEY,
       value TEXT
     );
+    CREATE TABLE IF NOT EXISTS capex_reports (
+      ticker     TEXT NOT NULL,
+      fiscalYear TEXT NOT NULL,
+      data       TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (ticker, fiscalYear)
+    );
     CREATE TABLE IF NOT EXISTS users (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       email        TEXT UNIQUE NOT NULL,
@@ -143,6 +172,16 @@ export async function initSchema() {
   await ensureColumn('assets', 'targetMean', 'REAL');
   await ensureColumn('assets', 'recommendation', 'TEXT');
   await ensureColumn('assets', 'numAnalysts', 'REAL');
+  // CapEx (gastos de capital). Columnas INDEPENDIENTES (fuera de ASSET_NUM/JSON):
+  // las escribe solo /quality y /capex-narrative, así el formulario de edición
+  // de activos no las sobrescribe. capexHistory = JSON array; capexNarrative = JSON obj.
+  await ensureColumn('assets', 'capex', 'REAL');
+  await ensureColumn('assets', 'capexToRevenue', 'REAL');
+  await ensureColumn('assets', 'capexToOCF', 'REAL');
+  await ensureColumn('assets', 'capexToDA', 'REAL');
+  await ensureColumn('assets', 'capexProfile', 'TEXT');
+  await ensureColumn('assets', 'capexHistory', 'TEXT');
+  await ensureColumn('assets', 'capexNarrative', 'TEXT');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que

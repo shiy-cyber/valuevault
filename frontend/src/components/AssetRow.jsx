@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
-import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo, compositeScore, positionMetrics, fmtBase } from '../lib/format.js';
+import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo, compositeScore, positionMetrics, fmtBase, fmtUsdCompact } from '../lib/format.js';
 
 const ENGINE_LABEL = { momentum: 'A · Momentum', value: 'B · Valor', hidden: 'C · Gema oculta' };
 const scoreColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 45 ? 'var(--orange)' : 'var(--red)';
@@ -90,6 +90,101 @@ function PriceHistory({ ticker, theme }) {
           : !points ? <div style={{ color: 'var(--muted)', fontSize: '11px', textAlign: 'center', paddingTop: '60px' }}>Cargando…</div>
           : <Line data={data} options={opts} />}
       </div>
+    </div>
+  );
+}
+
+// Mini-gráfico de barras del histórico de CapEx (5 años). AV devuelve los años
+// de más reciente a más antiguo → se invierte para mostrar cronológico.
+function CapexChart({ history, theme }) {
+  const isDark = theme === 'dark';
+  if (!Array.isArray(history) || history.length < 2) return null;
+  const rows = [...history].reverse();
+  const textColor = isDark ? '#7a8694' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
+  const data = {
+    labels: rows.map(r => r.year),
+    datasets: [{ label: 'CapEx', data: rows.map(r => r.capex), backgroundColor: '#3a8eff', borderRadius: 3 }],
+  };
+  const opts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1, callbacks: { label: c => fmtUsdCompact(c.parsed.y) } },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
+      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => fmtUsdCompact(v) } },
+    },
+  };
+  return (
+    <div style={{ position: 'relative', height: '140px', marginTop: '8px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px' }}>
+      <Bar data={data} options={opts} />
+    </div>
+  );
+}
+
+// Narrativa IA: "en qué invierte la empresa" (categorías reales del 10-K).
+// MEMORIA por ejercicio fiscal: se genera una vez por informe anual y se
+// reutiliza SIN coste hasta que haya un informe más reciente (latestFiscalYear
+// avanza al refrescar «📊 Fundamentales»). No hay regenerar de pago repetido.
+function CapexNarrative({ assetId, cached, latestFiscalYear }) {
+  const [data, setData] = useState(cached || null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = async () => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try { setData(await api.capexNarrative(assetId)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const fy = data?.fiscalYear;
+  // Hay un informe anual más reciente que el guardado → ofrecer actualizar
+  const needsUpdate = !!data && latestFiscalYear != null && String(fy ?? '') !== String(latestFiscalYear);
+
+  return (
+    <div style={{ marginTop: '8px', marginBottom: '12px' }}>
+      {!data && (
+        <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
+          {busy ? '⏳ Analizando…' : '🏭 ¿En qué invierte? (IA)'}
+        </button>
+      )}
+      {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '6px' }}>{err}</div>}
+      {data && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+            <span title="Guardado en memoria: no se vuelve a cobrar hasta el próximo informe anual" style={{ fontSize: '9px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: needsUpdate ? 'var(--orange)' : 'var(--green)' }}>
+              {needsUpdate ? '🧠 memoria (informe nuevo disponible)' : '🧠 en memoria · sin coste'}
+            </span>
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7, padding: '12px', background: 'var(--surface)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', whiteSpace: 'pre-wrap' }}>
+            {data.narrative}
+          </div>
+          {data.grounded === false && (
+            <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Generado sin acceso al informe anual — orientativo.</div>
+          )}
+          {Array.isArray(data.sources) && data.sources.length > 0 && (
+            <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginTop: '6px' }}>
+              {data.sources.map((s, i) => <a key={i} className="insider-link" href={s.url} target="_blank" rel="noreferrer">{s.title || s.url}</a>)}
+            </div>
+          )}
+          <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {needsUpdate ? (
+              <>
+                <span>📅 En memoria del ejercicio FY{fy || '—'} · hay un informe más reciente (FY{latestFiscalYear})</span>
+                <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '10px', padding: '3px 9px' }}>
+                  {busy ? '⏳…' : `🆕 Actualizar a FY${latestFiscalYear}`}
+                </button>
+              </>
+            ) : (
+              <span>📅 {fy ? `Informe FY${fy} · ` : ''}guardado en memoria · sin coste hasta el próximo informe anual</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -238,6 +333,24 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           {a.roic == null && (
             <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 ROIC / FCF» para calcularlo (Alpha Vantage).</div>
           )}
+
+          <div className="mv-section-label">
+            Gastos de Capital (CapEx)
+            {a.capexProfile && (
+              <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff', background: 'var(--gold)' }}>{a.capexProfile}</span>
+            )}
+          </div>
+          <div className="mv-grid">
+            <div className="mv-item"><div className="mv-label">CapEx anual</div><div className="mv-val">{fmtUsdCompact(a.capex)}</div></div>
+            <MV label="CapEx / Ingresos" val={a.capexToRevenue} suffix="%" />
+            <MV label="CapEx / Caja oper." val={a.capexToOCF} suffix="%" />
+            <MV label="CapEx / Amortización" val={a.capexToDA} suffix="x" />
+          </div>
+          <CapexChart history={a.capexHistory} theme={theme} />
+          {a.capex == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '6px 0 0' }}>Pulsa «📊 Fundamentales» para calcular los gastos de capital.</div>
+          )}
+          <CapexNarrative assetId={a.id} cached={a.capexNarrative} latestFiscalYear={a.capexHistory?.[0]?.year} />
 
           <div className="mv-section-label">Solidez Financiera</div>
           <div className="mv-grid">

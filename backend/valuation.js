@@ -54,6 +54,27 @@ function robustGrowth(history) {
   return { growth: pct(g), low: pct(Math.min(lo, g)), high: pct(Math.max(hi, g)), method: n >= 3 ? `regresión ${n}a` : 'cagr 2 puntos', nYears: n };
 }
 
+// Clasifica el perfil de inversión en español a partir de la intensidad
+// (CapEx/Ingresos) y del proxy crecimiento vs mantenimiento (CapEx/Amortización).
+//   CapEx/Ingresos: ≥15% intensiva · 6–15% moderada · <6% ligera en activos
+//   CapEx/Amortización: ≥1.2x expansión · 0.8–1.2x mantenimiento · <0.8x cosecha
+function capexProfileOf(capexToRevenue, capexToDA) {
+  if (capexToRevenue == null && capexToDA == null) return null;
+  let intensity = null;
+  if (capexToRevenue != null) {
+    intensity = capexToRevenue >= 15 ? 'Intensiva en capital'
+      : capexToRevenue >= 6 ? 'Capital moderado'
+      : 'Ligera en activos';
+  }
+  let phase = null;
+  if (capexToDA != null) {
+    phase = capexToDA >= 1.2 ? 'fase de expansión'
+      : capexToDA >= 0.8 ? 'mantenimiento'
+      : 'desinversión / cosecha';
+  }
+  return [intensity, phase].filter(Boolean).join(' · ') || null;
+}
+
 const cache = new Map(); // ticker → { ts, data }
 const TTL = 24 * 60 * 60 * 1000;
 
@@ -86,6 +107,32 @@ export async function getFundamentals(ticker) {
   const fcfHistory = (cash.annualReports || []).slice(0, 5)
     .map(r => ({ year: r.fiscalDateEnding?.slice(0, 4), fcf: fcfOf(r) }))
     .filter(r => r.fcf != null);
+
+  // ─── CapEx (gastos de capital) ───────────────────────────────
+  // Ya viene en CASH_FLOW/INCOME_STATEMENT → sin coste de API adicional.
+  // Alpha Vantage da capitalExpenditures en POSITIVO (salida de caja).
+  const capex = num(cf.capitalExpenditures);
+  const ocf = num(cf.operatingCashflow);
+  const da = num(cf.depreciationDepletionAndAmortization);
+  const revenue = num(inc.totalRevenue);
+  const capexToRevenue = (capex != null && revenue) ? +((capex / revenue) * 100).toFixed(2) : null;
+  const capexToOCF = (capex != null && ocf) ? +((capex / ocf) * 100).toFixed(2) : null;
+  const capexToDA = (capex != null && da) ? +(capex / da).toFixed(2) : null;
+  // Histórico 5 años: importe + intensidad sobre ingresos (revenue por año)
+  const revByYear = {};
+  (income.annualReports || []).forEach(r => {
+    const y = r.fiscalDateEnding?.slice(0, 4);
+    if (y) revByYear[y] = num(r.totalRevenue);
+  });
+  const capexHistory = (cash.annualReports || []).slice(0, 5)
+    .map(r => {
+      const year = r.fiscalDateEnding?.slice(0, 4);
+      const cx = num(r.capitalExpenditures);
+      const rev = revByYear[year];
+      return { year, capex: cx, capexToRevenue: (cx != null && rev) ? +((cx / rev) * 100).toFixed(2) : null };
+    })
+    .filter(r => r.capex != null);
+  const capexProfile = capexProfileOf(capexToRevenue, capexToDA);
 
   // CAGR de 2 extremos (legacy, se conserva para transparencia/comparación)
   let fcfCAGR = null;
@@ -163,6 +210,13 @@ export async function getFundamentals(ticker) {
     costEquity,
     wacc,
     roe: num(overview.ReturnOnEquityTTM) != null ? +(num(overview.ReturnOnEquityTTM) * 100).toFixed(1) : null,
+    // CapEx — gastos de capital (en qué invierte la empresa)
+    capex,
+    capexToRevenue,
+    capexToOCF,
+    capexToDA,
+    capexHistory,
+    capexProfile,
   };
   cache.set(sym, { ts: Date.now(), data });
   return data;

@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 import express from 'express';
 import cors from 'cors';
-import { ready, all, get, run, rowToAsset, rowToNote, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
+import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
@@ -18,6 +18,7 @@ import { getEstimates } from './estimates.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
 import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
+import { generateCapexNarrative } from './capexAI.js';
 import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
@@ -140,6 +141,13 @@ export async function createApp() {
       const f = await getFundamentals(existing.ticker);
       fundamentals = f;
       upd.roic = f.roic ?? null; upd.fcfy = f.fcfy ?? null; upd.wacc = f.wacc ?? null;
+      // CapEx (sin coste de API extra: viene del mismo getFundamentals)
+      upd.capex = f.capex ?? null;
+      upd.capexToRevenue = f.capexToRevenue ?? null;
+      upd.capexToOCF = f.capexToOCF ?? null;
+      upd.capexToDA = f.capexToDA ?? null;
+      upd.capexProfile = f.capexProfile ?? null;
+      upd.capexHistory = JSON.stringify(f.capexHistory || []); // array → TEXT para el bind
     } catch (e) { errs.push('fundamentales: ' + e.message); }
     try {
       const est = await getEstimates(existing.ticker);
@@ -155,6 +163,47 @@ export async function createApp() {
     await run(`UPDATE assets SET ${cols.map(c => `${c} = ?`).join(', ')} WHERE id = ? AND userId = ?`, [...cols.map(c => upd[c]), id, uid]);
     const updated = rowToAsset(await get('SELECT * FROM assets WHERE id = ?', [id]));
     res.json({ asset: updated, fundamentals, estimates, errors: errs });
+  }));
+
+  // Narrativa IA "¿en qué invierte?" (CapEx). MEMORIA por EJERCICIO FISCAL:
+  // se genera una vez por informe anual (10-K) y se reutiliza SIN coste hasta
+  // que Alpha Vantage publica un ejercicio más reciente. No hay "regenerar"
+  // que cobre repetidamente; solo se rehace si hay un informe anual nuevo.
+  app.post('/api/assets/:id/capex-narrative', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const existing = await get('SELECT * FROM assets WHERE id = ? AND userId = ?', [id, uid]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const asset = rowToAsset(existing);
+
+    // Ejercicio fiscal más reciente disponible (de los fundamentales ya traídos)
+    const latestFY = asset.capexHistory?.[0]?.year ?? null;
+    const tkr = String(asset.ticker || '').trim().toUpperCase();
+
+    // 1) Memoria LOCAL del activo (mismo ejercicio) → instantánea, sin coste
+    const cached = asset.capexNarrative;
+    const localValid = !!cached?.narrative && (
+      latestFY == null ? true : String(cached.fiscalYear ?? '') === String(latestFY)
+    );
+    if (localValid) return res.json(cached);
+
+    // 2) Memoria GLOBAL compartida (ticker+ejercicio) → sin coste si otro
+    //    usuario/dispositivo ya generó ESTE informe. Se copia al activo para
+    //    que se muestre al instante en próximas cargas.
+    if (latestFY != null && tkr) {
+      const shared = await getCapexReport(tkr, latestFY);
+      if (shared?.narrative) {
+        await run('UPDATE assets SET capexNarrative = ? WHERE id = ? AND userId = ?', [JSON.stringify(shared), id, uid]);
+        return res.json(shared);
+      }
+    }
+
+    // 3) No existe en ninguna memoria → generar (ÚNICO coste) y guardar en AMBAS
+    const result = await generateCapexNarrative(asset);
+    result.fiscalYear = latestFY; // sella el informe al que corresponde
+    await run('UPDATE assets SET capexNarrative = ? WHERE id = ? AND userId = ?', [JSON.stringify(result), id, uid]);
+    if (latestFY != null && tkr) await saveCapexReport(tkr, latestFY, result);
+    res.json(result);
   }));
 
   // ─── NOTES (aisladas por usuario) ──────────────────────────

@@ -140,6 +140,17 @@ export function fmtBase(v) {
   return s + ' €';
 }
 
+// Formatea un importe grande en USD de forma compacta (notación T/B/M, igual
+// que el Market Cap que ya muestra la app). Para CapEx, FCF y similares.
+export function fmtUsdCompact(v) {
+  if (v === null || v === undefined || v === '' || isNaN(v)) return '—';
+  const n = Number(v), abs = Math.abs(n), sign = n < 0 ? '-' : '';
+  if (abs >= 1e12) return `${sign}$${(abs / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9)  return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6)  return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+  return `${sign}$${abs.toLocaleString('es-ES', { maximumFractionDigits: 0 })}`;
+}
+
 // P&L medio de una cartera (compat.: media simple de cambios %, sin ponderar)
 export function avgPnl(assets) {
   const valid = assets.filter(a => a.price > 0);
