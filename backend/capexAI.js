@@ -46,15 +46,16 @@ FORMATO DE SALIDA — MUY IMPORTANTE:
 - Escribe en español de España, en tercera persona / impersonal (nada de "estáis").
 - Empieza DIRECTAMENTE por el contenido. PROHIBIDO cualquier introducción, saludo o meta-comentario: nada de "Perfecto", "Tengo suficiente información", "Voy a redactar", "Aquí está", "Redacto el análisis", ni líneas con "---".
 - TEXTO PLANO, sin Markdown: NO uses asteriscos para negrita (**), ni almohadillas (#), ni viñetas con •.
-- Estructura EXACTAMENTE en 3 secciones, cada título en su propia línea y en MAYÚSCULAS, en este orden:
+- Estructura EXACTAMENTE en 4 secciones, cada título en su propia línea y en MAYÚSCULAS, en este orden:
   EN QUÉ INVIERTE
   CRECIMIENTO VS MANTENIMIENTO
+  GASTO FUTURO / GUÍA
   CONTEXTO SECTORIAL
   (Tu primera línea debe ser justo "EN QUÉ INVIERTE".) Si enumeras, usa guiones simples "- ".
-- Contenido: categorías concretas del gasto (I+D capitalizada, fábricas/plantas, data centers, equipamiento, tiendas, red/logística, licencias…) priorizando el 10-K más reciente; si es expansión o mantenimiento (apóyate en el ratio CapEx/Amortización que te doy); y comparación de intensidad con su sector.
+- Contenido: (1) categorías concretas del gasto (I+D capitalizada, fábricas/plantas, data centers, equipamiento, tiendas, red/logística, licencias…) priorizando el 10-K más reciente; (2) si es expansión o mantenimiento (apóyate en el ratio CapEx/Amortización que te doy); (3) GASTO FUTURO: busca la GUÍA de CapEx que dé la dirección para el próximo año/años (earnings calls, 10-K, prensa), expectativas de analistas si las hay, y compromisos de capital del 10-K — márcalo claramente como ESTIMACIÓN/GUÍA, no confirmado; si la empresa no da guía, dilo explícitamente; (4) comparación de intensidad con su sector.
 - USA SIEMPRE las cifras del ejercicio fiscal más reciente que te doy: son AUTORITATIVAS (calculadas del mismo informe), NO las recalcules ni las sustituyas por datos web de años anteriores. La búsqueda web es solo para el desglose cualitativo de categorías.
 - Menciona en la 1ª sección a qué ejercicio fiscal corresponden las cifras (p.ej. "En el ejercicio FY2025…"). No presentes datos de años pasados como si fueran los actuales.
-- Máx. ~250 palabras. Concreto. Si no encuentras el desglose real, dilo y razona con tu conocimiento del negocio, sin inventar cifras.`;
+- Máx. ~320 palabras. Concreto. Si no encuentras el desglose real, dilo y razona con tu conocimiento del negocio, sin inventar cifras.`;
 
 const num = (v) => (v == null || isNaN(v) ? '—' : v);
 
@@ -76,7 +77,7 @@ Cifras de CapEx del ejercicio ${fy ? 'FY' + fy : 'más reciente'} (calculadas po
 Histórico (más reciente primero):
 ${hist}
 
-Busca el 10-K / informe anual más reciente de ${a.ticker} para el DESGLOSE de categorías (en qué invierte), pero las cifras y ratios son los de arriba (ejercicio ${fy ? 'FY' + fy : 'más reciente'}). No uses cifras de años anteriores como actuales.`;
+Busca el 10-K / informe anual más reciente de ${a.ticker} para el DESGLOSE de categorías (en qué invierte) y la GUÍA de CapEx FUTURO (lo que la dirección/analistas prevén para los próximos años y los compromisos de capital). Las cifras y ratios históricos son los de arriba (ejercicio ${fy ? 'FY' + fy : 'más reciente'}); no uses cifras de años anteriores como actuales, y marca lo futuro como estimación.`;
 }
 
 // Limpieza de seguridad: quita Markdown y cualquier preámbulo antes de la 1ª
