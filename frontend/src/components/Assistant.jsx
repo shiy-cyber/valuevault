@@ -27,17 +27,30 @@ export default function Assistant({ assets, notes, fxRates, go }) {
 
   return (
     <>
-      {/* Botón flotante */}
+      {/* Botón flotante — spark SVG hecho a mano (sin emoji) con pulso dorado */}
       <button
+        className="vv-assistant-fab"
         onClick={() => { setOpen(o => !o); setTimeout(() => inputRef.current?.focus(), 50); }}
         title="Asistente de ValueVault"
         style={{
           position: 'fixed', bottom: '20px', right: '20px', zIndex: 1200,
-          width: '54px', height: '54px', borderRadius: '50%', cursor: 'pointer',
-          border: '1px solid var(--gold)', background: 'var(--gold)', color: '#1a1a1a',
-          fontSize: '24px', boxShadow: '0 4px 16px rgba(0,0,0,.35)', lineHeight: 1,
+          width: '56px', height: '56px', borderRadius: '50%', cursor: 'pointer',
+          border: 'none', color: '#181c22', lineHeight: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'radial-gradient(circle at 32% 28%, #e7cf86 0%, var(--gold) 55%, #b08f3e 100%)',
         }}
-      >{open ? '✕' : '🤖'}</button>
+      >
+        {open ? (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <path d="M6 6 L18 18 M18 6 L6 18" />
+          </svg>
+        ) : (
+          <svg className="vv-spark" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 1.5 L13.7 8.9 C13.9 9.8 14.2 10.1 15.1 10.3 L22.5 12 L15.1 13.7 C14.2 13.9 13.9 14.2 13.7 15.1 L12 22.5 L10.3 15.1 C10.1 14.2 9.8 13.9 8.9 13.7 L1.5 12 L8.9 10.3 C9.8 10.1 10.1 9.8 10.3 8.9 Z" />
+            <path d="M18.5 2.5 L19.2 5.3 C19.3 5.7 19.4 5.8 19.8 5.9 L22.5 6.5 L19.8 7.1 C19.4 7.2 19.3 7.3 19.2 7.7 L18.5 10.5 L17.8 7.7 C17.7 7.3 17.6 7.2 17.2 7.1 L14.5 6.5 L17.2 5.9 C17.6 5.8 17.7 5.7 17.8 5.3 Z" opacity="0.85" />
+          </svg>
+        )}
+      </button>
 
       {open && (
         <div style={{

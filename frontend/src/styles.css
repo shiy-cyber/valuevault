@@ -251,3 +251,14 @@ tr:hover td{background:var(--surface2);}
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:var(--surface);}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* ─── Botón flotante del Asistente (spark dorado con pulso) ─── */
+@keyframes vv-fab-pulse {
+  0%   { box-shadow: 0 6px 20px rgba(0,0,0,.4), 0 0 0 0 rgba(201,168,76,.55); }
+  70%  { box-shadow: 0 6px 20px rgba(0,0,0,.4), 0 0 0 14px rgba(201,168,76,0); }
+  100% { box-shadow: 0 6px 20px rgba(0,0,0,.4), 0 0 0 0 rgba(201,168,76,0); }
+}
+@keyframes vv-fab-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.vv-assistant-fab { animation: vv-fab-pulse 2.6s ease-out infinite; transition: transform .18s ease; }
+.vv-assistant-fab:hover { transform: scale(1.08); }
+.vv-assistant-fab:hover .vv-spark { animation: vv-fab-spin 6s linear infinite; transform-origin: 50% 50%; }
