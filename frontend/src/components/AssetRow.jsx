@@ -283,6 +283,51 @@ function NewsSentiment({ assetId }) {
   );
 }
 
+// Transacciones de insiders POR ACCIÓN (Alpha Vantage). Bajo demanda: botón
+// que carga al pulsar (cacheado en backend). Compra = verde · venta = rojo.
+function InsiderTx({ assetId }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const load = async () => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try { setData(await api.insiders(assetId)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div style={{ marginBottom: '8px' }}>
+      {!data && (
+        <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
+          {busy ? '⏳ Cargando…' : '👔 Transacciones de insiders'}
+        </button>
+      )}
+      {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '6px' }}>{err}</div>}
+      {data && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
+            <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--green)' }}>{data.buys} compras</span>
+            <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--red)' }}>{data.sells} ventas</span>
+            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {data.tx.map((t, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', padding: '5px 8px', background: 'var(--surface)', borderRadius: '6px', borderLeft: `3px solid ${t.buy ? 'var(--green)' : 'var(--red)'}` }}>
+                <span style={{ color: t.buy ? 'var(--green)' : 'var(--red)', fontWeight: 600, width: '50px' }}>{t.buy ? 'Compra' : 'Venta'}</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.who || '—'}{t.title ? ` · ${t.title}` : ''}</span>
+                <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{t.shares != null ? t.shares.toLocaleString('es-ES') : '—'}{t.value != null ? ` · $${t.value.toLocaleString('es-ES')}` : ''}</span>
+                <span style={{ color: 'var(--muted)', fontSize: '10px', whiteSpace: 'nowrap' }}>{t.date}</span>
+              </div>
+            ))}
+          </div>
+          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Datos en caché (cuota AV agotada).</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
 export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
   const [open, setOpen] = useState(false);
@@ -508,6 +553,7 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           </div>
 
           <div className="mv-section-label">Insiders & Institucionales</div>
+          <InsiderTx assetId={a.id} />
           <div style={{ display:'flex', gap:'7px', flexWrap:'wrap' }}>
             {insiderLinks(a.ticker).map((l, i) => <a key={i} className="insider-link" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}
           </div>

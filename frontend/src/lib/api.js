@@ -68,4 +68,5 @@ export const api = {
   capexNarrative: (id) => req('POST', `/api/assets/${id}/capex-narrative`),
   companyIntro: (id, force) => req('POST', `/api/assets/${id}/company-intro${force ? '?force=1' : ''}`),
   news: (id) => req('POST', `/api/assets/${id}/news`),
+  insiders: (id) => req('POST', `/api/assets/${id}/insiders`),
 };

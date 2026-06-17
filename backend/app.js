@@ -17,6 +17,7 @@ import { getRisk } from './risk.js';
 import { getEstimates } from './estimates.js';
 import { getNextEarnings, getEarningsSurprises } from './earnings.js';
 import { getNewsSentiment } from './news.js';
+import { getInsiderTransactions } from './insiders.js';
 import { searchSymbols } from './search.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
@@ -282,6 +283,18 @@ export async function createApp() {
     const news = await getNewsSentiment(existing.ticker);
     if (!news) return res.status(502).json({ error: 'Sin noticias recientes para este valor.' });
     res.json(news);
+  }));
+
+  // Transacciones de insiders (Alpha Vantage). BAJO DEMANDA (no en /quality):
+  // su propio endpoint + botón. Cacheado en avCache; no persiste en el activo.
+  app.post('/api/assets/:id/insiders', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const existing = await get('SELECT ticker FROM assets WHERE id = ? AND userId = ?', [id, uid]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const ins = await getInsiderTransactions(existing.ticker);
+    if (!ins) return res.status(502).json({ error: 'Sin transacciones de insiders para este valor.' });
+    res.json(ins);
   }));
 
   // ─── NOTES (aisladas por usuario) ──────────────────────────
