@@ -11,7 +11,7 @@ export async function getDividends(symbol) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
 
-  const { data, stale } = await avQuery('DIVIDENDS', sym);
+  const { data, stale, fetchedAt } = await avQuery('DIVIDENDS', sym);
   const rows = Array.isArray(data?.data) ? data.data : [];
 
   // Suma de importes por año natural (ex-dividend date).
@@ -50,5 +50,6 @@ export async function getDividends(symbol) {
     annualYear: complete.length ? String(complete[0]) : null,
     history,
     stale: !!stale,
+    fetchedAt,
   };
 }

@@ -58,7 +58,7 @@ export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra
   const cached = await getAvCache(key); // { data, fetchedAt } | null
   const age = cached?.fetchedAt ? Date.now() - Date.parse(cached.fetchedAt) : Infinity;
   if (!force && cached && age < ttlFor(fn)) {
-    return { data: cached.data, cached: true, stale: false };
+    return { data: cached.data, cached: true, stale: false, fetchedAt: cached.fetchedAt };
   }
 
   try {
@@ -68,23 +68,24 @@ export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra
       { signal: AbortSignal.timeout(timeout) });
     const text = await r.text();
     const head = text.trimStart(); // trimStart() ya descarta un BOM (U+FEFF) inicial
+    const now = new Date().toISOString();
     // AV devuelve JSON {Note|Information} para avisos de cuota INCLUSO en
     // endpoints CSV → si empieza por '{' lo tratamos como JSON.
     if (head.startsWith('{')) {
       const j = JSON.parse(text);
       if (isLimit(j)) {
-        if (cached) return { data: cached.data, cached: true, stale: true };
+        if (cached) return { data: cached.data, cached: true, stale: true, fetchedAt: cached.fetchedAt };
         throw Object.assign(new Error(j.Note || j.Information || 'Límite de Alpha Vantage alcanzado (≈25/día).'), { status: 429, limited: true });
       }
-      await saveAvCache(key, j, new Date().toISOString());
-      return { data: j, cached: false, stale: false };
+      await saveAvCache(key, j, now);
+      return { data: j, cached: false, stale: false, fetchedAt: now };
     }
     // Respuesta no-JSON (CSV) → texto crudo; lo parsea el módulo llamador.
-    await saveAvCache(key, text, new Date().toISOString());
-    return { data: text, cached: false, stale: false };
+    await saveAvCache(key, text, now);
+    return { data: text, cached: false, stale: false, fetchedAt: now };
   } catch (e) {
     // Red/timeout/cuota sin copia previa → degradar a caché si la hay.
-    if (cached) return { data: cached.data, cached: true, stale: true };
+    if (cached) return { data: cached.data, cached: true, stale: true, fetchedAt: cached.fetchedAt };
     throw e;
   }
 }

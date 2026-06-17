@@ -10,7 +10,7 @@ export async function getInsiderTransactions(symbol) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
 
-  const { data, stale } = await avQuery('INSIDER_TRANSACTIONS', sym);
+  const { data, stale, fetchedAt } = await avQuery('INSIDER_TRANSACTIONS', sym);
   const rows = Array.isArray(data?.data) ? data.data : [];
   const fnum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
 
@@ -31,5 +31,5 @@ export async function getInsiderTransactions(symbol) {
 
   if (!tx.length) return null;
   const buys = tx.filter(t => t.buy).length;
-  return { tx, buys, sells: tx.length - buys, stale: !!stale };
+  return { tx, buys, sells: tx.length - buys, stale: !!stale, fetchedAt };
 }

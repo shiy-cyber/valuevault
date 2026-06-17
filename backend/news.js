@@ -29,7 +29,7 @@ export async function getNewsSentiment(symbol) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
 
-  const { data, stale } = await avQuery('NEWS_SENTIMENT', sym, {
+  const { data, stale, fetchedAt } = await avQuery('NEWS_SENTIMENT', sym, {
     symbolParam: 'tickers', extra: '&limit=25&sort=LATEST',
   });
   const feed = Array.isArray(data?.feed) ? data.feed : [];
@@ -54,5 +54,5 @@ export async function getNewsSentiment(symbol) {
   if (!articles.length) return null;
 
   const avg = wTot ? +(wSum / wTot).toFixed(2) : null;
-  return { avg, label: labelOf(avg), count: articles.length, articles: articles.slice(0, 8), stale: !!stale };
+  return { avg, label: labelOf(avg), count: articles.length, articles: articles.slice(0, 8), stale: !!stale, fetchedAt };
 }

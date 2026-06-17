@@ -12,6 +12,22 @@ const REC_MAP = {
   sell: ['Venta', 'var(--red)'], strong_sell: ['Venta fuerte', 'var(--red)'],
 };
 
+// Badge de procedencia + antigüedad del dato. Color por antigüedad (verde <1h,
+// ámbar <24h, gris más viejo) o rojo si es copia de caché (fuente caída/cuota).
+function Fresh({ source, at, stale }) {
+  const ago = timeAgo(at);
+  if (!ago && !stale) return null;
+  const ageMs = at ? Date.now() - new Date(at).getTime() : Infinity;
+  const col = stale ? 'var(--red)' : ageMs < 3600e3 ? 'var(--green)' : ageMs < 86400e3 ? 'var(--gold)' : 'var(--muted)';
+  const txt = stale ? `${source} · caché${ago ? ' · ' + ago : ''}` : `${source} · ${ago}`;
+  return (
+    <span title={stale ? 'Dato servido de caché (fuente caída o cuota agotada)' : `Última actualización ${ago}`}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontFamily: "'DM Mono',monospace", padding: '1px 8px', borderRadius: '10px', background: col + '22', color: col, whiteSpace: 'nowrap' }}>
+      ● {txt}
+    </span>
+  );
+}
+
 // Barra de un pilar del score (0-100)
 function ScoreBar({ label, score }) {
   return (
@@ -266,6 +282,7 @@ function NewsSentiment({ assetId }) {
               {data.label || '—'}{data.avg != null ? ` (${data.avg > 0 ? '+' : ''}${data.avg})` : ''}
             </span>
             <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+            <span style={{ marginLeft: '8px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {data.articles.map((n, i) => (
@@ -310,6 +327,7 @@ function InsiderTx({ assetId }) {
             <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--green)' }}>{data.buys} compras</span>
             <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--red)' }}>{data.sells} ventas</span>
             <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+            <span style={{ marginLeft: '4px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             {data.tx.map((t, i) => (
@@ -356,6 +374,7 @@ function Dividends({ assetId }) {
             {data.streak > 0 && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: data.streak >= 5 ? 'var(--green)' : 'var(--gold)' }}>{data.streak} años subiendo</span>}
             {data.annual != null && <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--muted)' }}>{data.annualYear}: ${data.annual}/acción</span>}
             <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+            <span style={{ marginLeft: '8px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
             {data.history.map((h, i) => (
@@ -445,6 +464,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             </div>
           )}
           <PriceHistory ticker={a.ticker} theme={theme} />
+
+          {a.priceUpdatedAt && <div style={{ marginBottom: '10px' }}><Fresh source="Yahoo" at={a.priceUpdatedAt} /></div>}
 
           <CompanyIntro a={a} />
 
