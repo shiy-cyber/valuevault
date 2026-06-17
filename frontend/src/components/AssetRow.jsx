@@ -235,6 +235,54 @@ function CompanyIntro({ a }) {
   );
 }
 
+// Noticias + sentimiento POR ACCIÓN (Alpha Vantage NEWS_SENTIMENT). Bajo
+// demanda: botón que carga al pulsar (cacheado en backend 6h). El color va por
+// score [-1,1]: ≥0.15 alcista (verde) · ≤-0.15 bajista (rojo) · medio neutral.
+function NewsSentiment({ assetId }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const load = async () => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try { setData(await api.news(assetId)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  const sc = (s) => s == null ? 'var(--muted)' : s >= 0.15 ? 'var(--green)' : s <= -0.15 ? 'var(--red)' : 'var(--orange)';
+  return (
+    <div style={{ marginTop: '8px', marginBottom: '12px' }}>
+      {!data && (
+        <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
+          {busy ? '⏳ Cargando…' : '📰 Noticias & sentimiento'}
+        </button>
+      )}
+      {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '6px' }}>{err}</div>}
+      {data && (
+        <div>
+          <div className="mv-section-label">
+            Noticias & Sentimiento
+            <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: sc(data.avg) }}>
+              {data.label || '—'}{data.avg != null ? ` (${data.avg > 0 ? '+' : ''}${data.avg})` : ''}
+            </span>
+            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {data.articles.map((n, i) => (
+              <a key={i} href={n.url || '#'} target="_blank" rel="noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text)', textDecoration: 'none', padding: '6px 8px', background: 'var(--surface)', borderRadius: '6px', borderLeft: `3px solid ${sc(n.score)}` }}>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
+                <span style={{ color: 'var(--muted)', fontSize: '10px', whiteSpace: 'nowrap' }}>{n.source || ''}{n.date ? ' · ' + n.date : ''}</span>
+              </a>
+            ))}
+          </div>
+          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Datos en caché (cuota AV agotada).</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
 export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
   const [open, setOpen] = useState(false);
@@ -309,6 +357,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           <PriceHistory ticker={a.ticker} theme={theme} />
 
           <CompanyIntro a={a} />
+
+          <NewsSentiment assetId={a.id} />
 
           <div className="mv-section-label">Score Compuesto <span style={{ color: scoreColor(sc.total) }}>· {sc.total ?? '—'}/100</span></div>
           <div className="mv-grid">

@@ -66,4 +66,5 @@ export const api = {
   refreshQuality: (id) => req('POST', `/api/assets/${id}/quality`),
   capexNarrative: (id) => req('POST', `/api/assets/${id}/capex-narrative`),
   companyIntro: (id, force) => req('POST', `/api/assets/${id}/company-intro${force ? '?force=1' : ''}`),
+  news: (id) => req('POST', `/api/assets/${id}/news`),
 };

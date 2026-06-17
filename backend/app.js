@@ -16,6 +16,7 @@ import { getVolProfile } from './volprofile.js';
 import { getRisk } from './risk.js';
 import { getEstimates } from './estimates.js';
 import { getNextEarnings, getEarningsSurprises } from './earnings.js';
+import { getNewsSentiment } from './news.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
 import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
@@ -266,6 +267,20 @@ export async function createApp() {
     const result = await generateCompanyIntro(asset);
     await run('UPDATE assets SET description = ? WHERE id = ? AND userId = ?', [result.description, id, uid]);
     res.json({ ...result, cached: false });
+  }));
+
+  // Noticias + sentimiento POR ACCIÓN (Alpha Vantage NEWS_SENTIMENT). BAJO
+  // DEMANDA (no en /quality, para no inflar el coste en frío): su propio
+  // endpoint + botón. Cacheado en avCache (TTL 6h). No persiste en el activo:
+  // es dato transitorio de mercado.
+  app.post('/api/assets/:id/news', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const existing = await get('SELECT ticker FROM assets WHERE id = ? AND userId = ?', [id, uid]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const news = await getNewsSentiment(existing.ticker);
+    if (!news) return res.status(502).json({ error: 'Sin noticias recientes para este valor.' });
+    res.json(news);
   }));
 
   // ─── NOTES (aisladas por usuario) ──────────────────────────

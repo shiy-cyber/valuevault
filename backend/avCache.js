@@ -23,7 +23,7 @@ const BASE = 'https://www.alphavantage.co/query';
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const HOUR = 60 * 60 * 1000;
-const TTL = { GLOBAL_QUOTE: 12 * HOUR, OVERVIEW: 24 * HOUR };
+const TTL = { GLOBAL_QUOTE: 12 * HOUR, OVERVIEW: 24 * HOUR, NEWS_SENTIMENT: 6 * HOUR };
 const STATEMENTS_TTL = 7 * 24 * HOUR; // por defecto: estados financieros / informes
 const ttlFor = (fn) => TTL[fn] ?? STATEMENTS_TTL;
 
@@ -46,7 +46,9 @@ async function throttle() {
 //   stale : copia previa devuelta por fallback (cuota agotada o red caída).
 //   opts.extra: sufijo de query extra (p.ej. '&horizon=3month'); forma parte
 //               de la clave de caché para no colisionar entre variantes.
-export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra = '' } = {}) {
+//   opts.symbolParam: nombre del parámetro del ticker (por defecto 'symbol';
+//               NEWS_SENTIMENT usa 'tickers').
+export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra = '', symbolParam = 'symbol' } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) throw Object.assign(new Error('Ticker vacío'), { status: 400 });
   const key = `${fn}:${sym}${extra}`;
@@ -59,7 +61,7 @@ export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra
 
   try {
     await throttle();
-    const r = await fetch(`${BASE}?function=${fn}&symbol=${encodeURIComponent(sym)}${extra}&apikey=${KEY}`,
+    const r = await fetch(`${BASE}?function=${fn}&${symbolParam}=${encodeURIComponent(sym)}${extra}&apikey=${KEY}`,
       { signal: AbortSignal.timeout(timeout) });
     const text = await r.text();
     const head = text.trimStart(); // trimStart() ya descarta un BOM (U+FEFF) inicial
