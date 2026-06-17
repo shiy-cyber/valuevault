@@ -346,6 +346,27 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <div className="mv-item"><div className="mv-label">Rev. EPS 30d</div><div className="mv-val" style={{ color: a.epsRev == null ? 'var(--muted)' : a.epsRev > 0 ? 'var(--green)' : a.epsRev < 0 ? 'var(--red)' : 'var(--text)' }}>{a.epsRev == null ? '—' : (a.epsRev > 0 ? '+' : '') + a.epsRev + '%'}</div></div>
           </div>
 
+          {Array.isArray(a.earningsSurprises?.history) && a.earningsSurprises.history.length > 0 && (
+            <>
+              <div className="mv-section-label">
+                Sorpresas de Resultados (EPS)
+                <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff',
+                  background: a.earningsSurprises.beats >= Math.ceil(a.earningsSurprises.total / 2) ? 'var(--green)' : 'var(--red)' }}>
+                  Batió {a.earningsSurprises.beats}/{a.earningsSurprises.total}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                {a.earningsSurprises.history.map((q, i) => (
+                  <div key={i} title={`Reportado ${q.reportedEPS ?? '—'} vs estimado ${q.estimatedEPS ?? '—'}`}
+                    style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '8px', background: 'var(--surface)', borderLeft: `3px solid ${q.beat ? 'var(--green)' : 'var(--red)'}` }}>
+                    <div style={{ color: 'var(--muted)' }}>{q.date}</div>
+                    <div style={{ color: 'var(--text)' }}>{q.surprisePct == null ? '—' : (q.surprisePct >= 0 ? '+' : '') + q.surprisePct + '%'}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           <div className="mv-section-label">
             Consenso de Analistas
             {rec && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff', background: rec[1] }}>{rec[0]}</span>}

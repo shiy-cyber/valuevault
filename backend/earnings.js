@@ -37,3 +37,30 @@ export async function getNextEarnings(symbol) {
   }
   return best;
 }
+
+// Sorpresas de resultados (Alpha Vantage EARNINGS, JSON). Momentum fundamental:
+// ¿la empresa bate o falla las estimaciones de EPS? Devuelve los últimos 4
+// trimestres + cuántos batió. Cacheado vía avCache (TTL 7d).
+export async function getEarningsSurprises(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) return null;
+
+  const { data } = await avQuery('EARNINGS', sym);
+  const q = Array.isArray(data?.quarterlyEarnings) ? data.quarterlyEarnings : [];
+  const fnum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+
+  const history = q.slice(0, 4).map(r => {
+    const sp = fnum(r.surprisePercentage);
+    return {
+      date: r.fiscalDateEnding,
+      reportedEPS: fnum(r.reportedEPS),
+      estimatedEPS: fnum(r.estimatedEPS),
+      surprisePct: sp == null ? null : +sp.toFixed(1),
+      beat: sp == null ? null : sp >= 0,
+    };
+  }).filter(r => r.reportedEPS != null);
+
+  if (!history.length) return null;
+  const rated = history.filter(r => r.beat != null);
+  return { history, beats: rated.filter(r => r.beat).length, total: rated.length };
+}

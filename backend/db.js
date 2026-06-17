@@ -61,6 +61,7 @@ export function rowToAsset(r) {
     // CapEx: columnas independientes (no en ASSET_JSON → no las pisa el formulario de edición)
     capexHistory: safeJson(r.capexHistory, []),
     capexNarrative: safeJson(r.capexNarrative, null),
+    earningsSurprises: safeJson(r.earningsSurprises, null),
   };
 }
 export function rowToNote(r) {
@@ -216,6 +217,9 @@ export async function initSchema() {
   // Próxima fecha de resultados (EARNINGS_CALENDAR). Columna independiente: la
   // escribe /quality; alimenta el auto-catalizador (catalyst/catalystDate).
   await ensureColumn('assets', 'nextEarnings', 'TEXT');
+  // Sorpresas de resultados (EARNINGS): JSON con últimos trimestres beat/miss.
+  // Independiente (la escribe /quality), se parsea en rowToAsset.
+  await ensureColumn('assets', 'earningsSurprises', 'TEXT');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que

@@ -15,7 +15,7 @@ import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
 import { getRisk } from './risk.js';
 import { getEstimates } from './estimates.js';
-import { getNextEarnings } from './earnings.js';
+import { getNextEarnings, getEarningsSurprises } from './earnings.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
 import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
@@ -192,6 +192,12 @@ export async function createApp() {
         }
       }
     } catch (e) { errs.push('resultados: ' + e.message); }
+
+    // Sorpresas de resultados (EARNINGS, AV cacheado): momentum fundamental.
+    try {
+      const es = await getEarningsSurprises(existing.ticker);
+      upd.earningsSurprises = JSON.stringify(es || null);
+    } catch (e) { errs.push('sorpresas: ' + e.message); }
 
     const cols = Object.keys(upd);
     if (!cols.length) return res.status(502).json({ error: errs.join(' · ') || 'Sin datos' });
