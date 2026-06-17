@@ -15,14 +15,6 @@ const num = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-// Delegado a la caché global (avCache): TTL por tipo de dato, throttle entre
-// llamadas en vivo y resiliencia. Mantiene el contrato previo: si AV agota
-// cuota y no hay copia previa, avQuery lanza 429 {limited}; si la hay, devuelve
-// esa copia (la calculadora sigue funcionando con el último dato conocido).
-async function av(fn, sym) {
-  return (await avQuery(fn, sym)).data;
-}
-
 // Crecimiento del FCF ROBUSTO: regresión log-lineal sobre la serie (usa TODOS
 // los años, no solo 2 extremos → inmune a un año atípico). Banda = rango de los
 // crecimientos año a año. Degrada a CAGR de 2 puntos si solo hay 2 años útiles.
@@ -84,10 +76,15 @@ export async function getFundamentals(ticker) {
   let price = null;
   try { const q = await getQuote(sym); price = q.price; } catch { /* sin precio */ }
 
-  const overview = await av('OVERVIEW', sym);
-  const cash = await av('CASH_FLOW', sym);
-  const income = await av('INCOME_STATEMENT', sym);
-  const balance = await av('BALANCE_SHEET', sym);
+  // Cada llamada pasa por la caché global (avCache): TTL por tipo, throttle y
+  // resiliencia (si AV agota cuota sin copia previa, lanza 429 {limited}). Se
+  // captura `fetchedAt` de cada una para mostrar la antigüedad del dato fuente.
+  const ovR = await avQuery('OVERVIEW', sym), overview = ovR.data;
+  const cashR = await avQuery('CASH_FLOW', sym), cash = cashR.data;
+  const incR = await avQuery('INCOME_STATEMENT', sym), income = incR.data;
+  const balR = await avQuery('BALANCE_SHEET', sym), balance = balR.data;
+  // Antigüedad = la del dato MÁS VIEJO de los cuatro (el más conservador).
+  const fetchedAt = [ovR, cashR, incR, balR].map(r => r.fetchedAt).filter(Boolean).sort()[0] || null;
 
   const cf = cash.annualReports?.[0] || {};
   const inc = income.annualReports?.[0] || {};
@@ -270,6 +267,8 @@ export async function getFundamentals(ticker) {
     ma200,
     shYield,
     sharesChg,
+    // Antigüedad del dato fuente de AV (para el badge de procedencia).
+    fetchedAt,
   };
   cache.set(sym, { ts: Date.now(), data });
   return data;

@@ -161,6 +161,7 @@ export async function createApp() {
       upd.ma200 = f.ma200 ?? null;
       upd.shYield = f.shYield ?? null;
       upd.sharesChg = f.sharesChg ?? null;
+      upd.fundamentalsAt = f.fetchedAt ?? null; // antigüedad del dato fuente (badge)
     } catch (e) { errs.push('fundamentales: ' + e.message); }
     try {
       const est = await getEstimates(existing.ticker);

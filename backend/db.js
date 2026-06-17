@@ -221,6 +221,8 @@ export async function initSchema() {
   // Sorpresas de resultados (EARNINGS): JSON con últimos trimestres beat/miss.
   // Independiente (la escribe /quality), se parsea en rowToAsset.
   await ensureColumn('assets', 'earningsSurprises', 'TEXT');
+  // Antigüedad del dato fuente de AV de los fundamentales (badge de procedencia).
+  await ensureColumn('assets', 'fundamentalsAt', 'TEXT');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que

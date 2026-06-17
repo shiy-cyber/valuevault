@@ -465,7 +465,13 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           )}
           <PriceHistory ticker={a.ticker} theme={theme} />
 
-          {a.priceUpdatedAt && <div style={{ marginBottom: '10px' }}><Fresh source="Yahoo" at={a.priceUpdatedAt} /></div>}
+          {(a.priceUpdatedAt || a.fundamentalsAt) && (
+            <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>FUENTES:</span>
+              {a.priceUpdatedAt && <Fresh source="Yahoo (precio)" at={a.priceUpdatedAt} />}
+              {a.fundamentalsAt && <Fresh source="AV (fundamentales)" at={a.fundamentalsAt} />}
+            </div>
+          )}
 
           <CompanyIntro a={a} />
 
