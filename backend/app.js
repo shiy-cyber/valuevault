@@ -15,6 +15,7 @@ import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
 import { getRisk } from './risk.js';
 import { getEstimates } from './estimates.js';
+import { getNextEarnings } from './earnings.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
 import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
@@ -174,6 +175,23 @@ export async function createApp() {
       if (upd.recommendation == null && cons.recommendation != null) upd.recommendation = cons.recommendation;
       if (upd.numAnalysts == null && cons.numAnalysts != null) upd.numAnalysts = cons.numAnalysts;
     }
+
+    // Próximos resultados (EARNINGS_CALENDAR, AV cacheado). AUTO-CATALIZADOR:
+    // rellena catalyst/catalystDate solo si el activo no tiene catalizador
+    // propio (o si el actual es el auto que pusimos antes → se reauto-avanza al
+    // siguiente trimestre). Nunca sobreescribe un catalizador escrito por el
+    // usuario. Si falla, no rompe el resto del cálculo.
+    try {
+      const ne = await getNextEarnings(existing.ticker);
+      if (ne?.date) {
+        upd.nextEarnings = ne.date;
+        const auto = existing.catalyst === 'Resultados trimestrales';
+        if ((!existing.catalyst && !existing.catalystDate) || auto) {
+          upd.catalyst = 'Resultados trimestrales';
+          upd.catalystDate = ne.date;
+        }
+      }
+    } catch (e) { errs.push('resultados: ' + e.message); }
 
     const cols = Object.keys(upd);
     if (!cols.length) return res.status(502).json({ error: errs.join(' · ') || 'Sin datos' });

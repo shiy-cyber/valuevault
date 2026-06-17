@@ -39,13 +39,17 @@ async function throttle() {
   lastLive = Date.now();
 }
 
-// Devuelve { data, cached, stale } con la respuesta CRUDA de Alpha Vantage.
+// Devuelve { data, cached, stale } con la respuesta de Alpha Vantage.
+//   data  : objeto JSON (endpoints normales) o texto crudo (CSV, p.ej.
+//           EARNINGS_CALENDAR) — el llamador sabe qué esperar por el `fn`.
 //   cached: servido desde BD sin llamar a AV.
 //   stale : copia previa devuelta por fallback (cuota agotada o red caída).
-export async function avQuery(fn, symbol, { force = false, timeout = 9000 } = {}) {
+//   opts.extra: sufijo de query extra (p.ej. '&horizon=3month'); forma parte
+//               de la clave de caché para no colisionar entre variantes.
+export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra = '' } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) throw Object.assign(new Error('Ticker vacío'), { status: 400 });
-  const key = `${fn}:${sym}`;
+  const key = `${fn}:${sym}${extra}`;
 
   const cached = await getAvCache(key); // { data, fetchedAt } | null
   const age = cached?.fetchedAt ? Date.now() - Date.parse(cached.fetchedAt) : Infinity;
@@ -55,16 +59,24 @@ export async function avQuery(fn, symbol, { force = false, timeout = 9000 } = {}
 
   try {
     await throttle();
-    const r = await fetch(`${BASE}?function=${fn}&symbol=${encodeURIComponent(sym)}&apikey=${KEY}`,
+    const r = await fetch(`${BASE}?function=${fn}&symbol=${encodeURIComponent(sym)}${extra}&apikey=${KEY}`,
       { signal: AbortSignal.timeout(timeout) });
-    const j = await r.json();
-    if (isLimit(j)) {
-      // Cuota agotada: si hay copia previa (aunque caducada), úsala.
-      if (cached) return { data: cached.data, cached: true, stale: true };
-      throw Object.assign(new Error(j.Note || j.Information || 'Límite de Alpha Vantage alcanzado (≈25/día).'), { status: 429, limited: true });
+    const text = await r.text();
+    const head = text.trimStart(); // trimStart() ya descarta un BOM (U+FEFF) inicial
+    // AV devuelve JSON {Note|Information} para avisos de cuota INCLUSO en
+    // endpoints CSV → si empieza por '{' lo tratamos como JSON.
+    if (head.startsWith('{')) {
+      const j = JSON.parse(text);
+      if (isLimit(j)) {
+        if (cached) return { data: cached.data, cached: true, stale: true };
+        throw Object.assign(new Error(j.Note || j.Information || 'Límite de Alpha Vantage alcanzado (≈25/día).'), { status: 429, limited: true });
+      }
+      await saveAvCache(key, j, new Date().toISOString());
+      return { data: j, cached: false, stale: false };
     }
-    await saveAvCache(key, j, new Date().toISOString());
-    return { data: j, cached: false, stale: false };
+    // Respuesta no-JSON (CSV) → texto crudo; lo parsea el módulo llamador.
+    await saveAvCache(key, text, new Date().toISOString());
+    return { data: text, cached: false, stale: false };
   } catch (e) {
     // Red/timeout/cuota sin copia previa → degradar a caché si la hay.
     if (cached) return { data: cached.data, cached: true, stale: true };

@@ -213,6 +213,9 @@ export async function initSchema() {
   await ensureColumn('assets', 'ma200', 'REAL');
   await ensureColumn('assets', 'shYield', 'REAL');
   await ensureColumn('assets', 'sharesChg', 'REAL');
+  // Próxima fecha de resultados (EARNINGS_CALENDAR). Columna independiente: la
+  // escribe /quality; alimenta el auto-catalizador (catalyst/catalystDate).
+  await ensureColumn('assets', 'nextEarnings', 'TEXT');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que

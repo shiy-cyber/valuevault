@@ -330,6 +330,7 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <MV label="Objetivo" val={a.target} suffix={a.currency ? ' ' + a.currency : ''} />
             <MV label="Stop" val={a.stop} suffix={a.currency ? ' ' + a.currency : ''} />
             <div className="mv-item"><div className="mv-label">Catalizador</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.catalyst ? a.catalyst + (a.catalystDate ? ` (${a.catalystDate})` : '') : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Próx. resultados</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.nextEarnings || '—'}</div></div>
           </div>
 
           <div className="mv-section-label">Valoración</div>
