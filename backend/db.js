@@ -81,11 +81,12 @@ export async function saveCapexReport(ticker, fiscalYear, data) {
   await run('INSERT OR REPLACE INTO capex_reports (ticker, fiscalYear, data) VALUES (?, ?, ?)', [String(ticker), String(fiscalYear), JSON.stringify(data)]);
 }
 
-// ─── Caché GLOBAL de respuestas Alpha Vantage (compartida entre usuarios) ─
-// Clave = `${function}:${TICKER}` (p.ej. "OVERVIEW:AAPL"). Guarda la respuesta
-// cruda + fetchedAt. Es dato de empresa pública: una llamada sirve para toda la
-// app y se reutiliza hasta que caduca su TTL (ver avCache.js). Evita agotar la
-// cuota gratuita (~25 req/día) repitiendo peticiones del mismo dato.
+// ─── Caché GLOBAL kv en BD (compartida entre usuarios) ──────────────────
+// Tabla genérica (cacheKey, data, fetchedAt) usada por DOS capas:
+//   · avCache.js  → Alpha Vantage, claves `${function}:${TICKER}` (cuota 25/día).
+//   · cache.js    → Yahoo (quotes/estimates), claves `YQUOTE:`/`YEST:` (resiliencia).
+// Guarda la respuesta + fetchedAt; una llamada sirve para toda la app hasta que
+// caduca su TTL, y ante fallo de la fuente se reutiliza la última copia conocida.
 export async function getAvCache(key) {
   const r = await get('SELECT data, fetchedAt FROM av_cache WHERE cacheKey = ?', [String(key)]);
   return r ? { data: safeJson(r.data, null), fetchedAt: r.fetchedAt } : null;

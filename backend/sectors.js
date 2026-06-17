@@ -6,6 +6,8 @@
 // (mismo formato que consumía el HTML original con datos mock)
 // ─────────────────────────────────────────────────────────────
 
+import { cached } from './cache.js';
+
 const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
@@ -343,8 +345,10 @@ export async function getMarketMap(force = false) {
   return out;
 }
 
-// Cotización puntual en tiempo real de un símbolo cualquiera
-export async function getQuote(symbol) {
+const QUOTE_TTL = 10 * 60 * 1000; // 10 min
+
+// Fetch crudo de cotización (Yahoo). La caché lo envuelve abajo.
+async function fetchQuote(symbol) {
   const { points, meta } = await fetchChart(yahooSymbol(symbol), '5d', '1d');
   const { price, prev, change } = dailyChange(points, meta);
   return {
@@ -356,13 +360,21 @@ export async function getQuote(symbol) {
   };
 }
 
-// Cotización en lote (para refrescar toda la cartera). Tolera fallos por símbolo.
-export async function getQuotes(symbols) {
+// Cotización puntual, cacheada en BD con resiliencia: si Yahoo cae sirve la
+// última conocida (marcada _stale). force=true (refrescos explícitos) salta el
+// TTL pero mantiene el fallback a copia previa ante error.
+export async function getQuote(symbol, force = false) {
+  const { data, stale, fetchedAt } = await cached(`YQUOTE:${yahooSymbol(symbol)}`, QUOTE_TTL, () => fetchQuote(symbol), { force });
+  return { ...data, _stale: stale, _fetchedAt: fetchedAt };
+}
+
+// Cotización en lote (refrescar cartera). Cada símbolo cacheado por separado;
+// tolera fallos por símbolo.
+export async function getQuotes(symbols, force = false) {
   return Promise.all(symbols.map(async (s) => {
     try {
-      const { points, meta } = await fetchChart(yahooSymbol(s), '5d', '1d');
-      const { price, prev, change } = dailyChange(points, meta);
-      return { symbol: s, price, previousClose: prev, changePercent: change, currency: meta.currency || null };
+      const { data, stale, fetchedAt } = await cached(`YQUOTE:${yahooSymbol(s)}`, QUOTE_TTL, () => fetchQuote(s), { force });
+      return { ...data, symbol: s, _stale: stale, _fetchedAt: fetchedAt };
     } catch (e) {
       return { symbol: s, price: null, error: e.message };
     }

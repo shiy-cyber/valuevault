@@ -399,7 +399,7 @@ export async function createApp() {
     const uid = readUid(req);
     const rows = await all('SELECT id, ticker, currency FROM assets WHERE userId = ?', [uid]);
     if (!rows.length) return res.json({ updated: 0, total: 0, assets: [], quotes: [] });
-    const quotes = await getQuotes(rows.map(r => r.ticker));
+    const quotes = await getQuotes(rows.map(r => r.ticker), true); // refresco explícito: fuerza fetch (con fallback a caché si Yahoo cae)
     const byTicker = Object.fromEntries(quotes.map(q => [q.symbol, q]));
     const now = new Date().toISOString();
     let updated = 0;
@@ -436,7 +436,7 @@ export async function createApp() {
       source = 'alphavantage';
     } catch (e) {
       try {
-        const q = await getQuote(ticker);
+        const q = await getQuote(ticker, true); // refresco explícito
         if (q.price != null) updates.current = q.price;
         source = 'yahoo';
       } catch (e2) {

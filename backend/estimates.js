@@ -6,8 +6,18 @@
 // ─────────────────────────────────────────────────────────────
 import { yahooSymbol } from './sectors.js';
 import { UA, ensureCrumb } from './yahooCrumb.js';
+import { cached } from './cache.js';
 
+const EST_TTL = 12 * 60 * 60 * 1000; // 12 h (el consenso cambia despacio)
+
+// Wrapper cacheado en BD con resiliencia: si Yahoo/crumb falla pero hay copia
+// previa, devuelve esa copia (marcada _stale) en vez de romper /quality.
 export async function getEstimates(symbol) {
+  const { data, stale, fetchedAt } = await cached(`YEST:${yahooSymbol(symbol)}`, EST_TTL, () => fetchEstimates(symbol));
+  return { ...data, _stale: stale, _fetchedAt: fetchedAt };
+}
+
+async function fetchEstimates(symbol) {
   const sym = yahooSymbol(symbol);
   const { val, cookie } = await ensureCrumb();
   const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=earningsTrend,financialData&crumb=${encodeURIComponent(val)}`;
