@@ -69,4 +69,5 @@ export const api = {
   companyIntro: (id, force) => req('POST', `/api/assets/${id}/company-intro${force ? '?force=1' : ''}`),
   news: (id) => req('POST', `/api/assets/${id}/news`),
   insiders: (id) => req('POST', `/api/assets/${id}/insiders`),
+  dividends: (id) => req('POST', `/api/assets/${id}/dividends`),
 };

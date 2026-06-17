@@ -328,6 +328,51 @@ function InsiderTx({ assetId }) {
   );
 }
 
+// Histórico de dividendos + racha de crecimiento (Alpha Vantage). Bajo demanda:
+// botón que carga al pulsar. Año a verde si sube vs el anterior, rojo si baja.
+function Dividends({ assetId }) {
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const load = async () => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try { setData(await api.dividends(assetId)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      {!data && (
+        <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
+          {busy ? '⏳ Cargando…' : '💰 Dividendos (histórico)'}
+        </button>
+      )}
+      {err && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '6px' }}>{err}</div>}
+      {data && (
+        <div>
+          <div className="mv-section-label">
+            Dividendos
+            {data.streak > 0 && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: data.streak >= 5 ? 'var(--green)' : 'var(--gold)' }}>{data.streak} años subiendo</span>}
+            {data.annual != null && <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--muted)' }}>{data.annualYear}: ${data.annual}/acción</span>}
+            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+          </div>
+          <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
+            {data.history.map((h, i) => (
+              <div key={i} style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '8px', background: 'var(--surface)', borderLeft: `3px solid ${h.up == null ? 'var(--muted)' : h.up ? 'var(--green)' : 'var(--red)'}` }}>
+                <div style={{ color: 'var(--muted)' }}>{h.year}{h.partial ? '*' : ''}</div>
+                <div style={{ color: 'var(--text)' }}>${h.amount}</div>
+              </div>
+            ))}
+          </div>
+          {data.history.some(h => h.partial) && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>* año en curso (parcial)</div>}
+          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Datos en caché (cuota AV agotada).</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
 export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
   const [open, setOpen] = useState(false);
@@ -530,6 +575,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           {a.ma200 == null && a.shYield == null && a.sharesChg == null && (
             <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 Fundamentales» para traer tendencia (MA50/200), shareholder yield y dilución (Alpha Vantage).</div>
           )}
+
+          <Dividends assetId={a.id} />
 
           <div className="mv-section-label">Solidez Financiera</div>
           <div className="mv-grid">

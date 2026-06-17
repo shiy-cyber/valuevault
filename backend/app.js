@@ -18,6 +18,7 @@ import { getEstimates } from './estimates.js';
 import { getNextEarnings, getEarningsSurprises } from './earnings.js';
 import { getNewsSentiment } from './news.js';
 import { getInsiderTransactions } from './insiders.js';
+import { getDividends } from './dividends.js';
 import { searchSymbols } from './search.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
@@ -295,6 +296,18 @@ export async function createApp() {
     const ins = await getInsiderTransactions(existing.ticker);
     if (!ins) return res.status(502).json({ error: 'Sin transacciones de insiders para este valor.' });
     res.json(ins);
+  }));
+
+  // Histórico de dividendos + racha de crecimiento (Alpha Vantage). BAJO
+  // DEMANDA (no en /quality): su propio endpoint + botón. Cacheado; no persiste.
+  app.post('/api/assets/:id/dividends', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const existing = await get('SELECT ticker FROM assets WHERE id = ? AND userId = ?', [id, uid]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const div = await getDividends(existing.ticker);
+    if (!div) return res.status(502).json({ error: 'Este valor no reparte dividendos (o no hay histórico).' });
+    res.json(div);
   }));
 
   // ─── NOTES (aisladas por usuario) ──────────────────────────
