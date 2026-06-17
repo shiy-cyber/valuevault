@@ -175,6 +175,35 @@ export async function getFundamentals(ticker) {
     costEquity = +(costEquity * 100).toFixed(2);
   }
 
+  // ── Quick-wins coste 0 del OVERVIEW (ya descargado) ──────────────────────
+  // Consenso de analistas GRATIS: respaldo cuando Yahoo (estimates.js) falla
+  // por crumb. Buckets de rating → recommendationKey compatible con la UI.
+  const rt = {
+    strong_buy:  num(overview.AnalystRatingStrongBuy) || 0,
+    buy:         num(overview.AnalystRatingBuy) || 0,
+    hold:        num(overview.AnalystRatingHold) || 0,
+    sell:        num(overview.AnalystRatingSell) || 0,
+    strong_sell: num(overview.AnalystRatingStrongSell) || 0,
+  };
+  const nRatings = rt.strong_buy + rt.buy + rt.hold + rt.sell + rt.strong_sell;
+  const ratingMean = nRatings
+    ? (rt.strong_buy + 2 * rt.buy + 3 * rt.hold + 4 * rt.sell + 5 * rt.strong_sell) / nRatings
+    : null;
+  const recKey = ratingMean == null ? null
+    : ratingMean <= 1.5 ? 'strong_buy'
+    : ratingMean <= 2.5 ? 'buy'
+    : ratingMean <= 3.5 ? 'hold'
+    : ratingMean <= 4.5 ? 'sell'
+    : 'strong_sell';
+  const consensus = {
+    targetMean: num(overview.AnalystTargetPrice),
+    recommendation: recKey,
+    numAnalysts: nRatings || null,
+  };
+  // Rentabilidad por dividendo: AV la da como fracción (0.0052) → %.
+  const dyRaw = num(overview.DividendYield);
+  const dividendYield = dyRaw == null ? null : +(dyRaw * 100).toFixed(2);
+
   const data = {
     ticker: sym,
     name: overview.Name || sym,
@@ -210,6 +239,10 @@ export async function getFundamentals(ticker) {
     capexToDA,
     capexHistory,
     capexProfile,
+    // Quick-wins coste 0 (OVERVIEW): consenso de analistas (respaldo gratis de
+    // Yahoo) y rentabilidad por dividendo.
+    consensus,
+    dividendYield,
   };
   cache.set(sym, { ts: Date.now(), data });
   return data;

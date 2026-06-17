@@ -56,7 +56,7 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
         apply('name', d.name); apply('sector', d.sector); apply('market', d.market);
         if (!prev.description) apply('description', d.description);
         next.current = d.current; if (!prev.price) next.price = d.current;
-        ['pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','beta','w52h','w52l','mcap'].forEach(k => {
+        ['pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','beta','w52h','w52l','mcap','dy'].forEach(k => {
           if (!prev[k] && d[k] !== null && d[k] !== undefined) next[k] = d[k];
         });
         return next;

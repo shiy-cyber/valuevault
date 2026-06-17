@@ -66,5 +66,8 @@ export async function lookupTicker(ticker) {
     w52h: num(oData['52WeekHigh']),
     w52l: num(oData['52WeekLow']),
     mcap: formatMcap(oData.MarketCapitalization),
+    // Rentabilidad por dividendo (AV la da como fracción → pct ×100). Coste 0:
+    // ya viene en el mismo OVERVIEW. Rellena el campo `dy` del formulario.
+    dy: pct(oData.DividendYield),
   };
 }

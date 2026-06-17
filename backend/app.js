@@ -149,6 +149,8 @@ export async function createApp() {
       upd.capexToDA = f.capexToDA ?? null;
       upd.capexProfile = f.capexProfile ?? null;
       upd.capexHistory = JSON.stringify(f.capexHistory || []); // array → TEXT para el bind
+      // Quick-win coste 0: rentabilidad por dividendo del mismo OVERVIEW
+      if (f.dividendYield != null) upd.dy = f.dividendYield;
     } catch (e) { errs.push('fundamentales: ' + e.message); }
     try {
       const est = await getEstimates(existing.ticker);
@@ -158,6 +160,15 @@ export async function createApp() {
       if (est.recommendation != null) upd.recommendation = est.recommendation;
       if (est.numAnalysts != null) upd.numAnalysts = est.numAnalysts;
     } catch (e) { errs.push('estimaciones: ' + e.message); }
+
+    // Consenso de analistas GRATIS desde Alpha Vantage como RESPALDO: solo si
+    // Yahoo no aportó ese campo (p.ej. fallo de crumb). Coste 0 (ya en `f`).
+    const cons = fundamentals?.consensus;
+    if (cons) {
+      if (upd.targetMean == null && cons.targetMean != null) upd.targetMean = cons.targetMean;
+      if (upd.recommendation == null && cons.recommendation != null) upd.recommendation = cons.recommendation;
+      if (upd.numAnalysts == null && cons.numAnalysts != null) upd.numAnalysts = cons.numAnalysts;
+    }
 
     const cols = Object.keys(upd);
     if (!cols.length) return res.status(502).json({ error: errs.join(' · ') || 'Sin datos' });
@@ -339,7 +350,7 @@ export async function createApp() {
     let source = '';
     try {
       const d = await lookupTicker(ticker); // Alpha Vantage (precio + fundamentales)
-      const MARKET_FIELDS = ['current', 'pe', 'fpe', 'pb', 'peg', 'evebitda', 'ps', 'eps', 'epsd', 'epsny', 'epsg', 'roe', 'roa', 'gm', 'om', 'nm', 'beta', 'w52h', 'w52l'];
+      const MARKET_FIELDS = ['current', 'pe', 'fpe', 'pb', 'peg', 'evebitda', 'ps', 'eps', 'epsd', 'epsny', 'epsg', 'roe', 'roa', 'gm', 'om', 'nm', 'beta', 'w52h', 'w52l', 'dy'];
       MARKET_FIELDS.forEach(k => { if (d[k] !== null && d[k] !== undefined) updates[k] = d[k]; });
       if (d.mcap) updates.mcap = d.mcap;
       if (d.name) updates.name = d.name;
