@@ -204,6 +204,27 @@ export async function getFundamentals(ticker) {
   const dyRaw = num(overview.DividendYield);
   const dividendYield = dyRaw == null ? null : +(dyRaw * 100).toFixed(2);
 
+  // Medias móviles 50/200 (OVERVIEW) → señal de tendencia.
+  const ma50 = num(overview['50DayMovingAverage']);
+  const ma200 = num(overview['200DayMovingAverage']);
+
+  // Shareholder yield = (recompras + dividendos pagados) / capitalización.
+  const buybacks = num(cf.paymentsForRepurchaseOfCommonStock) ?? num(cf.paymentsForRepurchaseOfEquity);
+  const divPaid = num(cf.dividendPayout);
+  const shYield = (marketCap && marketCap > 0 && (buybacks != null || divPaid != null))
+    ? +((((buybacks || 0) + (divPaid || 0)) / marketCap) * 100).toFixed(2) : null;
+
+  // Dilución vs recompra: variación % del nº de acciones (BALANCE_SHEET, hasta 5a).
+  // Negativo = recompra (reduce acciones, bueno) · positivo = dilución.
+  const shareSeries = (balance.annualReports || []).slice(0, 5)
+    .map(r => num(r.commonStockSharesOutstanding))
+    .filter(v => v != null && v > 0);
+  let sharesChg = null;
+  if (shareSeries.length >= 2) {
+    const newest = shareSeries[0], oldest = shareSeries[shareSeries.length - 1];
+    sharesChg = +(((newest / oldest) - 1) * 100).toFixed(1);
+  }
+
   const data = {
     ticker: sym,
     name: overview.Name || sym,
@@ -243,6 +264,12 @@ export async function getFundamentals(ticker) {
     // Yahoo) y rentabilidad por dividendo.
     consensus,
     dividendYield,
+    // Tendencia (medias móviles) y retribución al accionista (recompras +
+    // dividendos) + dilución (variación nº de acciones).
+    ma50,
+    ma200,
+    shYield,
+    sharesChg,
   };
   cache.set(sym, { ts: Date.now(), data });
   return data;

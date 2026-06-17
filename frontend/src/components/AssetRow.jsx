@@ -248,6 +248,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
   const spread = (a.roic != null && a.wacc != null) ? +(a.roic - a.wacc).toFixed(1) : null;
   const rec = REC_MAP[a.recommendation] || null;
   const upside = (a.targetMean > 0 && a.current > 0) ? +((a.targetMean / a.current - 1) * 100).toFixed(1) : null;
+  // Precio vs MA200: >0 por encima de la media (tendencia alcista de fondo).
+  const vsMa200 = (a.current > 0 && a.ma200 > 0) ? +((a.current / a.ma200 - 1) * 100).toFixed(1) : null;
 
   const doRefresh = async () => {
     if (busyData || !onRefreshData) return;
@@ -399,6 +401,18 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '6px 0 0' }}>Pulsa «📊 Fundamentales» para calcular los gastos de capital.</div>
           )}
           <CapexNarrative assetId={a.id} cached={a.capexNarrative} latestFiscalYear={a.capexHistory?.[0]?.year} />
+
+          <div className="mv-section-label">Tendencia & Retribución al Accionista</div>
+          <div className="mv-grid">
+            <div className="mv-item"><div className="mv-label">MA50</div><div className="mv-val">{a.ma50 != null ? fmt(a.ma50) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">MA200</div><div className="mv-val">{a.ma200 != null ? fmt(a.ma200) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">Precio vs MA200</div><div className="mv-val" style={{ color: vsMa200 == null ? 'var(--muted)' : vsMa200 >= 0 ? 'var(--green)' : 'var(--red)' }}>{vsMa200 == null ? '—' : (vsMa200 >= 0 ? '+' : '') + vsMa200 + '%'}</div></div>
+            <MV label="Shareholder Yield" val={a.shYield} suffix="%" good={4} warn={1} />
+            <div className="mv-item"><div className="mv-label">Acciones 5a (dilución)</div><div className="mv-val" style={{ color: a.sharesChg == null ? 'var(--muted)' : a.sharesChg <= 0 ? 'var(--green)' : 'var(--red)' }}>{a.sharesChg == null ? '—' : (a.sharesChg > 0 ? '+' : '') + a.sharesChg + '%'}</div></div>
+          </div>
+          {a.ma200 == null && a.shYield == null && a.sharesChg == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 Fundamentales» para traer tendencia (MA50/200), shareholder yield y dilución (Alpha Vantage).</div>
+          )}
 
           <div className="mv-section-label">Solidez Financiera</div>
           <div className="mv-grid">

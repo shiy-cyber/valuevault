@@ -204,6 +204,15 @@ export async function initSchema() {
   // Introducción breve de la empresa (perfil de negocio). Origen: campo
   // Description de Alpha Vantage OVERVIEW; editable por el usuario.
   await ensureColumn('assets', 'description', 'TEXT');
+  // Quick-wins coste 0 (OVERVIEW / estados financieros). Columnas INDEPENDIENTES
+  // (fuera de ASSET_NUM → el formulario de edición no las pisa): las escribe solo
+  // el endpoint /quality. ma50/ma200 = medias móviles; shYield = shareholder yield
+  // % (recompras+dividendos / capitalización); sharesChg = variación % del nº de
+  // acciones a 5 años (negativo = recompra, positivo = dilución).
+  await ensureColumn('assets', 'ma50', 'REAL');
+  await ensureColumn('assets', 'ma200', 'REAL');
+  await ensureColumn('assets', 'shYield', 'REAL');
+  await ensureColumn('assets', 'sharesChg', 'REAL');
 }
 
 // Cuenta demo compartida (id fijo = 1): aloja los datos semilla para que

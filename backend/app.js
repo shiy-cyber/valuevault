@@ -149,8 +149,13 @@ export async function createApp() {
       upd.capexToDA = f.capexToDA ?? null;
       upd.capexProfile = f.capexProfile ?? null;
       upd.capexHistory = JSON.stringify(f.capexHistory || []); // array → TEXT para el bind
-      // Quick-win coste 0: rentabilidad por dividendo del mismo OVERVIEW
+      // Quick-wins coste 0 (mismo OVERVIEW/estados financieros): dividendo,
+      // medias móviles, shareholder yield y dilución (nº de acciones 5a).
       if (f.dividendYield != null) upd.dy = f.dividendYield;
+      upd.ma50 = f.ma50 ?? null;
+      upd.ma200 = f.ma200 ?? null;
+      upd.shYield = f.shYield ?? null;
+      upd.sharesChg = f.sharesChg ?? null;
     } catch (e) { errs.push('fundamentales: ' + e.message); }
     try {
       const est = await getEstimates(existing.ticker);
