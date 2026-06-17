@@ -46,6 +46,7 @@ export const api = {
   getExport: () => req('GET', '/api/export'),
 
   lookup:  (ticker) => req('GET', `/api/lookup/${encodeURIComponent(ticker)}`),
+  search:  (q) => req('GET', `/api/search?q=${encodeURIComponent(q)}`),
   fundamentals: (ticker) => req('GET', `/api/fundamentals/${encodeURIComponent(ticker)}`),
   volprofile: (symbol, range, anchor) => req('GET', `/api/volprofile/${encodeURIComponent(symbol)}?range=${range}&anchor=${anchor}`),
   smc: (symbol, range) => req('GET', `/api/smc/${encodeURIComponent(symbol)}?range=${range}`),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
 
 const NUM_FIELDS = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop'];
@@ -29,6 +29,8 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
   const [form, setForm] = useState(empty());
   const [status, setStatus] = useState({ text: '', color: 'var(--muted)' });
   const [busy, setBusy] = useState(false);
+  const [matches, setMatches] = useState([]); // autocompletado de símbolos (Yahoo)
+  const searchTimer = useRef(null);
 
   useEffect(() => {
     if (open) {
@@ -36,12 +38,29 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
         ? { ...empty(), ...editing, strategies: editing.strategies || [], time: editing.time || [] }
         : { ...empty(), type: presetType });
       setStatus({ text: '', color: 'var(--muted)' });
+      setMatches([]);
     }
   }, [open, editing, presetType]);
 
   if (!open) return null;
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
   const toggle = (k, v) => setForm(prev => ({ ...prev, [k]: prev[k].includes(v) ? prev[k].filter(x => x !== v) : [...prev[k], v] }));
+
+  // Autocompletado de ticker (Yahoo, gratis): busca al teclear, con debounce.
+  function onTickerChange(v) {
+    set('ticker', v.toUpperCase());
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    const q = v.trim();
+    if (q.length < 2) { setMatches([]); return; }
+    searchTimer.current = setTimeout(async () => {
+      try { setMatches(await api.search(q)); } catch { setMatches([]); }
+    }, 350);
+  }
+  function pickMatch(m) {
+    set('ticker', (m.symbol || '').toUpperCase());
+    if (m.name) set('name', m.name);
+    setMatches([]);
+  }
 
   async function lookup() {
     const ticker = (form.ticker || '').trim().toUpperCase();
@@ -86,13 +105,25 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
       <div className="modal">
         <div className="modal-title">{editing ? `Editar — ${editing.ticker}` : 'Registrar Nuevo Activo'}</div>
         <div className="form-grid">
-          <div className="form-group full">
+          <div className="form-group full" style={{ position:'relative' }}>
             <label>Ticker / Símbolo</label>
             <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-              <input type="text" value={form.ticker} placeholder="ej. AAPL" style={{ textTransform:'uppercase', flex:1 }}
-                onChange={e => set('ticker', e.target.value.toUpperCase())} />
+              <input type="text" value={form.ticker} placeholder="ej. AAPL o «apple»" style={{ textTransform:'uppercase', flex:1 }}
+                autoComplete="off" onChange={e => onTickerChange(e.target.value)} />
               <button type="button" className="btn btn-gold" disabled={busy} onClick={lookup} style={{ whiteSpace:'nowrap', padding:'8px 14px', fontSize:'12px' }}>{busy ? '⏳…' : '🔍 Buscar'}</button>
             </div>
+            {matches.length > 0 && (
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:30, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', marginTop:'3px', maxHeight:'240px', overflowY:'auto', boxShadow:'0 8px 24px rgba(0,0,0,0.35)' }}>
+                {matches.map((m, i) => (
+                  <div key={i} onMouseDown={e => e.preventDefault()} onClick={() => pickMatch(m)}
+                    style={{ padding:'8px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px', borderBottom: i < matches.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ fontWeight:600, fontFamily:"'DM Mono',monospace", fontSize:'12px' }}>{m.symbol}</span>
+                    <span style={{ color:'var(--muted)', fontSize:'11px', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.name}</span>
+                    <span style={{ color:'var(--muted)', fontSize:'10px', whiteSpace:'nowrap' }}>{m.exchange || ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{ fontSize:'11px', fontFamily:"'DM Mono',monospace", marginTop:'4px', minHeight:'15px', color: status.color }}>{status.text}</div>
           </div>
 

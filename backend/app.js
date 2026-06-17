@@ -17,6 +17,7 @@ import { getRisk } from './risk.js';
 import { getEstimates } from './estimates.js';
 import { getNextEarnings, getEarningsSurprises } from './earnings.js';
 import { getNewsSentiment } from './news.js';
+import { searchSymbols } from './search.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
 import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
@@ -333,6 +334,12 @@ export async function createApp() {
   // ─── ALPHA VANTAGE (público) ───────────────────────────────
   app.get('/api/lookup/:ticker', h(async (req, res) => {
     res.json(await lookupTicker(req.params.ticker));
+  }));
+
+  // Autocompletado de símbolos (Yahoo, gratis — NO gasta cuota de Alpha
+  // Vantage). Público, como /api/quote.
+  app.get('/api/search', h(async (req, res) => {
+    res.json(await searchSymbols(req.query.q));
   }));
 
   app.get('/api/fundamentals/:ticker', h(async (req, res) => {
