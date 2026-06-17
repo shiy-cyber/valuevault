@@ -7,10 +7,7 @@
 // calculadora sigue funcionando en modo manual.
 // ─────────────────────────────────────────────────────────────
 import { getQuote } from './sectors.js';
-
-const KEY = process.env.ALPHA_VANTAGE_KEY;
-const BASE = 'https://www.alphavantage.co/query';
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+import { avQuery } from './avCache.js';
 
 const num = (v) => {
   if (v === undefined || v === null || v === 'None' || v === '' || v === '-') return null;
@@ -18,13 +15,12 @@ const num = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
+// Delegado a la caché global (avCache): TTL por tipo de dato, throttle entre
+// llamadas en vivo y resiliencia. Mantiene el contrato previo: si AV agota
+// cuota y no hay copia previa, avQuery lanza 429 {limited}; si la hay, devuelve
+// esa copia (la calculadora sigue funcionando con el último dato conocido).
 async function av(fn, sym) {
-  const r = await fetch(`${BASE}?function=${fn}&symbol=${encodeURIComponent(sym)}&apikey=${KEY}`, { signal: AbortSignal.timeout(9000) });
-  const j = await r.json();
-  if (j.Note || j.Information) {
-    throw Object.assign(new Error('Límite de Alpha Vantage alcanzado (25/día). Introduce los datos a mano.'), { status: 429, limited: true });
-  }
-  return j;
+  return (await avQuery(fn, sym)).data;
 }
 
 // Crecimiento del FCF ROBUSTO: regresión log-lineal sobre la serie (usa TODOS
@@ -89,11 +85,8 @@ export async function getFundamentals(ticker) {
   try { const q = await getQuote(sym); price = q.price; } catch { /* sin precio */ }
 
   const overview = await av('OVERVIEW', sym);
-  await sleep(1300);
   const cash = await av('CASH_FLOW', sym);
-  await sleep(1300);
   const income = await av('INCOME_STATEMENT', sym);
-  await sleep(1300);
   const balance = await av('BALANCE_SHEET', sym);
 
   const cf = cash.annualReports?.[0] || {};

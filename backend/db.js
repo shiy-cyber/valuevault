@@ -80,6 +80,20 @@ export async function saveCapexReport(ticker, fiscalYear, data) {
   await run('INSERT OR REPLACE INTO capex_reports (ticker, fiscalYear, data) VALUES (?, ?, ?)', [String(ticker), String(fiscalYear), JSON.stringify(data)]);
 }
 
+// ─── Caché GLOBAL de respuestas Alpha Vantage (compartida entre usuarios) ─
+// Clave = `${function}:${TICKER}` (p.ej. "OVERVIEW:AAPL"). Guarda la respuesta
+// cruda + fetchedAt. Es dato de empresa pública: una llamada sirve para toda la
+// app y se reutiliza hasta que caduca su TTL (ver avCache.js). Evita agotar la
+// cuota gratuita (~25 req/día) repitiendo peticiones del mismo dato.
+export async function getAvCache(key) {
+  const r = await get('SELECT data, fetchedAt FROM av_cache WHERE cacheKey = ?', [String(key)]);
+  return r ? { data: safeJson(r.data, null), fetchedAt: r.fetchedAt } : null;
+}
+export async function saveAvCache(key, data, fetchedAt) {
+  await run('INSERT OR REPLACE INTO av_cache (cacheKey, data, fetchedAt) VALUES (?, ?, ?)',
+    [String(key), JSON.stringify(data), fetchedAt]);
+}
+
 // ─── Esquema + migraciones (idempotente) ─────────────────────
 async function ensureColumn(table, col, decl) {
   const cols = await all(`PRAGMA table_info(${table})`);
@@ -136,6 +150,11 @@ export async function initSchema() {
       data       TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (ticker, fiscalYear)
+    );
+    CREATE TABLE IF NOT EXISTS av_cache (
+      cacheKey  TEXT PRIMARY KEY,
+      data      TEXT NOT NULL,
+      fetchedAt TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS users (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,

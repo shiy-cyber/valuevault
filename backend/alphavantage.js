@@ -3,8 +3,7 @@
 // normaliza la respuesta al formato de campos del formulario.
 // La clave nunca sale del servidor.
 // ─────────────────────────────────────────────────────────────
-const KEY = process.env.ALPHA_VANTAGE_KEY; // definir en .env (local) y en Netlify (producción)
-const BASE = 'https://www.alphavantage.co/query';
+import { avQuery } from './avCache.js';
 
 const num = (v) => {
   if (v === undefined || v === null || v === 'None' || v === '-' || v === '') return null;
@@ -21,23 +20,14 @@ function formatMcap(v) {
   return (n / 1e6).toFixed(0) + 'M';
 }
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
 export async function lookupTicker(ticker) {
   const sym = String(ticker || '').trim().toUpperCase();
   if (!sym) throw Object.assign(new Error('Ticker vacío'), { status: 400 });
 
-  // Secuencial con pausa: la clave gratuita exige ≤1 petición/segundo.
-  const qRes = await fetch(`${BASE}?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(sym)}&apikey=${KEY}`);
-  const qData = await qRes.json();
-  await sleep(1300);
-  const oRes = await fetch(`${BASE}?function=OVERVIEW&symbol=${encodeURIComponent(sym)}&apikey=${KEY}`);
-  const oData = await oRes.json();
-
-  // Aviso de límite de la API (5 req/min en cuentas gratuitas)
-  if (qData.Note || qData.Information || oData.Note || oData.Information) {
-    throw Object.assign(new Error(qData.Note || qData.Information || oData.Note || oData.Information), { status: 429 });
-  }
+  // Caché global + throttle + resiliencia los gestiona avCache (incl. el
+  // límite de cuota: lanza 429 si no hay copia previa, o sirve la caché).
+  const qData = (await avQuery('GLOBAL_QUOTE', sym)).data;
+  const oData = (await avQuery('OVERVIEW', sym)).data;
 
   const q = qData['Global Quote'] || {};
   const price = num(q['05. price']);
