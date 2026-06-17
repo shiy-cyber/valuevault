@@ -7,6 +7,7 @@
 // Cache 30 min (los datos macro cambian a diario/mensual).
 // ─────────────────────────────────────────────────────────────
 import { fetchChart } from './sectors.js';
+import { getEconomics } from './economics.js';
 
 // Tramos de la curva (rendimiento en % directo desde Yahoo)
 const CURVE = [
@@ -112,10 +113,11 @@ const TTL = 30 * 60 * 1000;
 export async function getMacro(force = false) {
   if (!force && cache.data && Date.now() - cache.ts < TTL) return cache.data;
 
-  const [curve, infl, fed] = await Promise.allSettled([
+  const [curve, infl, fed, econ] = await Promise.allSettled([
     withTimeout(getCurve(), 8000, 'curve'),
     withTimeout(getInflation(), 7500, 'bls'),
     withTimeout(getFedRate(), 7500, 'nyfed'),
+    withTimeout(getEconomics(), 8000, 'av-econ'), // Paro + PIB real (Alpha Vantage)
   ]);
   const inflation = {
     coreCPI: infl.status === 'fulfilled' ? infl.value.coreCPI : null,
@@ -125,11 +127,13 @@ export async function getMacro(force = false) {
   const data = {
     curve: curve.status === 'fulfilled' ? curve.value : null,
     inflation,
+    economics: econ.status === 'fulfilled' ? econ.value : null,
     at: new Date().toISOString(),
     errors: {
       curve: curve.status === 'rejected' ? String(curve.reason?.message || curve.reason) : null,
       bls: infl.status === 'rejected' ? String(infl.reason?.message || infl.reason) : null,
       nyfed: fed.status === 'rejected' ? String(fed.reason?.message || fed.reason) : null,
+      avEcon: econ.status === 'rejected' ? String(econ.reason?.message || econ.reason) : null,
     },
   };
   cache = { ts: Date.now(), data };

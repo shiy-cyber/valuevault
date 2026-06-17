@@ -6,6 +6,8 @@ import { api } from '../lib/api.js';
 // Color por estado de la curva / inflación
 const statusColor = (s) => s === 'Invertida' ? '#e74c3c' : s === 'Plana' ? '#c9a84c' : s === 'Normal' ? '#2ecc71' : 'var(--muted)';
 const inflColor = (v) => v == null ? 'var(--muted)' : v <= 2.2 ? '#2ecc71' : v <= 3 ? '#c9a84c' : '#e74c3c';
+const unempColor = (v) => v == null ? 'var(--muted)' : v <= 4 ? '#2ecc71' : v <= 5 ? '#c9a84c' : '#e74c3c';
+const gdpColor = (v) => v == null ? 'var(--muted)' : v >= 2 ? '#2ecc71' : v >= 0 ? '#c9a84c' : '#e74c3c';
 
 function Spark({ points, color }) {
   if (!points || points.length < 2) return null;
@@ -39,7 +41,7 @@ export default function Macro({ theme, toast }) {
 
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
-  const curve = macro?.curve, infl = macro?.inflation;
+  const curve = macro?.curve, infl = macro?.inflation, econ = macro?.economics;
 
   const curveData = curve ? {
     labels: curve.points.map(p => p.label),
@@ -129,6 +131,30 @@ export default function Macro({ theme, toast }) {
               <div style={{ ...big, color: 'var(--gold)' }}>{infl.fedFunds.value}%</div>
               <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>tipo efectivo (EFFR) · {monthYr(infl.fedFunds.date)}</div>
               <a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '10px', fontFamily: "'DM Mono',monospace", fontSize: '10px', color: 'var(--gold)', textDecoration: 'none' }}>Calendario FOMC ↗</a>
+            </>
+          ) : <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
+        </div>
+
+        {/* Tasa de paro (Alpha Vantage) */}
+        <div style={cardBase}>
+          <div style={cap}>Tasa de Paro · EE.UU.</div>
+          {econ?.unemployment ? (
+            <>
+              <div style={{ ...big, color: unempColor(econ.unemployment.value) }}>{econ.unemployment.value}%</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>{monthYr(econ.unemployment.date)}{econ.unemployment.prev != null ? ` · antes ${econ.unemployment.prev}%` : ''}</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', lineHeight: 1.6, marginTop: '8px' }}>Mitad del mandato dual de la Fed. Subidas rápidas anticipan debilidad del ciclo.</div>
+            </>
+          ) : <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
+        </div>
+
+        {/* PIB real (Alpha Vantage) */}
+        <div style={cardBase}>
+          <div style={cap}>PIB Real · Crecimiento</div>
+          {econ?.gdpGrowth ? (
+            <>
+              <div style={{ ...big, color: gdpColor(econ.gdpGrowth.value) }}>{econ.gdpGrowth.value > 0 ? '+' : ''}{econ.gdpGrowth.value}%</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px' }}>interanual · {econ.gdpGrowth.date?.slice(0, 4)}</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', lineHeight: 1.6, marginTop: '8px' }}>Crecimiento real (descontada la inflación). Dos trimestres en negativo = recesión técnica.</div>
             </>
           ) : <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
         </div>

@@ -47,11 +47,13 @@ async function throttle() {
 //   opts.extra: sufijo de query extra (p.ej. '&horizon=3month'); forma parte
 //               de la clave de caché para no colisionar entre variantes.
 //   opts.symbolParam: nombre del parámetro del ticker (por defecto 'symbol';
-//               NEWS_SENTIMENT usa 'tickers').
+//               NEWS_SENTIMENT usa 'tickers'; null = SIN símbolo, p.ej. los
+//               indicadores económicos REAL_GDP/UNEMPLOYMENT/CPI…).
 export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra = '', symbolParam = 'symbol' } = {}) {
+  const hasSymbol = symbolParam !== null;
   const sym = String(symbol || '').trim().toUpperCase();
-  if (!sym) throw Object.assign(new Error('Ticker vacío'), { status: 400 });
-  const key = `${fn}:${sym}${extra}`;
+  if (hasSymbol && !sym) throw Object.assign(new Error('Ticker vacío'), { status: 400 });
+  const key = hasSymbol ? `${fn}:${sym}${extra}` : `${fn}${extra}`;
 
   const cached = await getAvCache(key); // { data, fetchedAt } | null
   const age = cached?.fetchedAt ? Date.now() - Date.parse(cached.fetchedAt) : Infinity;
@@ -61,7 +63,8 @@ export async function avQuery(fn, symbol, { force = false, timeout = 9000, extra
 
   try {
     await throttle();
-    const r = await fetch(`${BASE}?function=${fn}&${symbolParam}=${encodeURIComponent(sym)}${extra}&apikey=${KEY}`,
+    const symPart = hasSymbol ? `&${symbolParam}=${encodeURIComponent(sym)}` : '';
+    const r = await fetch(`${BASE}?function=${fn}${symPart}${extra}&apikey=${KEY}`,
       { signal: AbortSignal.timeout(timeout) });
     const text = await r.text();
     const head = text.trimStart(); // trimStart() ya descarta un BOM (U+FEFF) inicial
