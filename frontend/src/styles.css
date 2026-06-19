@@ -116,6 +116,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .filter-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s;}
 .filter-chip:hover{border-color:var(--gold);color:var(--gold);}
 .filter-chip.active{background:rgba(201,168,76,.15);border-color:var(--gold);color:var(--gold);}
+.filter-group{display:flex;flex-direction:column;gap:6px;}
+.filter-group>label{margin-bottom:2px;}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s;}
