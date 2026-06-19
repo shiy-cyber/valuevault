@@ -1,18 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import AssetRow from './AssetRow.jsx';
 
 const STRATS = [['value','Value'],['growth','Growth'],['dividend','Dividend'],['garp','GARP'],['momentum','Momentum'],['hidden','Gemas Ocultas']];
 const TIMES = [['short','Corto Plazo'],['medium','Medio Plazo'],['long','Largo Plazo']];
 const RISKS = [['low','Riesgo Bajo'],['medium','Riesgo Medio'],['high','Riesgo Alto']];
 
+function Dropdown({ title, items, list, set, open, onOpen }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) onOpen(null); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open, onOpen]);
+
+  const toggle = (val) => set(list.includes(val) ? list.filter(v => v !== val) : [...list, val]);
+
+  return (
+    <div className="filter-dd" ref={ref}>
+      <button className={`filter-dd-btn${list.length ? ' active' : ''}`} onClick={() => onOpen(open ? null : title)}>
+        {title}{list.length ? ` (${list.length})` : ''}<span className="filter-dd-caret">▾</span>
+      </button>
+      {open ? (
+        <div className="filter-dd-panel">
+          {items.map(([k, l]) => (
+            <button key={k} className={`filter-chip${list.includes(k) ? ' active' : ''}`} onClick={() => toggle(k)}>{l}</button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Assets({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
   const [strats, setStrats] = useState([]);
   const [times, setTimes] = useState([]);
   const [risks, setRisks] = useState([]);
+  const [open, setOpen] = useState(null);
   const noteCount = (id) => notes.filter(n => n.assetId === id).length;
 
-  // Activa/desactiva un valor dentro de su categoría (multi-selección)
-  const toggle = (val, list, set) => set(list.includes(val) ? list.filter(v => v !== val) : [...list, val]);
   const clearAll = () => { setStrats([]); setTimes([]); setRisks([]); };
   const hasFilters = strats.length || times.length || risks.length;
 
@@ -24,25 +50,14 @@ export default function Assets({ assets, notes, theme, fxRates, onNotes, onEdit,
     return ms && mt && mr;
   });
 
-  const Group = ({ title, items, list, set }) => (
-    <div className="filter-group">
-      <label>{title}</label>
-      <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
-        {items.map(([k, l]) => (
-          <button key={k} className={`filter-chip${list.includes(k) ? ' active' : ''}`} onClick={() => toggle(k, list, set)}>{l}</button>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <div className="section active">
-      <div className="filters-bar" style={{ flexDirection:'column', alignItems:'stretch', gap:'12px' }}>
-        <Group title="Tipo de valor" items={STRATS} list={strats} set={setStrats} />
-        <Group title="Tiempo de inversión" items={TIMES} list={times} set={setTimes} />
-        <Group title="Riesgo" items={RISKS} list={risks} set={setRisks} />
+      <div className="filter-dds">
+        <Dropdown title="Tipo" items={STRATS} list={strats} set={setStrats} open={open === 'Tipo'} onOpen={setOpen} />
+        <Dropdown title="Plazo" items={TIMES} list={times} set={setTimes} open={open === 'Plazo'} onOpen={setOpen} />
+        <Dropdown title="Riesgo" items={RISKS} list={risks} set={setRisks} open={open === 'Riesgo'} onOpen={setOpen} />
         {hasFilters ? (
-          <button className="filter-chip" style={{ alignSelf:'flex-start', borderStyle:'dashed' }} onClick={clearAll}>✕ Limpiar filtros</button>
+          <button className="filter-chip" style={{ borderStyle:'dashed' }} onClick={clearAll}>✕ Limpiar</button>
         ) : null}
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginTop:'16px' }}>
