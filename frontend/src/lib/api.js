@@ -47,6 +47,10 @@ export const api = {
   communityMe: () => req('GET', '/api/community/me'),
   updateProfile: (p) => req('PUT', '/api/community/profile', p),
   getProfile: (handle) => req('GET', `/api/community/users/${encodeURIComponent(handle)}`),
+  createPost: (body) => req('POST', '/api/community/posts', { body }),
+  listPosts: (cursor, limit = 20) => req('GET', `/api/community/posts?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`),
+  getPost: (id) => req('GET', `/api/community/posts/${id}`),
+  deletePost: (id) => req('DELETE', `/api/community/posts/${id}`),
 
   getExport: () => req('GET', '/api/export'),
 

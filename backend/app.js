@@ -7,7 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
-import { validateProfileInput } from './community.js';
+import { validateProfileInput, extractTickers } from './community.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
@@ -59,6 +59,27 @@ const writeUid = (req) => {
   if (!u) throw Object.assign(new Error('Inicia sesión o crea una cuenta para guardar cambios'), { status: 401 });
   return u.uid;
 };
+
+// ─── Comunidad: feed ─────────────────────────────────────────
+// SELECT con JOIN al autor PÚBLICO (sin email) → una sola query, sin N+1.
+const POST_SELECT = `SELECT p.id, p.body, p.tickers, p.created_at,
+  u.id AS authorId, u.displayName, u.handle, u.avatar
+  FROM posts p JOIN users u ON u.id = p.userId`;
+
+function postRowToJson(r) {
+  if (!r) return null;
+  let tickers = [];
+  try { tickers = JSON.parse(r.tickers || '[]'); } catch {}
+  return {
+    id: Number(r.id),
+    body: r.body,
+    tickers,
+    createdAt: r.created_at,
+    author: { id: Number(r.authorId), displayName: r.displayName || null, handle: r.handle || null, avatar: r.avatar || null },
+  };
+}
+// created_at en SQLite es UTC "YYYY-MM-DD HH:MM:SS" → ms epoch.
+const tsToMs = (s) => new Date(String(s).replace(' ', 'T') + 'Z').getTime();
 
 export async function createApp() {
   await ready(); // esquema + semilla + demo (idempotente, una vez por instancia)
@@ -122,6 +143,51 @@ export async function createApp() {
     const pub = await getPublicUserByHandle(req.params.handle);
     if (!pub || !pub.handle) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json(pub);
+  }));
+
+  // ─── COMUNIDAD · feed de publicaciones (Fase 1) ────────────
+  // Crear publicación (texto + tickers). Exige sesión + alias fijado.
+  app.post('/api/community/posts', h(async (req, res) => {
+    const uid = writeUid(req);
+    const author = await getPublicUserById(uid);
+    if (!author?.handle) throw Object.assign(new Error('Crea tu alias antes de publicar'), { status: 403 });
+    const body = String(req.body?.body || '').trim();
+    if (!body) throw Object.assign(new Error('La publicación está vacía'), { status: 400 });
+    if (body.length > 500) throw Object.assign(new Error('Máximo 500 caracteres'), { status: 400 });
+    // Anti-spam: 10 s entre publicaciones (chequeo en BD → válido en serverless).
+    const last = await get('SELECT created_at FROM posts WHERE userId = ? ORDER BY id DESC LIMIT 1', [uid]);
+    if (last && Date.now() - tsToMs(last.created_at) < 10000) {
+      throw Object.assign(new Error('Espera unos segundos antes de publicar de nuevo'), { status: 429 });
+    }
+    const tickers = extractTickers(body);
+    const info = await run('INSERT INTO posts (userId, body, tickers) VALUES (?, ?, ?)', [uid, body, JSON.stringify(tickers)]);
+    res.status(201).json(postRowToJson(await get(`${POST_SELECT} WHERE p.id = ?`, [info.lastInsertRowid])));
+  }));
+
+  // Feed global paginado por cursor (id descendente). Lectura pública.
+  app.get('/api/community/posts', h(async (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    const cursor = Number(req.query.cursor) || 0;
+    const rows = cursor > 0
+      ? await all(`${POST_SELECT} WHERE p.id < ? ORDER BY p.id DESC LIMIT ?`, [cursor, limit])
+      : await all(`${POST_SELECT} ORDER BY p.id DESC LIMIT ?`, [limit]);
+    const posts = rows.map(postRowToJson);
+    res.json({ posts, nextCursor: posts.length === limit ? posts[posts.length - 1].id : null });
+  }));
+
+  // Una publicación por id. Lectura pública.
+  app.get('/api/community/posts/:id', h(async (req, res) => {
+    const row = await get(`${POST_SELECT} WHERE p.id = ?`, [Number(req.params.id)]);
+    if (!row) return res.status(404).json({ error: 'Publicación no encontrada' });
+    res.json(postRowToJson(row));
+  }));
+
+  // Borrar la propia publicación.
+  app.delete('/api/community/posts/:id', h(async (req, res) => {
+    const uid = writeUid(req);
+    const info = await run('DELETE FROM posts WHERE id = ? AND userId = ?', [Number(req.params.id), uid]);
+    if (!info.changes) return res.status(404).json({ error: 'Publicación no encontrada' });
+    res.json({ ok: true });
   }));
 
   // ─── ASSETS (aislados por usuario) ─────────────────────────

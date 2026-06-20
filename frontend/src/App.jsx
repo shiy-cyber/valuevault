@@ -323,7 +323,7 @@ export default function App() {
           {section === 'smc' && <SMC theme={theme} toast={toast} />}
           {section === 'gamma' && <Gamma theme={theme} toast={toast} />}
           {section === 'trendfollow' && <TrendFollowing theme={theme} toast={toast} />}
-          {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} />}
+          {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} toast={toast} />}
           {section === 'guide' && <Guide go={go} />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={addNote} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
