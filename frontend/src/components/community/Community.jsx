@@ -12,17 +12,34 @@ export default function Community({ user, profile, needsAlias, onEditAlias, onLo
   const [loadingMore, setLoadingMore] = useState(false);
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
-  const [scope, setScope] = useState('global'); // global | following
+  const [scope, setScope] = useState('global'); // global | following | trending
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState([]);
+  const [trendTickers, setTrendTickers] = useState([]);
 
   const loadFirst = useCallback(() => {
     setLoading(true);
-    api.listPosts(null, 20, scope === 'following' ? 'following' : undefined)
-      .then(r => { setPosts(r.posts); setCursor(r.nextCursor); })
+    const p = scope === 'trending'
+      ? api.trending()
+      : api.listPosts(null, 20, scope === 'following' ? 'following' : undefined);
+    p.then(r => { setPosts(r.posts); setCursor(scope === 'trending' ? null : r.nextCursor); })
       .catch(e => toast?.('⚠ ' + e.message))
       .finally(() => setLoading(false));
   }, [toast, scope]);
 
   useEffect(() => { loadFirst(); }, [loadFirst]);
+
+  // Tickers en tendencia (una vez)
+  useEffect(() => { api.trendingTickers().then(r => setTrendTickers(r.tickers || [])).catch(() => {}); }, []);
+
+  // Búsqueda de usuarios (mín. 2 caracteres)
+  useEffect(() => {
+    const t = q.trim();
+    if (t.length < 2) { setResults([]); return; }
+    let alive = true;
+    api.searchUsers(t).then(r => { if (alive) setResults(r.users || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, [q]);
 
   const loadMore = async () => {
     if (!cursor || loadingMore) return;
@@ -91,13 +108,40 @@ export default function Community({ user, profile, needsAlias, onEditAlias, onLo
         </div>
       )}
 
-      {/* ── Selector de alcance del feed ── */}
-      {user && (
-        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-          <button className={`filter-chip${scope === 'global' ? ' active' : ''}`} onClick={() => setScope('global')}>🌐 Global</button>
-          <button className={`filter-chip${scope === 'following' ? ' active' : ''}`} onClick={() => setScope('following')}>👤 Siguiendo</button>
+      {/* ── Búsqueda de usuarios ── */}
+      <div style={{ position: 'relative', marginTop: '16px' }}>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 Buscar usuarios por nombre o @alias…"
+          style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '9px 12px', color: 'var(--text)', fontFamily: "'DM Sans',sans-serif", fontSize: '13px', boxSizing: 'border-box' }} />
+        {results.length > 0 && (
+          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: '10px', boxShadow: '0 8px 24px var(--shadow)', overflow: 'hidden' }}>
+            {results.map(u => (
+              <div key={u.id} onClick={() => { setQ(''); setResults([]); onProfile?.(u.handle); }}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '18px' }}>{u.avatar || '📈'}</span>
+                <span style={{ fontSize: '13px', color: 'var(--text)' }}>{u.displayName}</span>
+                <span style={{ fontSize: '11px', color: 'var(--gold)', fontFamily: "'DM Mono',monospace" }}>@{u.handle}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Tickers en tendencia ── */}
+      {trendTickers.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>🔥 Tendencia:</span>
+          {trendTickers.map(t => (
+            <button key={t.ticker} className="filter-chip" onClick={() => onTicker?.(t.ticker)} style={{ color: 'var(--gold)' }}>${t.ticker} · {t.mentions}</button>
+          ))}
         </div>
       )}
+
+      {/* ── Selector de alcance del feed ── */}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+        <button className={`filter-chip${scope === 'global' ? ' active' : ''}`} onClick={() => setScope('global')}>🌐 Global</button>
+        <button className={`filter-chip${scope === 'trending' ? ' active' : ''}`} onClick={() => setScope('trending')}>🔥 Trending</button>
+        {user && <button className={`filter-chip${scope === 'following' ? ' active' : ''}`} onClick={() => setScope('following')}>👤 Siguiendo</button>}
+      </div>
 
       {/* ── Feed ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '18px' }}>

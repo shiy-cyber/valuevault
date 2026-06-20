@@ -26,6 +26,7 @@ import DetailModal from './components/DetailModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import Community from './components/community/Community.jsx';
 import Profile from './components/community/Profile.jsx';
+import TickerPage from './components/community/TickerPage.jsx';
 import Notifications from './components/community/Notifications.jsx';
 import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
@@ -351,6 +352,7 @@ export default function App() {
           {section === 'trendfollow' && <TrendFollowing theme={theme} toast={toast} />}
           {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onProfile={goProfile} onTicker={goTicker} toast={toast} />}
           {section === 'profile' && <Profile handle={profileHandle} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onAuthor={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
+          {section === 'ticker' && <TickerPage ticker={activeTicker} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onProfile={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
           {section === 'guide' && <Guide go={go} />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={addNote} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}

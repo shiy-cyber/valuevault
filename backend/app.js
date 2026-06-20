@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 import express from 'express';
 import cors from 'cors';
-import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
+import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, getAvCache, saveAvCache, PUBLIC_USER_COLS, rowToPublicUser, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
 import { validateProfileInput, extractTickers, extractHandles } from './community.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
@@ -253,6 +253,8 @@ export async function createApp() {
     }
     const tickers = extractTickers(body);
     const info = await run('INSERT INTO posts (userId, body, tickers) VALUES (?, ?, ?)', [uid, body, JSON.stringify(tickers)]);
+    // Índice de tickers (para página de $TICKER y trending).
+    for (const t of tickers) await run('INSERT OR IGNORE INTO post_tickers (postId, ticker) VALUES (?, ?)', [info.lastInsertRowid, t]);
     // Notifica a los @mencionados (no a uno mismo).
     for (const m of await resolveHandles(extractHandles(body))) await notify(m.id, uid, 'mention', info.lastInsertRowid);
     res.status(201).json(postRowToJson(await get(`${postSelectFor()} WHERE p.id = ?`, [uid, info.lastInsertRowid])));
@@ -394,6 +396,70 @@ export async function createApp() {
       await run('UPDATE notifications SET is_read = 1 WHERE userId = ?', [uid]);
     }
     res.json({ ok: true });
+  }));
+
+  // ─── COMUNIDAD · descubrimiento (Fase 5) ───────────────────
+  const cacheFresh = (c, ms) => c && Array.isArray(c.data) && (Date.now() - new Date(c.fetchedAt).getTime() < ms);
+
+  // Trending de posts: score = likes + 2·comentarios en las últimas 48 h.
+  // El ranking (parte cara) se cachea 5 min; los contadores/likedByMe se
+  // recalculan frescos por lector al hidratar los posts.
+  app.get('/api/community/trending', h(async (req, res) => {
+    const me = readUid(req);
+    let ids;
+    const cached = await getAvCache('TRENDING:posts');
+    if (cacheFresh(cached, 5 * 60 * 1000)) {
+      ids = cached.data;
+    } else {
+      const rows = await all(`SELECT p.id AS id,
+        (SELECT COUNT(*) FROM post_likes l WHERE l.postId = p.id) + 2 * (SELECT COUNT(*) FROM comments c WHERE c.postId = p.id) AS score
+        FROM posts p WHERE p.created_at > datetime('now','-2 days')
+        ORDER BY score DESC, p.id DESC LIMIT 20`);
+      ids = rows.map(r => Number(r.id));
+      await saveAvCache('TRENDING:posts', ids, new Date().toISOString());
+    }
+    if (!ids.length) return res.json({ posts: [] });
+    const ph = ids.map(() => '?').join(',');
+    const rows = await all(`${postSelectFor()} WHERE p.id IN (${ph})`, [me, ...ids]);
+    const byId = new Map(rows.map(r => [Number(r.id), postRowToJson(r)]));
+    res.json({ posts: ids.map(id => byId.get(id)).filter(Boolean) });
+  }));
+
+  // Tickers más mencionados (últimos 7 días). Cacheado 5 min.
+  app.get('/api/community/trending/tickers', h(async (_req, res) => {
+    const cached = await getAvCache('TRENDING:tickers');
+    if (cacheFresh(cached, 5 * 60 * 1000)) return res.json({ tickers: cached.data });
+    const rows = await all(`SELECT pt.ticker AS ticker, COUNT(*) AS mentions
+      FROM post_tickers pt JOIN posts p ON p.id = pt.postId
+      WHERE p.created_at > datetime('now','-7 days')
+      GROUP BY pt.ticker ORDER BY mentions DESC, pt.ticker ASC LIMIT 10`);
+    const tickers = rows.map(r => ({ ticker: r.ticker, mentions: Number(r.mentions) }));
+    await saveAvCache('TRENDING:tickers', tickers, new Date().toISOString());
+    res.json({ tickers });
+  }));
+
+  // Búsqueda de usuarios por alias o nombre. Lectura pública.
+  app.get('/api/community/search/users', h(async (req, res) => {
+    const q = String(req.query.q || '').trim().toLowerCase();
+    if (q.length < 2) return res.json({ users: [] });
+    const rows = await all(
+      `SELECT ${PUBLIC_USER_COLS} FROM users WHERE handle IS NOT NULL AND (handle LIKE ? OR lower(displayName) LIKE ?) ORDER BY handle LIMIT 10`,
+      [q + '%', '%' + q + '%']
+    );
+    res.json({ users: rows.map(rowToPublicUser) });
+  }));
+
+  // Publicaciones que mencionan un $TICKER. Lectura pública, paginado.
+  app.get('/api/community/tickers/:ticker/posts', h(async (req, res) => {
+    const me = readUid(req);
+    const ticker = String(req.params.ticker || '').toUpperCase();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    const cursor = Number(req.query.cursor) || 0;
+    const rows = cursor > 0
+      ? await all(`${postSelectFor()} WHERE p.id IN (SELECT postId FROM post_tickers WHERE ticker = ?) AND p.id < ? ORDER BY p.id DESC LIMIT ?`, [me, ticker, cursor, limit])
+      : await all(`${postSelectFor()} WHERE p.id IN (SELECT postId FROM post_tickers WHERE ticker = ?) ORDER BY p.id DESC LIMIT ?`, [me, ticker, limit]);
+    const posts = rows.map(postRowToJson);
+    res.json({ ticker, posts, nextCursor: posts.length === limit ? posts[posts.length - 1].id : null });
   }));
 
   // ─── ASSETS (aislados por usuario) ─────────────────────────

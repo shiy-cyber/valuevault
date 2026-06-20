@@ -228,6 +228,12 @@ export async function initSchema() {
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(userId, is_read, id DESC);
+    CREATE TABLE IF NOT EXISTS post_tickers (
+      postId INTEGER NOT NULL,
+      ticker TEXT NOT NULL,
+      PRIMARY KEY (postId, ticker)
+    );
+    CREATE INDEX IF NOT EXISTS idx_post_tickers ON post_tickers(ticker, postId DESC);
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");
@@ -387,6 +393,19 @@ async function backfillDemoPositions() {
   }
 }
 
+// Backfill idempotente de post_tickers desde posts.tickers (JSON ya guardado).
+// Para posts creados antes de existir la tabla de índice de tickers (Fase 5).
+async function backfillPostTickers() {
+  const c = Number((await get('SELECT COUNT(*) AS c FROM post_tickers'))?.c ?? 0);
+  if (c > 0) return; // ya poblada
+  const posts = await all("SELECT id, tickers FROM posts WHERE tickers IS NOT NULL AND tickers != '[]'");
+  for (const p of posts) {
+    for (const t of safeJson(p.tickers, [])) {
+      await run('INSERT OR IGNORE INTO post_tickers (postId, ticker) VALUES (?, ?)', [p.id, String(t).toUpperCase()]);
+    }
+  }
+}
+
 // Inicialización única por instancia (esquema + semilla). Lo CRÍTICO es el
 // esquema; la semilla/backfill son best-effort (no deben tumbar la API si dos
 // cold-starts concurrentes chocan al escribir). Si la promesa falla, se limpia
@@ -402,6 +421,7 @@ export function ready() {
         await run('UPDATE assets SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
         await run('UPDATE notes SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
         await backfillDemoPositions();
+        await backfillPostTickers();
       } catch (e) {
         console.warn('Semilla/backfill best-effort falló (continuo):', e.message);
       }
