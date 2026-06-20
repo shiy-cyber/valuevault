@@ -7,7 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
-import { validateProfileInput, extractTickers } from './community.js';
+import { validateProfileInput, extractTickers, extractHandles } from './community.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
@@ -102,6 +102,34 @@ const COMMENT_SELECT = `SELECT c.id, c.postId, c.body, c.created_at,
 // created_at en SQLite es UTC "YYYY-MM-DD HH:MM:SS" → ms epoch.
 const tsToMs = (s) => new Date(String(s).replace(' ', 'T') + 'Z').getTime();
 
+// ─── Comunidad: notificaciones ───────────────────────────────
+// Crea una notificación (salvo auto-notificación: actor == destinatario).
+async function notify(userId, actorId, type, postId = null) {
+  if (!userId || !actorId || userId === actorId) return;
+  await run('INSERT INTO notifications (userId, actorId, type, postId) VALUES (?, ?, ?, ?)', [userId, actorId, type, postId]);
+}
+// Resuelve handles (@alias) a { id, handle } existentes.
+async function resolveHandles(handles) {
+  if (!handles.length) return [];
+  const ph = handles.map(() => '?').join(',');
+  return all(`SELECT id, handle FROM users WHERE handle IN (${ph})`, handles);
+}
+function notifRowToJson(r) {
+  return {
+    id: Number(r.id),
+    type: r.type,
+    postId: r.postId != null ? Number(r.postId) : null,
+    postSnippet: r.postSnippet || null,
+    isRead: !!Number(r.is_read || 0),
+    createdAt: r.created_at,
+    actor: { id: Number(r.actorId), displayName: r.displayName || null, handle: r.handle || null, avatar: r.avatar || null },
+  };
+}
+const NOTIF_SELECT = `SELECT n.id, n.type, n.postId, n.is_read, n.created_at,
+  u.id AS actorId, u.displayName, u.handle, u.avatar,
+  (SELECT substr(body, 1, 80) FROM posts WHERE id = n.postId) AS postSnippet
+  FROM notifications n JOIN users u ON u.id = n.actorId`;
+
 export async function createApp() {
   await ready(); // esquema + semilla + demo (idempotente, una vez por instancia)
   await initAuthSecret(); // clave JWT (entorno o BD), una vez por instancia
@@ -194,7 +222,8 @@ export async function createApp() {
     const target = await getPublicUserByHandle(req.params.handle);
     if (!target?.handle) return res.status(404).json({ error: 'Usuario no encontrado' });
     if (target.id === uid) throw Object.assign(new Error('No puedes seguirte a ti mismo'), { status: 400 });
-    await run('INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', [uid, target.id]);
+    const r = await run('INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', [uid, target.id]);
+    if (r.changes) await notify(target.id, uid, 'follow', null); // solo en follow nuevo
     const c = Number((await get('SELECT COUNT(*) AS c FROM follows WHERE followedId = ?', [target.id]))?.c ?? 0);
     res.json({ followedByMe: true, followerCount: c });
   }));
@@ -224,6 +253,8 @@ export async function createApp() {
     }
     const tickers = extractTickers(body);
     const info = await run('INSERT INTO posts (userId, body, tickers) VALUES (?, ?, ?)', [uid, body, JSON.stringify(tickers)]);
+    // Notifica a los @mencionados (no a uno mismo).
+    for (const m of await resolveHandles(extractHandles(body))) await notify(m.id, uid, 'mention', info.lastInsertRowid);
     res.status(201).json(postRowToJson(await get(`${postSelectFor()} WHERE p.id = ?`, [uid, info.lastInsertRowid])));
   }));
 
@@ -264,6 +295,7 @@ export async function createApp() {
     if (!info.changes) return res.status(404).json({ error: 'Publicación no encontrada' });
     await run('DELETE FROM post_likes WHERE postId = ?', [id]);
     await run('DELETE FROM comments WHERE postId = ?', [id]);
+    await run('DELETE FROM notifications WHERE postId = ?', [id]);
     res.json({ ok: true });
   }));
 
@@ -274,8 +306,10 @@ export async function createApp() {
   app.post('/api/community/posts/:id/like', h(async (req, res) => {
     const uid = writeUid(req);
     const id = Number(req.params.id);
-    if (!await get('SELECT id FROM posts WHERE id = ?', [id])) return res.status(404).json({ error: 'Publicación no encontrada' });
-    await run('INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', [id, uid]);
+    const post = await get('SELECT userId FROM posts WHERE id = ?', [id]);
+    if (!post) return res.status(404).json({ error: 'Publicación no encontrada' });
+    const r = await run('INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', [id, uid]);
+    if (r.changes) await notify(Number(post.userId), uid, 'like', id); // solo si es un like nuevo
     res.json({ likeCount: await likeCountOf(id), likedByMe: true });
   }));
 
@@ -303,7 +337,8 @@ export async function createApp() {
     const author = await getPublicUserById(uid);
     if (!author?.handle) throw Object.assign(new Error('Crea tu alias antes de comentar'), { status: 403 });
     const id = Number(req.params.id);
-    if (!await get('SELECT id FROM posts WHERE id = ?', [id])) return res.status(404).json({ error: 'Publicación no encontrada' });
+    const post = await get('SELECT userId FROM posts WHERE id = ?', [id]);
+    if (!post) return res.status(404).json({ error: 'Publicación no encontrada' });
     const body = String(req.body?.body || '').trim();
     if (!body) throw Object.assign(new Error('El comentario está vacío'), { status: 400 });
     if (body.length > 300) throw Object.assign(new Error('Máximo 300 caracteres'), { status: 400 });
@@ -312,6 +347,10 @@ export async function createApp() {
       throw Object.assign(new Error('Espera unos segundos antes de comentar de nuevo'), { status: 429 });
     }
     const info = await run('INSERT INTO comments (postId, userId, body) VALUES (?, ?, ?)', [id, uid, body]);
+    // Notifica al autor del post y a los @mencionados en el comentario.
+    await notify(Number(post.userId), uid, 'comment', id);
+    const mentioned = await resolveHandles(extractHandles(body));
+    for (const m of mentioned) if (m.id !== Number(post.userId)) await notify(m.id, uid, 'mention', id);
     res.status(201).json(commentRowToJson(await get(`${COMMENT_SELECT} WHERE c.id = ?`, [info.lastInsertRowid])));
   }));
 
@@ -323,6 +362,37 @@ export async function createApp() {
       [Number(req.params.id), uid, uid]
     );
     if (!info.changes) return res.status(404).json({ error: 'Comentario no encontrado' });
+    res.json({ ok: true });
+  }));
+
+  // ─── COMUNIDAD · notificaciones (Fase 4) ───────────────────
+  // Privadas por usuario (WHERE userId = ?). Exigen sesión.
+  app.get('/api/community/notifications', h(async (req, res) => {
+    const uid = writeUid(req);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 50);
+    const cursor = Number(req.query.cursor) || 0;
+    const rows = cursor > 0
+      ? await all(`${NOTIF_SELECT} WHERE n.userId = ? AND n.id < ? ORDER BY n.id DESC LIMIT ?`, [uid, cursor, limit])
+      : await all(`${NOTIF_SELECT} WHERE n.userId = ? ORDER BY n.id DESC LIMIT ?`, [uid, limit]);
+    const items = rows.map(notifRowToJson);
+    res.json({ notifications: items, nextCursor: items.length === limit ? items[items.length - 1].id : null });
+  }));
+
+  app.get('/api/community/notifications/unread-count', h(async (req, res) => {
+    const uid = writeUid(req);
+    const c = Number((await get('SELECT COUNT(*) AS c FROM notifications WHERE userId = ? AND is_read = 0', [uid]))?.c ?? 0);
+    res.json({ count: c });
+  }));
+
+  app.post('/api/community/notifications/read', h(async (req, res) => {
+    const uid = writeUid(req);
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : null;
+    if (ids && ids.length) {
+      const ph = ids.map(() => '?').join(',');
+      await run(`UPDATE notifications SET is_read = 1 WHERE userId = ? AND id IN (${ph})`, [uid, ...ids]);
+    } else {
+      await run('UPDATE notifications SET is_read = 1 WHERE userId = ?', [uid]);
+    }
     res.json({ ok: true });
   }));
 

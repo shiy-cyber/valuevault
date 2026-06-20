@@ -26,6 +26,7 @@ import DetailModal from './components/DetailModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import Community from './components/community/Community.jsx';
 import Profile from './components/community/Profile.jsx';
+import Notifications from './components/community/Notifications.jsx';
 import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
 
@@ -51,6 +52,8 @@ export default function App() {
   const [aliasOpen, setAliasOpen] = useState(false);
   const [profileHandle, setProfileHandle] = useState(null);
   const [activeTicker, setActiveTicker] = useState(null);
+  const [unread, setUnread] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
   const needsAlias = !!user && !community?.handle;
   const canInteract = !!user && !needsAlias;
   const requireInteract = () => { if (!user) setAuthOpen(true); else if (needsAlias) setAliasOpen(true); };
@@ -102,6 +105,16 @@ export default function App() {
   useEffect(() => {
     if (section === 'community' && needsAlias) setAliasOpen(true);
   }, [section, needsAlias]);
+
+  // Notificaciones no leídas: sondeo ligero cada 60 s mientras hay sesión
+  useEffect(() => {
+    if (!user) { setUnread(0); return; }
+    let alive = true;
+    const tick = () => api.unreadCount().then(r => { if (alive) setUnread(r.count); }).catch(() => {});
+    tick();
+    const iv = setInterval(tick, 60000);
+    return () => { alive = false; clearInterval(iv); };
+  }, [user]);
 
   // ─── Tipos de cambio (FX) → divisa base EUR ─────────────
   // Refresca cuando cambian las divisas presentes en la cartera.
@@ -307,6 +320,12 @@ export default function App() {
             <div className="page-title">{PAGE_TITLES[section]}</div>
           </div>
           <div className="topbar-right">
+            {user && (
+              <button className="theme-toggle" onClick={() => setNotifOpen(true)} title="Notificaciones" style={{ position: 'relative' }}>
+                🔔
+                {unread > 0 && <span style={{ position: 'absolute', top: '-3px', right: '-3px', background: 'var(--red)', color: '#fff', fontSize: '9px', fontWeight: 700, minWidth: '15px', height: '15px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{unread > 9 ? '9+' : unread}</span>}
+              </button>
+            )}
             <button className="theme-toggle" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             <button className="btn btn-outline" onClick={() => newAsset('portfolio')}>+ Nuevo Activo</button>
             <button className="btn btn-gold" onClick={() => go('screener')}>Screener ↗</button>
@@ -347,6 +366,7 @@ export default function App() {
       <DetailModal asset={detailAsset} notes={notes} onClose={() => setDetailId(null)} onAddNote={(id) => { setDetailId(null); addNote(id); }} />
       <AuthModal open={authOpen} presetCode={presetCode} onClose={() => { setAuthOpen(false); setPresetCode(null); }} onAuth={onAuth} toast={toast} />
       <AliasModal open={aliasOpen} current={community} onClose={() => setAliasOpen(false)} onSaved={(pub) => { setCommunity(pub); setUser(u => u ? { ...u, displayName: pub.displayName, handle: pub.handle, avatar: pub.avatar } : u); setAliasOpen(false); }} toast={toast} />
+      <Notifications open={notifOpen} onClose={() => setNotifOpen(false)} onProfile={goProfile} onRead={() => setUnread(0)} toast={toast} />
 
       <Assistant assets={assets} notes={notes} fxRates={fxRates} go={go} />
 

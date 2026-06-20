@@ -218,6 +218,16 @@ export async function initSchema() {
       PRIMARY KEY (followerId, followedId)
     );
     CREATE INDEX IF NOT EXISTS idx_follows_followed ON follows(followedId);
+    CREATE TABLE IF NOT EXISTS notifications (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId     INTEGER NOT NULL,
+      actorId    INTEGER NOT NULL,
+      type       TEXT NOT NULL,
+      postId     INTEGER,
+      is_read    INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(userId, is_read, id DESC);
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");
