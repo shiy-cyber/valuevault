@@ -330,6 +330,90 @@ const DEFAULT_NOTES = [
   { title:'Dividend Growth Investing', topic:'value', source:'Simply Safe Dividends', content:'Las Dividend Aristocrats (25+ años de incrementos) históricamente superan al S&P 500 con menor volatilidad.', tags:['dividendo','aristocrat'], date:'2025-02-18', assetId:3 },
 ];
 
+// ─── Semilla de COMUNIDAD: bots con contenido inicial ────────────────────
+// Cuentas "bot" (passwordHash 'x' → no se puede iniciar sesión como ellas) que
+// dan vida a la comunidad desde el minuto cero: perfiles, publicaciones con
+// $TICKER, comentarios, likes y una red de seguidores. Solo se siembra si no
+// hay NINGUNA publicación todavía (idempotente).
+const COMMUNITY_BOTS = [
+  { handle:'value_vera',  name:'Vera · Value',     avatar:'🦉', bio:'Cazadora de gangas con margen de seguridad. Graham y Buffett de cabecera.' },
+  { handle:'growth_gabe', name:'Gabe Growth',      avatar:'🚀', bio:'Compounders y tecnología. El tiempo es amigo del gran negocio.' },
+  { handle:'divi_dani',   name:'Dani Dividendos',  avatar:'💰', bio:'Ingresos pasivos y aristócratas del dividendo. Que me paguen por esperar.' },
+  { handle:'macro_marta', name:'Marta Macro',      avatar:'🌐', bio:'Tipos, ciclos y geopolítica. El contexto manda.' },
+  { handle:'quant_quim',  name:'Quim Quant',       avatar:'📈', bio:'Tendencia, momentum y gestión del riesgo. Sin emociones.' },
+  { handle:'contra_clara',name:'Clara Contrarian', avatar:'🐻', bio:'Cuando todos compran, yo pregunto por qué.' },
+];
+// Publicaciones (min = hace cuántos minutos). tickers se indexan para trending.
+const BOT_POSTS = [
+  { by:'value_vera',  min:320, tickers:['BRK.B'], body:'Sigo viendo valor en $BRK.B: caja récord y disciplina de capital. La paciencia también es una posición.' },
+  { by:'growth_gabe', min:280, tickers:['NVDA','MSFT'], body:'$NVDA y $MSFT lideran el capex en IA. Quien controla el cómputo, controla la década.' },
+  { by:'divi_dani',   min:255, tickers:['O'], body:'$O (Realty Income) paga mensual y lleva 30 años subiendo el dividendo. Aburrido = rentable.' },
+  { by:'macro_marta', min:230, tickers:['O'], body:'La curva de tipos sigue siendo la clave. Si el 10A se relaja, los duraderos como $O respiran. Ojo al próximo dato de inflación.' },
+  { by:'quant_quim',  min:205, tickers:['NVDA'], body:'El trend following marca largos en $NVDA y en oro. La tendencia es tu amiga hasta que deja de serlo.' },
+  { by:'contra_clara',min:185, tickers:['NVDA'], body:'Todo el mundo enamorado de la IA. ¿Quién pregunta por la valoración de $NVDA? El margen de seguridad ahí es cero.' },
+  { by:'value_vera',  min:165, tickers:['ASML'], body:'Comparto la cautela de @contra_clara. Yo prefiero $ASML: picks-and-shovels con un foso real y monopolio EUV.' },
+  { by:'growth_gabe', min:150, tickers:['ASML'], body:'$ASML es de los mejores negocios del mundo. Buen punto @value_vera, calidad sobre moda.' },
+  { by:'divi_dani',   min:120, tickers:['MSFT'], body:'Reinvertir dividendos es la octava maravilla. $MSFT ya es un dividend grower silencioso.' },
+  { by:'quant_quim',  min:90,  tickers:[], body:'Gestión del riesgo por encima de tener razón. Stop por ATR y a dormir tranquilo.' },
+  { by:'macro_marta', min:55,  tickers:[], body:'Cuidado con el consenso. Si la Fed sorprende dura, el growth es lo primero que sufre.' },
+  { by:'contra_clara',min:30,  tickers:[], body:'Mi watchlist contrarian: sectores odiados con balances sanos. El pesimismo crea las oportunidades.' },
+];
+// Likes: [índice de post, handle del bot que da like]
+const BOT_LIKES = [
+  [0,'divi_dani'],[0,'macro_marta'],[0,'quant_quim'],
+  [1,'growth_gabe'],[1,'quant_quim'],[1,'value_vera'],[1,'macro_marta'],
+  [2,'divi_dani'],[2,'value_vera'],
+  [3,'macro_marta'],[3,'contra_clara'],
+  [4,'quant_quim'],[4,'growth_gabe'],
+  [5,'contra_clara'],[5,'value_vera'],[5,'divi_dani'],
+  [6,'value_vera'],[6,'growth_gabe'],[6,'macro_marta'],
+  [7,'growth_gabe'],[7,'quant_quim'],
+  [8,'divi_dani'],
+  [11,'contra_clara'],[11,'macro_marta'],
+];
+// Comentarios entre bots: [índice de post, handle, min, texto]
+const BOT_COMMENTS = [
+  { post:1, by:'divi_dani',   min:250, body:'¿Y el dividendo? 😅 Prefiero que me paguen por esperar.' },
+  { post:2, by:'macro_marta', min:240, body:'Sensible a tipos, pero el flujo de caja es de relojería.' },
+  { post:5, by:'value_vera',  min:175, body:'El precio descuenta perfección. Riesgo asimétrico a la baja.' },
+  { post:6, by:'growth_gabe', min:158, body:'100% de acuerdo. Foso de los anchos.' },
+  { post:8, by:'quant_quim',  min:110, body:'Y encima con momentum a favor. Combinación rara.' },
+];
+// Red de seguidores: [seguidor, seguido]
+const BOT_FOLLOWS = [
+  ['growth_gabe','value_vera'],['divi_dani','value_vera'],['quant_quim','value_vera'],
+  ['value_vera','growth_gabe'],['contra_clara','growth_gabe'],['macro_marta','growth_gabe'],
+  ['divi_dani','macro_marta'],['quant_quim','macro_marta'],
+  ['value_vera','contra_clara'],['growth_gabe','quant_quim'],
+];
+
+async function seedCommunityIfEmpty() {
+  const c = Number((await get('SELECT COUNT(*) AS c FROM posts'))?.c ?? 0);
+  if (c > 0) return; // ya hay actividad → no sembrar
+  const idByHandle = {};
+  for (const b of COMMUNITY_BOTS) {
+    const info = await run(
+      'INSERT INTO users (email, passwordHash, displayName, handle, avatar, bio) VALUES (?, ?, ?, ?, ?, ?)',
+      [`${b.handle}@bots.valuevault.local`, 'x', b.name, b.handle, b.avatar, b.bio]
+    );
+    idByHandle[b.handle] = Number(info.lastInsertRowid);
+  }
+  const postIds = [];
+  for (const p of BOT_POSTS) {
+    const info = await run(
+      "INSERT INTO posts (userId, body, tickers, created_at) VALUES (?, ?, ?, datetime('now', ?))",
+      [idByHandle[p.by], p.body, JSON.stringify(p.tickers || []), `-${p.min} minutes`]
+    );
+    const pid = Number(info.lastInsertRowid);
+    postIds.push(pid);
+    for (const t of (p.tickers || [])) await run('INSERT OR IGNORE INTO post_tickers (postId, ticker) VALUES (?, ?)', [pid, t]);
+  }
+  for (const [i, h] of BOT_LIKES) await run('INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', [postIds[i], idByHandle[h]]);
+  for (const cm of BOT_COMMENTS) await run("INSERT INTO comments (postId, userId, body, created_at) VALUES (?, ?, ?, datetime('now', ?))", [postIds[cm.post], idByHandle[cm.by], cm.body, `-${cm.min} minutes`]);
+  for (const [f, t] of BOT_FOLLOWS) await run('INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', [idByHandle[f], idByHandle[t]]);
+  console.log(`🤖 Comunidad sembrada: ${COMMUNITY_BOTS.length} bots, ${BOT_POSTS.length} posts.`);
+}
+
 export async function seedIfEmpty() {
   const c = (await get('SELECT COUNT(*) AS c FROM assets'))?.c ?? 0;
   if (Number(c) > 0) return;
@@ -422,6 +506,7 @@ export function ready() {
         await run('UPDATE notes SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
         await backfillDemoPositions();
         await backfillPostTickers();
+        await seedCommunityIfEmpty();
       } catch (e) {
         console.warn('Semilla/backfill best-effort falló (continuo):', e.message);
       }
