@@ -344,19 +344,21 @@ const COMMUNITY_BOTS = [
   { handle:'contra_clara',name:'Clara Contrarian', avatar:'🐻', bio:'Cuando todos compran, yo pregunto por qué.' },
 ];
 // Publicaciones (min = hace cuántos minutos). tickers se indexan para trending.
+// Tono variado A PROPÓSITO: unos coloquiales/naturales, otros con faltas de
+// ortografía, un par limpios → para que la comunidad parezca gente real.
 const BOT_POSTS = [
-  { by:'value_vera',  min:320, tickers:['BRK.B'], body:'Sigo viendo valor en $BRK.B: caja récord y disciplina de capital. La paciencia también es una posición.' },
-  { by:'growth_gabe', min:280, tickers:['NVDA','MSFT'], body:'$NVDA y $MSFT lideran el capex en IA. Quien controla el cómputo, controla la década.' },
-  { by:'divi_dani',   min:255, tickers:['O'], body:'$O (Realty Income) paga mensual y lleva 30 años subiendo el dividendo. Aburrido = rentable.' },
-  { by:'macro_marta', min:230, tickers:['O'], body:'La curva de tipos sigue siendo la clave. Si el 10A se relaja, los duraderos como $O respiran. Ojo al próximo dato de inflación.' },
-  { by:'quant_quim',  min:205, tickers:['NVDA'], body:'El trend following marca largos en $NVDA y en oro. La tendencia es tu amiga hasta que deja de serlo.' },
-  { by:'contra_clara',min:185, tickers:['NVDA'], body:'Todo el mundo enamorado de la IA. ¿Quién pregunta por la valoración de $NVDA? El margen de seguridad ahí es cero.' },
-  { by:'value_vera',  min:165, tickers:['ASML'], body:'Comparto la cautela de @contra_clara. Yo prefiero $ASML: picks-and-shovels con un foso real y monopolio EUV.' },
-  { by:'growth_gabe', min:150, tickers:['ASML'], body:'$ASML es de los mejores negocios del mundo. Buen punto @value_vera, calidad sobre moda.' },
-  { by:'divi_dani',   min:120, tickers:['MSFT'], body:'Reinvertir dividendos es la octava maravilla. $MSFT ya es un dividend grower silencioso.' },
-  { by:'quant_quim',  min:90,  tickers:[], body:'Gestión del riesgo por encima de tener razón. Stop por ATR y a dormir tranquilo.' },
-  { by:'macro_marta', min:55,  tickers:[], body:'Cuidado con el consenso. Si la Fed sorprende dura, el growth es lo primero que sufre.' },
-  { by:'contra_clara',min:30,  tickers:[], body:'Mi watchlist contrarian: sectores odiados con balances sanos. El pesimismo crea las oportunidades.' },
+  { by:'value_vera',  min:320, tickers:['BRK.B'], body:'$BRK.B sigue barata para la caja que tiene. La paciencia tambien es una posicion.' },
+  { by:'growth_gabe', min:280, tickers:['NVDA','MSFT'], body:'buah $NVDA y $MSFT con el tema IA es una locura, el q controla el computo controla la decada 🚀' },
+  { by:'divi_dani',   min:255, tickers:['O'], body:'a ver, $O paga TODOS los meses y lleva 30 años subiendo el dividendo... aburrido pero la pasta entra igual jaja' },
+  { by:'macro_marta', min:230, tickers:['O'], body:'Ojo a la curva de tipos. Si el 10A afloja, los duraderos tipo $O respiran. Atentos al dato de inflacion.' },
+  { by:'quant_quim',  min:205, tickers:['NVDA'], body:'el trend following dice largo en $NVDA y oro. la tendencia es tu amiga asta q deja de serlo, no te enamores' },
+  { by:'contra_clara',min:185, tickers:['NVDA'], body:'todo el mundo flipando con la IA y nadie pregunta cuanto vale $NVDA enserio?? el margen de seguridad ahi es 0' },
+  { by:'value_vera',  min:165, tickers:['ASML'], body:'comparto la cautela de @contra_clara. yo me quedo con $ASML, picks and shovels y un foso de los anchos' },
+  { by:'growth_gabe', min:150, tickers:['ASML'], body:'$ASML es de lo mejorcito q ay ahora mismo, monopolio EUV. buen punto @value_vera, calidad x encima de la moda' },
+  { by:'divi_dani',   min:120, tickers:['MSFT'], body:'reinvertir dividendos es la octaba maravilla del mundo. $MSFT ya es un dividend grower y casi nadie se da cuenta' },
+  { by:'quant_quim',  min:90,  tickers:[], body:'gestion del riesgo > tener razon. pones el stop por ATR y a dormir tranqui 😴' },
+  { by:'macro_marta', min:55,  tickers:[], body:'Cuidado con el consenso: si la Fed sale dura, el growth es lo primero que se lleva el golpe.' },
+  { by:'contra_clara',min:30,  tickers:[], body:'mi watchlist contrarian: sectores q todo el mundo odia pero con balances sanos. ahi es donde estan las gangas' },
 ];
 // Likes: [índice de post, handle del bot que da like]
 const BOT_LIKES = [
@@ -373,11 +375,11 @@ const BOT_LIKES = [
 ];
 // Comentarios entre bots: [índice de post, handle, min, texto]
 const BOT_COMMENTS = [
-  { post:1, by:'divi_dani',   min:250, body:'¿Y el dividendo? 😅 Prefiero que me paguen por esperar.' },
-  { post:2, by:'macro_marta', min:240, body:'Sensible a tipos, pero el flujo de caja es de relojería.' },
-  { post:5, by:'value_vera',  min:175, body:'El precio descuenta perfección. Riesgo asimétrico a la baja.' },
-  { post:6, by:'growth_gabe', min:158, body:'100% de acuerdo. Foso de los anchos.' },
-  { post:8, by:'quant_quim',  min:110, body:'Y encima con momentum a favor. Combinación rara.' },
+  { post:1, by:'divi_dani',   min:250, body:'y el dividendo q? jaja yo prefiero q me paguen x esperar' },
+  { post:2, by:'macro_marta', min:240, body:'sensible a tipos pero el flujo es de relojeria, eso si' },
+  { post:5, by:'value_vera',  min:175, body:'el precio descuenta perfeccion. riesgo asimetrico to pa bajo' },
+  { post:6, by:'growth_gabe', min:158, body:'100% deacuerdo, foso de los anchos' },
+  { post:8, by:'quant_quim',  min:110, body:'y encima con momentum a favor, combinacion rara de ver' },
 ];
 // Red de seguidores: [seguidor, seguido]
 const BOT_FOLLOWS = [
@@ -387,23 +389,55 @@ const BOT_FOLLOWS = [
   ['value_vera','contra_clara'],['growth_gabe','quant_quim'],
 ];
 
-async function seedCommunityIfEmpty() {
-  const c = Number((await get('SELECT COUNT(*) AS c FROM posts'))?.c ?? 0);
-  if (c > 0) return; // ya hay actividad → no sembrar
+// Versión del contenido de bots. Subir este número regenera SOLO el contenido
+// de los bots (mantiene intacto lo de usuarios reales).
+const COMMUNITY_SEED_VERSION = 2;
+
+async function seedCommunity() {
+  const cur = Number((await get("SELECT value FROM config WHERE key = 'community_seed_v'"))?.value ?? 0);
+  if (cur >= COMMUNITY_SEED_VERSION) return; // ya está la versión actual
+  const hasPosts = Number((await get('SELECT COUNT(*) AS c FROM posts'))?.c ?? 0) > 0;
+  const botsExist = !!(await get("SELECT id FROM users WHERE email LIKE '%@bots.valuevault.local' LIMIT 1"));
+  // Si ya hay actividad real y nunca metimos bots → no intervenir.
+  if (hasPosts && cur === 0 && !botsExist) return;
+
+  // Asegura los usuarios bot (por handle) y refresca su perfil.
   const idByHandle = {};
   for (const b of COMMUNITY_BOTS) {
-    const info = await run(
-      'INSERT INTO users (email, passwordHash, displayName, handle, avatar, bio) VALUES (?, ?, ?, ?, ?, ?)',
-      [`${b.handle}@bots.valuevault.local`, 'x', b.name, b.handle, b.avatar, b.bio]
-    );
-    idByHandle[b.handle] = Number(info.lastInsertRowid);
+    const u = await get('SELECT id FROM users WHERE handle = ?', [b.handle]);
+    if (u) {
+      idByHandle[b.handle] = Number(u.id);
+      await run('UPDATE users SET displayName = ?, avatar = ?, bio = ? WHERE id = ?', [b.name, b.avatar, b.bio, u.id]);
+    } else {
+      const info = await run('INSERT INTO users (email, passwordHash, displayName, handle, avatar, bio) VALUES (?, ?, ?, ?, ?, ?)',
+        [`${b.handle}@bots.valuevault.local`, 'x', b.name, b.handle, b.avatar, b.bio]);
+      idByHandle[b.handle] = Number(info.lastInsertRowid);
+    }
   }
+
+  // Limpia el contenido PREVIO solo de bots (no toca el de usuarios reales).
+  const botIds = Object.values(idByHandle);
+  if (botIds.length) {
+    const ph = botIds.map(() => '?').join(',');
+    const oldPosts = await all(`SELECT id FROM posts WHERE userId IN (${ph})`, botIds);
+    for (const op of oldPosts) {
+      await run('DELETE FROM post_likes WHERE postId = ?', [op.id]);
+      await run('DELETE FROM comments WHERE postId = ?', [op.id]);
+      await run('DELETE FROM post_tickers WHERE postId = ?', [op.id]);
+      await run('DELETE FROM notifications WHERE postId = ?', [op.id]);
+    }
+    await run(`DELETE FROM posts WHERE userId IN (${ph})`, botIds);
+    await run(`DELETE FROM post_likes WHERE userId IN (${ph})`, botIds);
+    await run(`DELETE FROM comments WHERE userId IN (${ph})`, botIds);
+    await run(`DELETE FROM follows WHERE followerId IN (${ph}) OR followedId IN (${ph})`, [...botIds, ...botIds]);
+    await run(`DELETE FROM notifications WHERE actorId IN (${ph})`, botIds);
+  }
+
+  // (Re)inserta el contenido de bots.
   const postIds = [];
   for (const p of BOT_POSTS) {
-    const info = await run(
-      "INSERT INTO posts (userId, body, tickers, created_at) VALUES (?, ?, ?, datetime('now', ?))",
-      [idByHandle[p.by], p.body, JSON.stringify(p.tickers || []), `-${p.min} minutes`]
-    );
+    const info = await run("INSERT INTO posts (userId, body, tickers, created_at) VALUES (?, ?, ?, datetime('now', ?))",
+      [idByHandle[p.by], p.body, JSON.stringify(p.tickers || []), `-${p.min} minutes`]);
     const pid = Number(info.lastInsertRowid);
     postIds.push(pid);
     for (const t of (p.tickers || [])) await run('INSERT OR IGNORE INTO post_tickers (postId, ticker) VALUES (?, ?)', [pid, t]);
@@ -411,7 +445,9 @@ async function seedCommunityIfEmpty() {
   for (const [i, h] of BOT_LIKES) await run('INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', [postIds[i], idByHandle[h]]);
   for (const cm of BOT_COMMENTS) await run("INSERT INTO comments (postId, userId, body, created_at) VALUES (?, ?, ?, datetime('now', ?))", [postIds[cm.post], idByHandle[cm.by], cm.body, `-${cm.min} minutes`]);
   for (const [f, t] of BOT_FOLLOWS) await run('INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', [idByHandle[f], idByHandle[t]]);
-  console.log(`🤖 Comunidad sembrada: ${COMMUNITY_BOTS.length} bots, ${BOT_POSTS.length} posts.`);
+
+  await run("INSERT OR REPLACE INTO config (key, value) VALUES ('community_seed_v', ?)", [String(COMMUNITY_SEED_VERSION)]);
+  console.log(`🤖 Comunidad sembrada/actualizada a v${COMMUNITY_SEED_VERSION}: ${COMMUNITY_BOTS.length} bots, ${BOT_POSTS.length} posts.`);
 }
 
 export async function seedIfEmpty() {
@@ -506,7 +542,7 @@ export function ready() {
         await run('UPDATE notes SET userId = ? WHERE userId IS NULL', [DEMO_UID]);
         await backfillDemoPositions();
         await backfillPostTickers();
-        await seedCommunityIfEmpty();
+        await seedCommunity();
       } catch (e) {
         console.warn('Semilla/backfill best-effort falló (continuo):', e.message);
       }
