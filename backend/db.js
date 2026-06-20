@@ -346,41 +346,47 @@ const COMMUNITY_BOTS = [
 // Publicaciones (min = hace cuántos minutos). tickers se indexan para trending.
 // Tono variado A PROPÓSITO: unos coloquiales/naturales, otros con faltas de
 // ortografía, un par limpios → para que la comunidad parezca gente real.
+// Orden: de más ANTIGUO (semanas) a más reciente (minutos). El feed va por id
+// DESC, así que el último del array sale arriba. Registros variados por persona:
+// macro (Marta), oportunidad/valor (Vera), técnico (Quim), eufórico (Gabe),
+// escéptico (Clara), cotidiano (Dani). Mayúsculas y faltas SOLO en algunos.
 const BOT_POSTS = [
-  { by:'vera_lp',   min:320, tickers:['BRK.B'], body:'$BRK.B otra vez en mi punto de mira. no es nada sexy pero la caja que acumula da mucha tranquilidad' },
-  { by:'gabemtz',   min:290, tickers:['NVDA','MSFT'], body:'buah lo de $NVDA y $MSFT con la IA da hasta vertigo, el capex que estan metiendo es bestial 🚀' },
-  { by:'dani_rdz',  min:262, tickers:[], body:'finde de repasar la cartera con un cafe. poco que tocar la verdad, que es justo el plan ☕' },
-  { by:'marta_sanz',min:236, tickers:[], body:'el dato de inflacion del jueves va a mover mas de lo que parece. yo no me pondria muy valiente antes' },
-  { by:'quim_f',    min:210, tickers:['NVDA'], body:'$NVDA sigue en tendencia clara, pero ojo q cuando se gira lo hace rapido. stop puesto y a otra cosa' },
-  { by:'clara_b',   min:186, tickers:['NVDA'], body:'no me malinterpreteis pero a estos precios $NVDA me da mas respeto que ganas. alguien lo ve igual?' },
-  { by:'vera_lp',   min:162, tickers:['ASML'], body:'te entiendo @clara_b. yo ahi prefiero $ASML, que vende las palas en vez de buscar el oro' },
-  { by:'dani_rdz',  min:138, tickers:['MSFT'], body:'por cierto $MSFT lleva años subiendo el dividendo y casi nadie habla de eso. me gusta lo silencioso' },
-  { by:'gabemtz',   min:112, tickers:[], body:'alguien usa la herramienta de DCF de aqui? me cuadra raro el WACC en algunos valores 🤔' },
-  { by:'marta_sanz',min:84,  tickers:['O'], body:'$O y los REIT respiran si los tipos aflojan, no es magia es matematica de descuento' },
-  { by:'quim_f',    min:52,  tickers:[], body:'la regla que me repito: no es no perder, es perder poco cuando te equivocas. lo demas viene solo' },
-  { by:'clara_b',   min:26,  tickers:[], body:'media cartera en sectores que todo el mundo odia. duele en el corto pero ahi suelen estar las gangas' },
+  { by:'marta_sanz', ago:'-23 days',    tickers:[], body:'Hace semanas avisé de que la curva se estaba aplanando. El mercado por fin lo descuenta; paciencia con la duración.' },
+  { by:'vera_lp',    ago:'-15 days',    tickers:['BRK.B'], body:'La corrección de hace unas semanas me dejó ampliar $BRK.B con margen. Cuando aparece el miedo, aparecen las oportunidades.' },
+  { by:'quim_f',     ago:'-9 days',     tickers:[], body:'Backtest rápido: cruce MA50/MA200 con filtro de volatilidad (ATR) mejora el Sharpe y recorta el drawdown máximo. Menos operaciones, mejores entradas.' },
+  { by:'dani_rdz',   ago:'-6 days',     tickers:[], body:'domingo de cafe y revisar los dividendos cobrados este mes. poco glamour pero el interes compuesto no falla ☕' },
+  { by:'gabemtz',    ago:'-4 days',     tickers:['NVDA'], body:'buahhh $NVDA otra vez en maximos!! esto no para, la IA se lo come todo 🚀🚀 el q no este dentro se lo pierde' },
+  { by:'clara_b',    ago:'-2 days',     tickers:['NVDA'], body:'¿Nadie más nota el FOMO con $NVDA? No digo que sea mala empresa; digo que el precio ya descuenta tres años perfectos.' },
+  { by:'marta_sanz', ago:'-28 hours',   tickers:[], body:'El dato de inflación de mañana puede mover bonos y bolsa. Si sorprende al alza, los duraderos y el growth lo notarán primero.' },
+  { by:'vera_lp',    ago:'-8 hours',    tickers:['ASML'], body:'Coincido con @clara_b en la cautela. Yo me quedo con $ASML: vende las palas a toda la industria. Menos emoción, más foso.' },
+  { by:'quim_f',     ago:'-5 hours',    tickers:[], body:'Recordatorio de gestión: dimensiona por volatilidad objetivo, no por corazonadas. Un 15% de vol anualizada te mantiene en juego durante los sustos.' },
+  { by:'dani_rdz',   ago:'-2 hours',    tickers:['MSFT'], body:'por cierto $MSFT lleva años subiendo el dividendo y casi nadie lo cuenta. me gustan las cosas aburridas que componen solas' },
+  { by:'gabemtz',    ago:'-40 minutes', tickers:['ASML'], body:'alguien mas en $ASML? me da q el siguiente leg es pa arriba 👀 (no es consejo eh jaja)' },
+  { by:'clara_b',    ago:'-12 minutes', tickers:[], body:'Apunte del día: medio mercado odia a las energéticas con balance sólido. Ahí miro yo cuando todos miran al otro lado.' },
 ];
-// Likes: [índice de post, handle del bot que da like]
+// Likes: [índice de post, handle del bot que da like]. Más en los recientes
+// (dentro de 48h) para que el Trending tenga ranking claro.
 const BOT_LIKES = [
-  [0,'dani_rdz'],[0,'marta_sanz'],
-  [1,'quim_f'],[1,'vera_lp'],[1,'clara_b'],
-  [2,'vera_lp'],[2,'marta_sanz'],
-  [3,'quim_f'],[3,'dani_rdz'],
-  [4,'gabemtz'],[4,'clara_b'],
-  [5,'vera_lp'],[5,'quim_f'],[5,'dani_rdz'],
-  [6,'gabemtz'],[6,'clara_b'],
-  [7,'vera_lp'],[7,'marta_sanz'],
-  [9,'dani_rdz'],[9,'gabemtz'],
+  [0,'vera_lp'],
+  [1,'dani_rdz'],
+  [2,'gabemtz'],
+  [4,'dani_rdz'],[4,'quim_f'],
+  [5,'vera_lp'],[5,'quim_f'],[5,'marta_sanz'],
+  [6,'vera_lp'],[6,'quim_f'],[6,'dani_rdz'],
+  [7,'gabemtz'],[7,'clara_b'],[7,'dani_rdz'],[7,'quim_f'],
+  [8,'marta_sanz'],[8,'vera_lp'],
+  [9,'vera_lp'],[9,'gabemtz'],
+  [10,'dani_rdz'],
   [11,'vera_lp'],[11,'gabemtz'],
 ];
-// Comentarios entre bots: distintos en FUNCIÓN (broma, pregunta, respuesta útil,
-// desacuerdo suave, otra filosofía) para que no suenen repetitivos.
+// Comentarios: distintos en FUNCIÓN (contrapunto, ángulo técnico, euforia +
+// anécdota, matiz que aporta, calidad silenciosa). ago < edad de su post.
 const BOT_COMMENTS = [
-  { post:1, by:'dani_rdz',  min:284, body:'a mi el vertigo me lo quita ir promediando poco a poco, sin mirar el grafico cada dia jaja' },
-  { post:3, by:'vera_lp',   min:232, body:'yo ni lo miro la verdad, compro lo mismo pase lo que pase. cada uno con su estilo' },
-  { post:5, by:'quim_f',    min:178, body:'yo de caro o barato no opino, miro la tendencia. pero respeto tu punto eh' },
-  { post:6, by:'clara_b',   min:155, body:'buena metafora la de las palas. aun asi yo esperaria un susto del mercado antes de entrar' },
-  { post:8, by:'marta_sanz',min:108, body:'el WACC se dispara con betas altas, revisa eso. a mi me pasaba con las tecnologicas' },
+  { post:4, by:'clara_b',   ago:'-3 days',  body:'Ojo con el "esto no para", eh. Justo cuando nadie ve riesgo es cuando aparece.' },
+  { post:5, by:'quim_f',    ago:'-46 hours',body:'Yo no discuto valoración, opero la tendencia con stop. Mientras la estructura aguante, sigo dentro.' },
+  { post:7, by:'gabemtz',   ago:'-7 hours', body:'totalmente, $ASML es un monopolio de los buenos 🙌 me pille unas la semana pasada' },
+  { post:8, by:'marta_sanz',ago:'-4 hours', body:'Buen recordatorio. La gente subestima cuánto pesa el sizing frente al timing.' },
+  { post:9, by:'vera_lp',   ago:'-1 hours', body:'Las aburridas suelen ser las que más componen. $MSFT es calidad silenciosa de manual.' },
 ];
 // Red de seguidores: [seguidor, seguido]
 const BOT_FOLLOWS = [
@@ -392,7 +398,7 @@ const BOT_FOLLOWS = [
 
 // Versión del contenido de bots. Subir este número regenera SOLO el contenido
 // de los bots (mantiene intacto lo de usuarios reales).
-const COMMUNITY_SEED_VERSION = 3;
+const COMMUNITY_SEED_VERSION = 4;
 
 async function seedCommunity() {
   const cur = Number((await get("SELECT value FROM config WHERE key = 'community_seed_v'"))?.value ?? 0);
@@ -444,14 +450,18 @@ async function seedCommunity() {
   const postIds = [];
   for (const p of BOT_POSTS) {
     const info = await run("INSERT INTO posts (userId, body, tickers, created_at) VALUES (?, ?, ?, datetime('now', ?))",
-      [idByHandle[p.by], p.body, JSON.stringify(p.tickers || []), `-${p.min} minutes`]);
+      [idByHandle[p.by], p.body, JSON.stringify(p.tickers || []), p.ago]);
     const pid = Number(info.lastInsertRowid);
     postIds.push(pid);
     for (const t of (p.tickers || [])) await run('INSERT OR IGNORE INTO post_tickers (postId, ticker) VALUES (?, ?)', [pid, t]);
   }
   for (const [i, h] of BOT_LIKES) await run('INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', [postIds[i], idByHandle[h]]);
-  for (const cm of BOT_COMMENTS) await run("INSERT INTO comments (postId, userId, body, created_at) VALUES (?, ?, ?, datetime('now', ?))", [postIds[cm.post], idByHandle[cm.by], cm.body, `-${cm.min} minutes`]);
+  for (const cm of BOT_COMMENTS) await run("INSERT INTO comments (postId, userId, body, created_at) VALUES (?, ?, ?, datetime('now', ?))", [postIds[cm.post], idByHandle[cm.by], cm.body, cm.ago]);
   for (const [f, t] of BOT_FOLLOWS) await run('INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', [idByHandle[f], idByHandle[t]]);
+
+  // Limpia la caché de trending (posts y tickers) para que Global y Trending
+  // reflejen el contenido nuevo sin restos del anterior.
+  await run("DELETE FROM av_cache WHERE cacheKey IN ('TRENDING:posts', 'TRENDING:tickers')");
 
   await run("INSERT OR REPLACE INTO config (key, value) VALUES ('community_seed_v', ?)", [String(COMMUNITY_SEED_VERSION)]);
   console.log(`🤖 Comunidad sembrada/actualizada a v${COMMUNITY_SEED_VERSION}: ${COMMUNITY_BOTS.length} bots, ${BOT_POSTS.length} posts.`);
