@@ -336,72 +336,97 @@ const DEFAULT_NOTES = [
 // $TICKER, comentarios, likes y una red de seguidores. Solo se siembra si no
 // hay NINGUNA publicación todavía (idempotente).
 const COMMUNITY_BOTS = [
-  { handle:'value_vera',  name:'Vera · Value',     avatar:'🦉', bio:'Cazadora de gangas con margen de seguridad. Graham y Buffett de cabecera.' },
-  { handle:'growth_gabe', name:'Gabe Growth',      avatar:'🚀', bio:'Compounders y tecnología. El tiempo es amigo del gran negocio.' },
-  { handle:'divi_dani',   name:'Dani Dividendos',  avatar:'💰', bio:'Ingresos pasivos y aristócratas del dividendo. Que me paguen por esperar.' },
-  { handle:'macro_marta', name:'Marta Macro',      avatar:'🌐', bio:'Tipos, ciclos y geopolítica. El contexto manda.' },
-  { handle:'quant_quim',  name:'Quim Quant',       avatar:'📈', bio:'Tendencia, momentum y gestión del riesgo. Sin emociones.' },
-  { handle:'contra_clara',name:'Clara Contrarian', avatar:'🐻', bio:'Cuando todos compran, yo pregunto por qué.' },
+  { handle:'vera_lp',   name:'Vera',    avatar:'🦉', bio:'Largo plazo y negocios aburridos. Si no lo entiendo, no entro.' },
+  { handle:'gabemtz',   name:'Gabe M.', avatar:'🚀', bio:'Tecnología, algún compounder y curioso del momento. Aprendo en voz alta.' },
+  { handle:'dani_rdz',  name:'Dani R.', avatar:'☕', bio:'Cartera tranquila, cobro y reinvierto. Más de mantener que de trastear.' },
+  { handle:'marta_sanz',name:'Marta S.',avatar:'🌍', bio:'Miro tipos y macro, pero invierto en lo que conozco.' },
+  { handle:'quim_f',    name:'Quim',    avatar:'📈', bio:'Sigo la tendencia, no la adivino. El riesgo primero.' },
+  { handle:'clara_b',   name:'Clara',   avatar:'🐻', bio:'Escéptica de oficio. Me fío de los balances, no del ruido.' },
 ];
 // Publicaciones (min = hace cuántos minutos). tickers se indexan para trending.
 // Tono variado A PROPÓSITO: unos coloquiales/naturales, otros con faltas de
 // ortografía, un par limpios → para que la comunidad parezca gente real.
 const BOT_POSTS = [
-  { by:'value_vera',  min:320, tickers:['BRK.B'], body:'$BRK.B sigue barata para la caja que tiene. La paciencia tambien es una posicion.' },
-  { by:'growth_gabe', min:280, tickers:['NVDA','MSFT'], body:'buah $NVDA y $MSFT con el tema IA es una locura, el q controla el computo controla la decada 🚀' },
-  { by:'divi_dani',   min:255, tickers:['O'], body:'a ver, $O paga TODOS los meses y lleva 30 años subiendo el dividendo... aburrido pero la pasta entra igual jaja' },
-  { by:'macro_marta', min:230, tickers:['O'], body:'Ojo a la curva de tipos. Si el 10A afloja, los duraderos tipo $O respiran. Atentos al dato de inflacion.' },
-  { by:'quant_quim',  min:205, tickers:['NVDA'], body:'el trend following dice largo en $NVDA y oro. la tendencia es tu amiga asta q deja de serlo, no te enamores' },
-  { by:'contra_clara',min:185, tickers:['NVDA'], body:'todo el mundo flipando con la IA y nadie pregunta cuanto vale $NVDA enserio?? el margen de seguridad ahi es 0' },
-  { by:'value_vera',  min:165, tickers:['ASML'], body:'comparto la cautela de @contra_clara. yo me quedo con $ASML, picks and shovels y un foso de los anchos' },
-  { by:'growth_gabe', min:150, tickers:['ASML'], body:'$ASML es de lo mejorcito q ay ahora mismo, monopolio EUV. buen punto @value_vera, calidad x encima de la moda' },
-  { by:'divi_dani',   min:120, tickers:['MSFT'], body:'reinvertir dividendos es la octaba maravilla del mundo. $MSFT ya es un dividend grower y casi nadie se da cuenta' },
-  { by:'quant_quim',  min:90,  tickers:[], body:'gestion del riesgo > tener razon. pones el stop por ATR y a dormir tranqui 😴' },
-  { by:'macro_marta', min:55,  tickers:[], body:'Cuidado con el consenso: si la Fed sale dura, el growth es lo primero que se lleva el golpe.' },
-  { by:'contra_clara',min:30,  tickers:[], body:'mi watchlist contrarian: sectores q todo el mundo odia pero con balances sanos. ahi es donde estan las gangas' },
+  { by:'vera_lp',   min:320, tickers:['BRK.B'], body:'$BRK.B otra vez en mi punto de mira. no es nada sexy pero la caja que acumula da mucha tranquilidad' },
+  { by:'gabemtz',   min:290, tickers:['NVDA','MSFT'], body:'buah lo de $NVDA y $MSFT con la IA da hasta vertigo, el capex que estan metiendo es bestial 🚀' },
+  { by:'dani_rdz',  min:262, tickers:[], body:'finde de repasar la cartera con un cafe. poco que tocar la verdad, que es justo el plan ☕' },
+  { by:'marta_sanz',min:236, tickers:[], body:'el dato de inflacion del jueves va a mover mas de lo que parece. yo no me pondria muy valiente antes' },
+  { by:'quim_f',    min:210, tickers:['NVDA'], body:'$NVDA sigue en tendencia clara, pero ojo q cuando se gira lo hace rapido. stop puesto y a otra cosa' },
+  { by:'clara_b',   min:186, tickers:['NVDA'], body:'no me malinterpreteis pero a estos precios $NVDA me da mas respeto que ganas. alguien lo ve igual?' },
+  { by:'vera_lp',   min:162, tickers:['ASML'], body:'te entiendo @clara_b. yo ahi prefiero $ASML, que vende las palas en vez de buscar el oro' },
+  { by:'dani_rdz',  min:138, tickers:['MSFT'], body:'por cierto $MSFT lleva años subiendo el dividendo y casi nadie habla de eso. me gusta lo silencioso' },
+  { by:'gabemtz',   min:112, tickers:[], body:'alguien usa la herramienta de DCF de aqui? me cuadra raro el WACC en algunos valores 🤔' },
+  { by:'marta_sanz',min:84,  tickers:['O'], body:'$O y los REIT respiran si los tipos aflojan, no es magia es matematica de descuento' },
+  { by:'quim_f',    min:52,  tickers:[], body:'la regla que me repito: no es no perder, es perder poco cuando te equivocas. lo demas viene solo' },
+  { by:'clara_b',   min:26,  tickers:[], body:'media cartera en sectores que todo el mundo odia. duele en el corto pero ahi suelen estar las gangas' },
 ];
 // Likes: [índice de post, handle del bot que da like]
 const BOT_LIKES = [
-  [0,'divi_dani'],[0,'macro_marta'],[0,'quant_quim'],
-  [1,'growth_gabe'],[1,'quant_quim'],[1,'value_vera'],[1,'macro_marta'],
-  [2,'divi_dani'],[2,'value_vera'],
-  [3,'macro_marta'],[3,'contra_clara'],
-  [4,'quant_quim'],[4,'growth_gabe'],
-  [5,'contra_clara'],[5,'value_vera'],[5,'divi_dani'],
-  [6,'value_vera'],[6,'growth_gabe'],[6,'macro_marta'],
-  [7,'growth_gabe'],[7,'quant_quim'],
-  [8,'divi_dani'],
-  [11,'contra_clara'],[11,'macro_marta'],
+  [0,'dani_rdz'],[0,'marta_sanz'],
+  [1,'quim_f'],[1,'vera_lp'],[1,'clara_b'],
+  [2,'vera_lp'],[2,'marta_sanz'],
+  [3,'quim_f'],[3,'dani_rdz'],
+  [4,'gabemtz'],[4,'clara_b'],
+  [5,'vera_lp'],[5,'quim_f'],[5,'dani_rdz'],
+  [6,'gabemtz'],[6,'clara_b'],
+  [7,'vera_lp'],[7,'marta_sanz'],
+  [9,'dani_rdz'],[9,'gabemtz'],
+  [11,'vera_lp'],[11,'gabemtz'],
 ];
-// Comentarios entre bots: [índice de post, handle, min, texto]
+// Comentarios entre bots: distintos en FUNCIÓN (broma, pregunta, respuesta útil,
+// desacuerdo suave, otra filosofía) para que no suenen repetitivos.
 const BOT_COMMENTS = [
-  { post:1, by:'divi_dani',   min:250, body:'y el dividendo q? jaja yo prefiero q me paguen x esperar' },
-  { post:2, by:'macro_marta', min:240, body:'sensible a tipos pero el flujo es de relojeria, eso si' },
-  { post:5, by:'value_vera',  min:175, body:'el precio descuenta perfeccion. riesgo asimetrico to pa bajo' },
-  { post:6, by:'growth_gabe', min:158, body:'100% deacuerdo, foso de los anchos' },
-  { post:8, by:'quant_quim',  min:110, body:'y encima con momentum a favor, combinacion rara de ver' },
+  { post:1, by:'dani_rdz',  min:284, body:'a mi el vertigo me lo quita ir promediando poco a poco, sin mirar el grafico cada dia jaja' },
+  { post:3, by:'vera_lp',   min:232, body:'yo ni lo miro la verdad, compro lo mismo pase lo que pase. cada uno con su estilo' },
+  { post:5, by:'quim_f',    min:178, body:'yo de caro o barato no opino, miro la tendencia. pero respeto tu punto eh' },
+  { post:6, by:'clara_b',   min:155, body:'buena metafora la de las palas. aun asi yo esperaria un susto del mercado antes de entrar' },
+  { post:8, by:'marta_sanz',min:108, body:'el WACC se dispara con betas altas, revisa eso. a mi me pasaba con las tecnologicas' },
 ];
 // Red de seguidores: [seguidor, seguido]
 const BOT_FOLLOWS = [
-  ['growth_gabe','value_vera'],['divi_dani','value_vera'],['quant_quim','value_vera'],
-  ['value_vera','growth_gabe'],['contra_clara','growth_gabe'],['macro_marta','growth_gabe'],
-  ['divi_dani','macro_marta'],['quant_quim','macro_marta'],
-  ['value_vera','contra_clara'],['growth_gabe','quant_quim'],
+  ['gabemtz','vera_lp'],['dani_rdz','vera_lp'],['quim_f','vera_lp'],
+  ['vera_lp','gabemtz'],['clara_b','gabemtz'],
+  ['dani_rdz','marta_sanz'],['quim_f','marta_sanz'],
+  ['vera_lp','clara_b'],['gabemtz','quim_f'],['marta_sanz','dani_rdz'],
 ];
 
 // Versión del contenido de bots. Subir este número regenera SOLO el contenido
 // de los bots (mantiene intacto lo de usuarios reales).
-const COMMUNITY_SEED_VERSION = 2;
+const COMMUNITY_SEED_VERSION = 3;
 
 async function seedCommunity() {
   const cur = Number((await get("SELECT value FROM config WHERE key = 'community_seed_v'"))?.value ?? 0);
   if (cur >= COMMUNITY_SEED_VERSION) return; // ya está la versión actual
   const hasPosts = Number((await get('SELECT COUNT(*) AS c FROM posts'))?.c ?? 0) > 0;
-  const botsExist = !!(await get("SELECT id FROM users WHERE email LIKE '%@bots.valuevault.local' LIMIT 1"));
+  const existingBots = await all("SELECT id, handle FROM users WHERE email LIKE '%@bots.valuevault.local'");
   // Si ya hay actividad real y nunca metimos bots → no intervenir.
-  if (hasPosts && cur === 0 && !botsExist) return;
+  if (hasPosts && cur === 0 && existingBots.length === 0) return;
 
-  // Asegura los usuarios bot (por handle) y refresca su perfil.
+  // 1) Limpia TODO el contenido de bots PREVIOS (cualquier versión/handle), por
+  //    dominio de email → robusto aunque hayan cambiado los handles. No toca
+  //    nada de usuarios reales.
+  const prevIds = existingBots.map(b => Number(b.id));
+  if (prevIds.length) {
+    const ph = prevIds.map(() => '?').join(',');
+    const oldPosts = await all(`SELECT id FROM posts WHERE userId IN (${ph})`, prevIds);
+    for (const op of oldPosts) {
+      await run('DELETE FROM post_likes WHERE postId = ?', [op.id]);
+      await run('DELETE FROM comments WHERE postId = ?', [op.id]);
+      await run('DELETE FROM post_tickers WHERE postId = ?', [op.id]);
+      await run('DELETE FROM notifications WHERE postId = ?', [op.id]);
+    }
+    await run(`DELETE FROM posts WHERE userId IN (${ph})`, prevIds);
+    await run(`DELETE FROM post_likes WHERE userId IN (${ph})`, prevIds);
+    await run(`DELETE FROM comments WHERE userId IN (${ph})`, prevIds);
+    await run(`DELETE FROM follows WHERE followerId IN (${ph}) OR followedId IN (${ph})`, [...prevIds, ...prevIds]);
+    await run(`DELETE FROM notifications WHERE actorId IN (${ph})`, prevIds);
+    // Elimina cuentas bot que ya NO están en el roster actual (handles renombrados).
+    const keep = COMMUNITY_BOTS.map(b => b.handle);
+    const kph = keep.map(() => '?').join(',');
+    await run(`DELETE FROM users WHERE id IN (${ph}) AND handle NOT IN (${kph})`, [...prevIds, ...keep]);
+  }
+
+  // 2) Asegura los usuarios bot del roster actual (por handle) y refresca perfil.
   const idByHandle = {};
   for (const b of COMMUNITY_BOTS) {
     const u = await get('SELECT id FROM users WHERE handle = ?', [b.handle]);
@@ -415,25 +440,7 @@ async function seedCommunity() {
     }
   }
 
-  // Limpia el contenido PREVIO solo de bots (no toca el de usuarios reales).
-  const botIds = Object.values(idByHandle);
-  if (botIds.length) {
-    const ph = botIds.map(() => '?').join(',');
-    const oldPosts = await all(`SELECT id FROM posts WHERE userId IN (${ph})`, botIds);
-    for (const op of oldPosts) {
-      await run('DELETE FROM post_likes WHERE postId = ?', [op.id]);
-      await run('DELETE FROM comments WHERE postId = ?', [op.id]);
-      await run('DELETE FROM post_tickers WHERE postId = ?', [op.id]);
-      await run('DELETE FROM notifications WHERE postId = ?', [op.id]);
-    }
-    await run(`DELETE FROM posts WHERE userId IN (${ph})`, botIds);
-    await run(`DELETE FROM post_likes WHERE userId IN (${ph})`, botIds);
-    await run(`DELETE FROM comments WHERE userId IN (${ph})`, botIds);
-    await run(`DELETE FROM follows WHERE followerId IN (${ph}) OR followedId IN (${ph})`, [...botIds, ...botIds]);
-    await run(`DELETE FROM notifications WHERE actorId IN (${ph})`, botIds);
-  }
-
-  // (Re)inserta el contenido de bots.
+  // 3) (Re)inserta el contenido de bots.
   const postIds = [];
   for (const p of BOT_POSTS) {
     const info = await run("INSERT INTO posts (userId, body, tickers, created_at) VALUES (?, ?, ?, datetime('now', ?))",
