@@ -5,21 +5,22 @@ import PostCard from './PostCard.jsx';
 const MAX = 500;
 
 // Sección Comunidad — Fase 1: identidad pública + feed global.
-export default function Community({ user, profile, needsAlias, onEditAlias, onLogin, toast }) {
+export default function Community({ user, profile, needsAlias, onEditAlias, onLogin, onProfile, onTicker, toast }) {
   const [posts, setPosts] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
+  const [scope, setScope] = useState('global'); // global | following
 
   const loadFirst = useCallback(() => {
     setLoading(true);
-    api.listPosts()
+    api.listPosts(null, 20, scope === 'following' ? 'following' : undefined)
       .then(r => { setPosts(r.posts); setCursor(r.nextCursor); })
       .catch(e => toast?.('⚠ ' + e.message))
       .finally(() => setLoading(false));
-  }, [toast]);
+  }, [toast, scope]);
 
   useEffect(() => { loadFirst(); }, [loadFirst]);
 
@@ -27,7 +28,7 @@ export default function Community({ user, profile, needsAlias, onEditAlias, onLo
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const r = await api.listPosts(cursor);
+      const r = await api.listPosts(cursor, 20, scope === 'following' ? 'following' : undefined);
       setPosts(prev => [...prev, ...r.posts]);
       setCursor(r.nextCursor);
     } catch (e) { toast?.('⚠ ' + e.message); }
@@ -90,17 +91,26 @@ export default function Community({ user, profile, needsAlias, onEditAlias, onLo
         </div>
       )}
 
+      {/* ── Selector de alcance del feed ── */}
+      {user && (
+        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+          <button className={`filter-chip${scope === 'global' ? ' active' : ''}`} onClick={() => setScope('global')}>🌐 Global</button>
+          <button className={`filter-chip${scope === 'following' ? ' active' : ''}`} onClick={() => setScope('following')}>👤 Siguiendo</button>
+        </div>
+      )}
+
       {/* ── Feed ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '18px' }}>
         {loading ? (
           <div className="empty-state"><div className="empty-icon">⏳</div><div className="empty-text">Cargando publicaciones…</div></div>
         ) : posts.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">🗣</div><div className="empty-text">Aún no hay publicaciones. ¡Sé el primero en compartir una idea!</div></div>
+          <div className="empty-state"><div className="empty-icon">🗣</div><div className="empty-text">{scope === 'following' ? 'Aún no sigues a nadie, o no han publicado. Explora el feed global.' : 'Aún no hay publicaciones. ¡Sé el primero en compartir una idea!'}</div></div>
         ) : (
           <>
             {posts.map(p => (
               <PostCard key={p.id} post={p} currentUserId={user?.id}
                 canInteract={!!user && !needsAlias} onDelete={remove}
+                onTicker={onTicker} onHandle={onProfile} onAuthor={onProfile}
                 requireInteract={() => { if (!user) onLogin?.(); else if (needsAlias) onEditAlias?.(); }}
                 toast={toast} />
             ))}

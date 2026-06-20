@@ -25,6 +25,7 @@ import LearnModal from './components/LearnModal.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import Community from './components/community/Community.jsx';
+import Profile from './components/community/Profile.jsx';
 import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
 
@@ -48,7 +49,11 @@ export default function App() {
   // Comunidad: perfil público propio (null si anónimo o sin alias aún)
   const [community, setCommunity] = useState(null);
   const [aliasOpen, setAliasOpen] = useState(false);
+  const [profileHandle, setProfileHandle] = useState(null);
+  const [activeTicker, setActiveTicker] = useState(null);
   const needsAlias = !!user && !community?.handle;
+  const canInteract = !!user && !needsAlias;
+  const requireInteract = () => { if (!user) setAuthOpen(true); else if (needsAlias) setAliasOpen(true); };
 
   // Cartera vs seguimiento
   const portfolio = assets.filter(a => a.type !== 'watchlist');
@@ -140,6 +145,8 @@ export default function App() {
   };
 
   const go = (id) => { setSection(id); setSidebarOpen(false); };
+  const goProfile = (handle) => { setProfileHandle(handle); setSection('profile'); setSidebarOpen(false); };
+  const goTicker = (ticker) => { setActiveTicker(ticker); setSection('ticker'); setSidebarOpen(false); };
 
   // ─── CRUD activos ───────────────────────────────────────
   const saveAsset = async (payload, editId) => {
@@ -323,7 +330,8 @@ export default function App() {
           {section === 'smc' && <SMC theme={theme} toast={toast} />}
           {section === 'gamma' && <Gamma theme={theme} toast={toast} />}
           {section === 'trendfollow' && <TrendFollowing theme={theme} toast={toast} />}
-          {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} toast={toast} />}
+          {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onProfile={goProfile} onTicker={goTicker} toast={toast} />}
+          {section === 'profile' && <Profile handle={profileHandle} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onAuthor={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
           {section === 'guide' && <Guide go={go} />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={addNote} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}

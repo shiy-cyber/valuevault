@@ -211,6 +211,13 @@ export async function initSchema() {
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(postId, id ASC);
+    CREATE TABLE IF NOT EXISTS follows (
+      followerId INTEGER NOT NULL,
+      followedId INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (followerId, followedId)
+    );
+    CREATE INDEX IF NOT EXISTS idx_follows_followed ON follows(followedId);
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");

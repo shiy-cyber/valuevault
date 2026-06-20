@@ -163,7 +163,49 @@ export async function createApp() {
   app.get('/api/community/users/:handle', h(async (req, res) => {
     const pub = await getPublicUserByHandle(req.params.handle);
     if (!pub || !pub.handle) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json(pub);
+    const me = userFromReq(req)?.uid ?? 0;
+    const cnt = async (sql, args) => Number((await get(sql, args))?.c ?? 0);
+    const [followerCount, followingCount, postCount, followRow] = await Promise.all([
+      cnt('SELECT COUNT(*) AS c FROM follows WHERE followedId = ?', [pub.id]),
+      cnt('SELECT COUNT(*) AS c FROM follows WHERE followerId = ?', [pub.id]),
+      cnt('SELECT COUNT(*) AS c FROM posts WHERE userId = ?', [pub.id]),
+      me ? get('SELECT 1 AS c FROM follows WHERE followerId = ? AND followedId = ?', [me, pub.id]) : null,
+    ]);
+    res.json({ ...pub, followerCount, followingCount, postCount, followedByMe: !!followRow });
+  }));
+
+  // Posts de un usuario concreto (lectura pública, paginado).
+  app.get('/api/community/users/:handle/posts', h(async (req, res) => {
+    const target = await getPublicUserByHandle(req.params.handle);
+    if (!target?.handle) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const me = readUid(req);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    const cursor = Number(req.query.cursor) || 0;
+    const rows = cursor > 0
+      ? await all(`${postSelectFor()} WHERE p.userId = ? AND p.id < ? ORDER BY p.id DESC LIMIT ?`, [me, target.id, cursor, limit])
+      : await all(`${postSelectFor()} WHERE p.userId = ? ORDER BY p.id DESC LIMIT ?`, [me, target.id, limit]);
+    const posts = rows.map(postRowToJson);
+    res.json({ posts, nextCursor: posts.length === limit ? posts[posts.length - 1].id : null });
+  }));
+
+  // Seguir / dejar de seguir.
+  app.post('/api/community/users/:handle/follow', h(async (req, res) => {
+    const uid = writeUid(req);
+    const target = await getPublicUserByHandle(req.params.handle);
+    if (!target?.handle) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (target.id === uid) throw Object.assign(new Error('No puedes seguirte a ti mismo'), { status: 400 });
+    await run('INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', [uid, target.id]);
+    const c = Number((await get('SELECT COUNT(*) AS c FROM follows WHERE followedId = ?', [target.id]))?.c ?? 0);
+    res.json({ followedByMe: true, followerCount: c });
+  }));
+
+  app.delete('/api/community/users/:handle/follow', h(async (req, res) => {
+    const uid = writeUid(req);
+    const target = await getPublicUserByHandle(req.params.handle);
+    if (!target?.handle) return res.status(404).json({ error: 'Usuario no encontrado' });
+    await run('DELETE FROM follows WHERE followerId = ? AND followedId = ?', [uid, target.id]);
+    const c = Number((await get('SELECT COUNT(*) AS c FROM follows WHERE followedId = ?', [target.id]))?.c ?? 0);
+    res.json({ followedByMe: false, followerCount: c });
   }));
 
   // ─── COMUNIDAD · feed de publicaciones (Fase 1) ────────────
@@ -185,14 +227,24 @@ export async function createApp() {
     res.status(201).json(postRowToJson(await get(`${postSelectFor()} WHERE p.id = ?`, [uid, info.lastInsertRowid])));
   }));
 
-  // Feed global paginado por cursor (id descendente). Lectura pública.
+  // Feed paginado por cursor (id descendente). Lectura pública.
+  // scope=following → solo a quien sigues (requiere sesión; anónimo → vacío).
   app.get('/api/community/posts', h(async (req, res) => {
     const me = readUid(req);
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
     const cursor = Number(req.query.cursor) || 0;
-    const rows = cursor > 0
-      ? await all(`${postSelectFor()} WHERE p.id < ? ORDER BY p.id DESC LIMIT ?`, [me, cursor, limit])
-      : await all(`${postSelectFor()} ORDER BY p.id DESC LIMIT ?`, [me, limit]);
+    const conds = [];
+    const args = [me]; // primer ? → likedByMe
+    if (req.query.scope === 'following') {
+      const uid = userFromReq(req)?.uid;
+      if (!uid) return res.json({ posts: [], nextCursor: null });
+      conds.push('p.userId IN (SELECT followedId FROM follows WHERE followerId = ?)');
+      args.push(uid);
+    }
+    if (cursor > 0) { conds.push('p.id < ?'); args.push(cursor); }
+    args.push(limit);
+    const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+    const rows = await all(`${postSelectFor()} ${where} ORDER BY p.id DESC LIMIT ?`, args);
     const posts = rows.map(postRowToJson);
     res.json({ posts, nextCursor: posts.length === limit ? posts[posts.length - 1].id : null });
   }));
