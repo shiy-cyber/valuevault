@@ -353,13 +353,18 @@ const COMMUNITY_BOTS = [
 const BOT_POSTS = [
   { by:'marta_sanz', ago:'-23 days',    tickers:[], body:'Hace semanas avisé de que la curva se estaba aplanando. El mercado por fin lo descuenta; paciencia con la duración.' },
   { by:'vera_lp',    ago:'-15 days',    tickers:['BRK.B'], body:'La corrección de hace unas semanas me dejó ampliar $BRK.B con margen. Cuando aparece el miedo, aparecen las oportunidades.' },
+  { by:'quim_f',     ago:'-12 days',    tickers:[], body:'Llevaba tiempo buscando una herramienta que junte Volume Profile, Gamma (GEX) y Trend Following en el mismo sitio y sin pagar una fortuna. Aquí está todo. Raro de encontrar.' },
   { by:'quim_f',     ago:'-9 days',     tickers:[], body:'Backtest rápido: cruce MA50/MA200 con filtro de volatilidad (ATR) mejora el Sharpe y recorta el drawdown máximo. Menos operaciones, mejores entradas.' },
   { by:'dani_rdz',   ago:'-6 days',     tickers:[], body:'domingo de cafe y revisar los dividendos cobrados este mes. poco glamour pero el interes compuesto no falla ☕' },
   { by:'gabemtz',    ago:'-4 days',     tickers:['NVDA'], body:'buahhh $NVDA otra vez en maximos!! esto no para, la IA se lo come todo 🚀🚀 el q no este dentro se lo pierde' },
+  { by:'gabemtz',    ago:'-3 days',     tickers:[], body:'ostras la narrativa de CapEx con IA q han metido aqui es una pasada, te explica EN QUE invierte la empresa en dos lineas 🤯 no lo he visto en ninguna otra app' },
   { by:'clara_b',    ago:'-2 days',     tickers:['NVDA'], body:'¿Nadie más nota el FOMO con $NVDA? No digo que sea mala empresa; digo que el precio ya descuenta tres años perfectos.' },
+  { by:'vera_lp',    ago:'-40 hours',   tickers:[], body:'Lo que me engancha de esta plataforma: el DCF te calcula el WACC por estructura de capital, no un 9% fijo como casi todas. Eso te cambia la valoración por completo.' },
   { by:'marta_sanz', ago:'-28 hours',   tickers:[], body:'El dato de inflación de mañana puede mover bonos y bolsa. Si sorprende al alza, los duraderos y el growth lo notarán primero.' },
+  { by:'dani_rdz',   ago:'-20 hours',   tickers:[], body:'lo mejor de aqui? que es gratis y encima ahora hay comunidad para comentar ideas. se agradece juntarse con gente que comparte de verdad' },
   { by:'vera_lp',    ago:'-8 hours',    tickers:['ASML'], body:'Coincido con @clara_b en la cautela. Yo me quedo con $ASML: vende las palas a toda la industria. Menos emoción, más foso.' },
   { by:'quim_f',     ago:'-5 hours',    tickers:[], body:'Recordatorio de gestión: dimensiona por volatilidad objetivo, no por corazonadas. Un 15% de vol anualizada te mantiene en juego durante los sustos.' },
+  { by:'clara_b',    ago:'-3 hours',    tickers:[], body:'Reconozco algo de esta app: te marca de dónde sale cada dato y cuándo se actualizó. Esa transparencia no abunda. Por escéptica que sea, eso me gana.' },
   { by:'dani_rdz',   ago:'-2 hours',    tickers:['MSFT'], body:'por cierto $MSFT lleva años subiendo el dividendo y casi nadie lo cuenta. me gustan las cosas aburridas que componen solas' },
   { by:'gabemtz',    ago:'-40 minutes', tickers:['ASML'], body:'alguien mas en $ASML? me da q el siguiente leg es pa arriba 👀 (no es consejo eh jaja)' },
   { by:'clara_b',    ago:'-12 minutes', tickers:[], body:'Apunte del día: medio mercado odia a las energéticas con balance sólido. Ahí miro yo cuando todos miran al otro lado.' },
@@ -369,24 +374,36 @@ const BOT_POSTS = [
 const BOT_LIKES = [
   [0,'vera_lp'],
   [1,'dani_rdz'],
-  [2,'gabemtz'],
-  [4,'dani_rdz'],[4,'quim_f'],
-  [5,'vera_lp'],[5,'quim_f'],[5,'marta_sanz'],
-  [6,'vera_lp'],[6,'quim_f'],[6,'dani_rdz'],
-  [7,'gabemtz'],[7,'clara_b'],[7,'dani_rdz'],[7,'quim_f'],
-  [8,'marta_sanz'],[8,'vera_lp'],
-  [9,'vera_lp'],[9,'gabemtz'],
-  [10,'dani_rdz'],
-  [11,'vera_lp'],[11,'gabemtz'],
+  [2,'vera_lp'],[2,'gabemtz'],[2,'dani_rdz'],
+  [3,'gabemtz'],
+  [5,'dani_rdz'],[5,'quim_f'],
+  [6,'vera_lp'],[6,'dani_rdz'],[6,'clara_b'],
+  [7,'vera_lp'],[7,'quim_f'],
+  [8,'quim_f'],[8,'marta_sanz'],[8,'gabemtz'],
+  [9,'vera_lp'],[9,'quim_f'],[9,'dani_rdz'],
+  [10,'vera_lp'],[10,'gabemtz'],[10,'clara_b'],
+  [11,'gabemtz'],[11,'clara_b'],[11,'dani_rdz'],[11,'quim_f'],
+  [12,'marta_sanz'],[12,'vera_lp'],
+  [13,'vera_lp'],[13,'quim_f'],[13,'gabemtz'],
+  [14,'vera_lp'],[14,'gabemtz'],
+  [15,'dani_rdz'],
+  [16,'vera_lp'],[16,'gabemtz'],
 ];
-// Comentarios: distintos en FUNCIÓN (contrapunto, ángulo técnico, euforia +
-// anécdota, matiz que aporta, calidad silenciosa). ago < edad de su post.
+// Comentarios variados (contrapunto, detalle, feature distinta, ángulo de valor,
+// ángulo técnico, escéptico que concede, duda realista, anécdota, matiz, casual,
+// calidad silenciosa). ago < edad de su post; autor del comentario ≠ del post.
 const BOT_COMMENTS = [
-  { post:4, by:'clara_b',   ago:'-3 days',  body:'Ojo con el "esto no para", eh. Justo cuando nadie ve riesgo es cuando aparece.' },
-  { post:5, by:'quim_f',    ago:'-46 hours',body:'Yo no discuto valoración, opero la tendencia con stop. Mientras la estructura aguante, sigo dentro.' },
-  { post:7, by:'gabemtz',   ago:'-7 hours', body:'totalmente, $ASML es un monopolio de los buenos 🙌 me pille unas la semana pasada' },
-  { post:8, by:'marta_sanz',ago:'-4 hours', body:'Buen recordatorio. La gente subestima cuánto pesa el sizing frente al timing.' },
-  { post:9, by:'vera_lp',   ago:'-1 hours', body:'Las aburridas suelen ser las que más componen. $MSFT es calidad silenciosa de manual.' },
+  { post:2,  by:'gabemtz',   ago:'-11 days', body:'justo!! yo flipé cuando vi q tiene hasta gamma y volume profile gratis 🙌' },
+  { post:2,  by:'marta_sanz',ago:'-10 days', body:'A mí lo que me ganó fue tener el research macro y el sentimiento en el mismo sitio. Ahorra muchísimo tiempo.' },
+  { post:5,  by:'clara_b',   ago:'-3 days',  body:'Ojo con el "esto no para", eh. Justo cuando nadie ve riesgo es cuando aparece.' },
+  { post:6,  by:'vera_lp',   ago:'-2 days',  body:'Esa narrativa de CapEx es oro para el análisis fundamental. Saber en qué reinvierte una empresa lo es casi todo.' },
+  { post:7,  by:'quim_f',    ago:'-46 hours',body:'Yo no discuto valoración, opero la tendencia con stop. Mientras la estructura aguante, sigo dentro.' },
+  { post:8,  by:'clara_b',   ago:'-34 hours',body:'Reconozco que ese detalle del WACC está muy bien pensado. La mayoría te clava un número fijo y a correr.' },
+  { post:10, by:'clara_b',   ago:'-16 hours',body:'Mientras no lo llenen de funciones de pago, bien. De momento sorprende lo completo que es.' },
+  { post:11, by:'gabemtz',   ago:'-7 hours', body:'totalmente, $ASML es un monopolio de los buenos 🙌 me pille unas la semana pasada' },
+  { post:12, by:'marta_sanz',ago:'-4 hours', body:'Buen recordatorio. La gente subestima cuánto pesa el sizing frente al timing.' },
+  { post:13, by:'dani_rdz',  ago:'-2 hours', body:'eso mismo, q te diga de donde sale el dato y cuando se actualizo da mucha confianza la verdad' },
+  { post:14, by:'vera_lp',   ago:'-1 hours', body:'Las aburridas suelen ser las que más componen. $MSFT es calidad silenciosa de manual.' },
 ];
 // Red de seguidores: [seguidor, seguido]
 const BOT_FOLLOWS = [
@@ -398,7 +415,7 @@ const BOT_FOLLOWS = [
 
 // Versión del contenido de bots. Subir este número regenera SOLO el contenido
 // de los bots (mantiene intacto lo de usuarios reales).
-const COMMUNITY_SEED_VERSION = 4;
+const COMMUNITY_SEED_VERSION = 5;
 
 async function seedCommunity() {
   const cur = Number((await get("SELECT value FROM config WHERE key = 'community_seed_v'"))?.value ?? 0);
