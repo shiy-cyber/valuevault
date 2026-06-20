@@ -6,7 +6,8 @@
 // ─────────────────────────────────────────────────────────────
 import express from 'express';
 import cors from 'cors';
-import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
+import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
+import { validateProfileInput } from './community.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
@@ -79,7 +80,10 @@ export async function createApp() {
   }));
   app.get('/api/auth/me', h(async (req, res) => {
     const u = userFromReq(req);
-    res.json({ user: u ? { id: u.uid, email: u.email } : null });
+    if (!u) return res.json({ user: null });
+    // Incluye identidad pública de comunidad (sin exponer nada extra del email).
+    const pub = await getPublicUserById(u.uid);
+    res.json({ user: { id: u.uid, email: u.email, displayName: pub?.displayName || null, handle: pub?.handle || null, avatar: pub?.avatar || null } });
   }));
   app.post('/api/auth/reset', h(async (req, res) => {
     res.json(await resetWithCode(req.body.email, req.body.code, req.body.password));
@@ -88,6 +92,36 @@ export async function createApp() {
     const u = userFromReq(req);
     if (!u) return res.status(401).json({ error: 'Inicia sesión' });
     res.json(await regenerateRecovery(u.uid));
+  }));
+
+  // ─── COMUNIDAD · perfil / alias público (Fase 0) ───────────
+  // Identidad pública de la comunidad. El email NUNCA se devuelve aquí: todas
+  // estas respuestas pasan por getPublicUser* (PUBLIC_USER_COLS).
+
+  // Perfil propio + si necesita fijar alias (onboarding). Auth opcional.
+  app.get('/api/community/me', h(async (req, res) => {
+    const u = userFromReq(req);
+    if (!u) return res.json({ user: null, needsAlias: false });
+    const pub = await getPublicUserById(u.uid);
+    res.json({ user: pub, needsAlias: !pub?.handle });
+  }));
+
+  // Crear/editar el alias público. Exige sesión. Valida y comprueba unicidad.
+  app.put('/api/community/profile', h(async (req, res) => {
+    const uid = writeUid(req);
+    const { displayName, handle, avatar, bio } = validateProfileInput(req.body);
+    const clash = await get('SELECT id FROM users WHERE handle = ?', [handle]);
+    if (clash && Number(clash.id) !== uid) throw Object.assign(new Error('Ese alias ya está en uso'), { status: 409 });
+    await run('UPDATE users SET displayName = ?, handle = ?, avatar = ?, bio = ? WHERE id = ?', [displayName, handle, avatar, bio, uid]);
+    res.json(await getPublicUserById(uid));
+  }));
+
+  // Perfil público por alias. Público (lectura sin sesión). 404 si no existe
+  // o aún no ha fijado alias.
+  app.get('/api/community/users/:handle', h(async (req, res) => {
+    const pub = await getPublicUserByHandle(req.params.handle);
+    if (!pub || !pub.handle) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(pub);
   }));
 
   // ─── ASSETS (aislados por usuario) ─────────────────────────

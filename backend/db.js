@@ -69,6 +69,29 @@ export function rowToNote(r) {
   return { ...r, tags: JSON.parse(r.tags || '[]') };
 }
 
+// ─── Comunidad: serializador de USUARIO PÚBLICO (anti-fuga) ──────────────
+// Columnas que SÍ se pueden exponer. Jamás se devuelve email/passwordHash/
+// recoveryHash al cliente. TODO endpoint de comunidad que muestre autor/perfil
+// debe usar PUBLIC_USER_COLS + rowToPublicUser; nunca `SELECT *` de users.
+export const PUBLIC_USER_COLS = 'id, displayName, handle, avatar, bio, created_at';
+export function rowToPublicUser(r) {
+  if (!r) return null;
+  return {
+    id: Number(r.id),
+    displayName: r.displayName || null,
+    handle: r.handle || null,
+    avatar: r.avatar || null,
+    bio: r.bio || null,
+    joinedAt: r.created_at || null,
+  };
+}
+export async function getPublicUserById(id) {
+  return rowToPublicUser(await get(`SELECT ${PUBLIC_USER_COLS} FROM users WHERE id = ?`, [Number(id)]));
+}
+export async function getPublicUserByHandle(handle) {
+  return rowToPublicUser(await get(`SELECT ${PUBLIC_USER_COLS} FROM users WHERE handle = ?`, [String(handle || '').trim().toLowerCase()]));
+}
+
 // ─── Memoria GLOBAL de narrativas CapEx (compartida entre usuarios) ──────
 // Clave (ticker, ejercicio fiscal). Es dato de empresa pública, no del usuario:
 // un informe se genera una sola vez para toda la app y se reutiliza sin coste
@@ -173,6 +196,17 @@ export async function initSchema() {
   await ensureColumn('notes', 'userId', 'INTEGER');
   // Recuperación de cuenta: hash del código de recuperación
   await ensureColumn('users', 'recoveryHash', 'TEXT');
+  // Comunidad social: identidad pública (el email NUNCA se expone).
+  // displayName = nombre mostrado · handle = alias único para @menciones/URL
+  // (se guarda en minúsculas → unicidad efectiva case-insensitive) · avatar =
+  // emoji corto · bio = descripción breve. created_at se reutiliza como joinedAt.
+  await ensureColumn('users', 'displayName', 'TEXT');
+  await ensureColumn('users', 'handle', 'TEXT');
+  await ensureColumn('users', 'avatar', 'TEXT');
+  await ensureColumn('users', 'bio', 'TEXT');
+  // Unicidad del alias. En SQLite varios NULL son distintos entre sí, así que
+  // las cuentas sin alias (incluida la demo) no chocan. Idempotente.
+  await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users(handle)');
   // P0 buy-side: tamaño de posición, divisa y FX de entrada (separar retorno
   // activo vs divisa), proceso (catalizador/objetivo/stop) y motor de alfa
   await ensureColumn('assets', 'shares', 'REAL');

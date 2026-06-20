@@ -24,6 +24,8 @@ import AssetModal from './components/AssetModal.jsx';
 import LearnModal from './components/LearnModal.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
+import Community from './components/community/Community.jsx';
+import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
 
 export default function App() {
@@ -43,6 +45,10 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [presetCode, setPresetCode] = useState(null);
   const [fxRates, setFxRates] = useState({ EUR: 1 });
+  // Comunidad: perfil público propio (null si anónimo o sin alias aún)
+  const [community, setCommunity] = useState(null);
+  const [aliasOpen, setAliasOpen] = useState(false);
+  const needsAlias = !!user && !community?.handle;
 
   // Cartera vs seguimiento
   const portfolio = assets.filter(a => a.type !== 'watchlist');
@@ -72,12 +78,25 @@ export default function App() {
       .catch(e => toast('⚠ No se pudo conectar con el backend: ' + e.message));
   }, [toast]);
 
+  // ─── Perfil público de comunidad (del usuario logueado) ─
+  const loadCommunity = useCallback(() => {
+    return api.communityMe()
+      .then(r => setCommunity(r.user))
+      .catch(() => setCommunity(null));
+  }, []);
+
   // ─── Carga inicial: tema + sesión + cartera ─────────────
   useEffect(() => {
     api.getConfig().then(c => setTheme(c.theme || 'dark')).catch(() => {});
     api.me().then(r => setUser(r.user)).catch(() => {});
     reloadPortfolio();
-  }, [reloadPortfolio]);
+    loadCommunity();
+  }, [reloadPortfolio, loadCommunity]);
+
+  // Al entrar en Comunidad sin alias fijado → abrir onboarding
+  useEffect(() => {
+    if (section === 'community' && needsAlias) setAliasOpen(true);
+  }, [section, needsAlias]);
 
   // ─── Tipos de cambio (FX) → divisa base EUR ─────────────
   // Refresca cuando cambian las divisas presentes en la cartera.
@@ -92,9 +111,10 @@ export default function App() {
   const onAuth = ({ token, user: u }) => {
     setToken(token); setUser(u); setAuthOpen(false);
     reloadPortfolio();
+    loadCommunity();
   };
   const logout = () => {
-    setToken(null); setUser(null);
+    setToken(null); setUser(null); setCommunity(null);
     toast('Sesión cerrada');
     reloadPortfolio();
   };
@@ -303,6 +323,7 @@ export default function App() {
           {section === 'smc' && <SMC theme={theme} toast={toast} />}
           {section === 'gamma' && <Gamma theme={theme} toast={toast} />}
           {section === 'trendfollow' && <TrendFollowing theme={theme} toast={toast} />}
+          {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} />}
           {section === 'guide' && <Guide go={go} />}
           {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={addNote} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
@@ -317,6 +338,7 @@ export default function App() {
       <LearnModal open={learnModal.open} assets={assets} linkedAssetId={learnModal.linkedAssetId} onClose={() => setLearnModal({ open: false, linkedAssetId: null })} onSave={saveNote} toast={toast} />
       <DetailModal asset={detailAsset} notes={notes} onClose={() => setDetailId(null)} onAddNote={(id) => { setDetailId(null); addNote(id); }} />
       <AuthModal open={authOpen} presetCode={presetCode} onClose={() => { setAuthOpen(false); setPresetCode(null); }} onAuth={onAuth} toast={toast} />
+      <AliasModal open={aliasOpen} current={community} onClose={() => setAliasOpen(false)} onSaved={(pub) => { setCommunity(pub); setUser(u => u ? { ...u, displayName: pub.displayName, handle: pub.handle, avatar: pub.avatar } : u); setAliasOpen(false); }} toast={toast} />
 
       <Assistant assets={assets} notes={notes} fxRates={fxRates} go={go} />
 

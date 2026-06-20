@@ -43,6 +43,11 @@ export const api = {
   getConfig: () => req('GET', '/api/config'),
   setConfig: (key, value) => req('PUT', `/api/config/${key}`, { value }),
 
+  // ─── Comunidad ───────────────────────────────────────────
+  communityMe: () => req('GET', '/api/community/me'),
+  updateProfile: (p) => req('PUT', '/api/community/profile', p),
+  getProfile: (handle) => req('GET', `/api/community/users/${encodeURIComponent(handle)}`),
+
   getExport: () => req('GET', '/api/export'),
 
   lookup:  (ticker) => req('GET', `/api/lookup/${encodeURIComponent(ticker)}`),
