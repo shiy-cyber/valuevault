@@ -61,9 +61,14 @@ const writeUid = (req) => {
 };
 
 // ─── Comunidad: feed ─────────────────────────────────────────
-// SELECT con JOIN al autor PÚBLICO (sin email) → una sola query, sin N+1.
-const POST_SELECT = `SELECT p.id, p.body, p.tickers, p.created_at,
-  u.id AS authorId, u.displayName, u.handle, u.avatar
+// SELECT con JOIN al autor PÚBLICO (sin email) + contadores agregados en
+// subconsultas → una sola query por página, sin N+1. El primer parámetro (?)
+// es el uid del lector (para `likedByMe`); va SIEMPRE el primero en los args.
+const postSelectFor = () => `SELECT p.id, p.body, p.tickers, p.created_at,
+  u.id AS authorId, u.displayName, u.handle, u.avatar,
+  (SELECT COUNT(*) FROM post_likes l WHERE l.postId = p.id) AS likeCount,
+  (SELECT COUNT(*) FROM comments  c WHERE c.postId = p.id) AS commentCount,
+  EXISTS(SELECT 1 FROM post_likes l WHERE l.postId = p.id AND l.userId = ?) AS likedByMe
   FROM posts p JOIN users u ON u.id = p.userId`;
 
 function postRowToJson(r) {
@@ -75,9 +80,25 @@ function postRowToJson(r) {
     body: r.body,
     tickers,
     createdAt: r.created_at,
+    likeCount: Number(r.likeCount || 0),
+    commentCount: Number(r.commentCount || 0),
+    likedByMe: !!Number(r.likedByMe || 0),
     author: { id: Number(r.authorId), displayName: r.displayName || null, handle: r.handle || null, avatar: r.avatar || null },
   };
 }
+function commentRowToJson(r) {
+  if (!r) return null;
+  return {
+    id: Number(r.id),
+    postId: Number(r.postId),
+    body: r.body,
+    createdAt: r.created_at,
+    author: { id: Number(r.authorId), displayName: r.displayName || null, handle: r.handle || null, avatar: r.avatar || null },
+  };
+}
+const COMMENT_SELECT = `SELECT c.id, c.postId, c.body, c.created_at,
+  u.id AS authorId, u.displayName, u.handle, u.avatar
+  FROM comments c JOIN users u ON u.id = c.userId`;
 // created_at en SQLite es UTC "YYYY-MM-DD HH:MM:SS" → ms epoch.
 const tsToMs = (s) => new Date(String(s).replace(' ', 'T') + 'Z').getTime();
 
@@ -161,32 +182,95 @@ export async function createApp() {
     }
     const tickers = extractTickers(body);
     const info = await run('INSERT INTO posts (userId, body, tickers) VALUES (?, ?, ?)', [uid, body, JSON.stringify(tickers)]);
-    res.status(201).json(postRowToJson(await get(`${POST_SELECT} WHERE p.id = ?`, [info.lastInsertRowid])));
+    res.status(201).json(postRowToJson(await get(`${postSelectFor()} WHERE p.id = ?`, [uid, info.lastInsertRowid])));
   }));
 
   // Feed global paginado por cursor (id descendente). Lectura pública.
   app.get('/api/community/posts', h(async (req, res) => {
+    const me = readUid(req);
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
     const cursor = Number(req.query.cursor) || 0;
     const rows = cursor > 0
-      ? await all(`${POST_SELECT} WHERE p.id < ? ORDER BY p.id DESC LIMIT ?`, [cursor, limit])
-      : await all(`${POST_SELECT} ORDER BY p.id DESC LIMIT ?`, [limit]);
+      ? await all(`${postSelectFor()} WHERE p.id < ? ORDER BY p.id DESC LIMIT ?`, [me, cursor, limit])
+      : await all(`${postSelectFor()} ORDER BY p.id DESC LIMIT ?`, [me, limit]);
     const posts = rows.map(postRowToJson);
     res.json({ posts, nextCursor: posts.length === limit ? posts[posts.length - 1].id : null });
   }));
 
   // Una publicación por id. Lectura pública.
   app.get('/api/community/posts/:id', h(async (req, res) => {
-    const row = await get(`${POST_SELECT} WHERE p.id = ?`, [Number(req.params.id)]);
+    const row = await get(`${postSelectFor()} WHERE p.id = ?`, [readUid(req), Number(req.params.id)]);
     if (!row) return res.status(404).json({ error: 'Publicación no encontrada' });
     res.json(postRowToJson(row));
   }));
 
-  // Borrar la propia publicación.
+  // Borrar la propia publicación (+ cascada de likes y comentarios).
   app.delete('/api/community/posts/:id', h(async (req, res) => {
     const uid = writeUid(req);
-    const info = await run('DELETE FROM posts WHERE id = ? AND userId = ?', [Number(req.params.id), uid]);
+    const id = Number(req.params.id);
+    const info = await run('DELETE FROM posts WHERE id = ? AND userId = ?', [id, uid]);
     if (!info.changes) return res.status(404).json({ error: 'Publicación no encontrada' });
+    await run('DELETE FROM post_likes WHERE postId = ?', [id]);
+    await run('DELETE FROM comments WHERE postId = ?', [id]);
+    res.json({ ok: true });
+  }));
+
+  // ─── COMUNIDAD · likes y comentarios (Fase 2) ──────────────
+  const likeCountOf = async (postId) =>
+    Number((await get('SELECT COUNT(*) AS c FROM post_likes WHERE postId = ?', [postId]))?.c ?? 0);
+
+  app.post('/api/community/posts/:id/like', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    if (!await get('SELECT id FROM posts WHERE id = ?', [id])) return res.status(404).json({ error: 'Publicación no encontrada' });
+    await run('INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', [id, uid]);
+    res.json({ likeCount: await likeCountOf(id), likedByMe: true });
+  }));
+
+  app.delete('/api/community/posts/:id/like', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    await run('DELETE FROM post_likes WHERE postId = ? AND userId = ?', [id, uid]);
+    res.json({ likeCount: await likeCountOf(id), likedByMe: false });
+  }));
+
+  // Comentarios de una publicación (orden cronológico). Lectura pública.
+  app.get('/api/community/posts/:id/comments', h(async (req, res) => {
+    const id = Number(req.params.id);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
+    const cursor = Number(req.query.cursor) || 0;
+    const rows = cursor > 0
+      ? await all(`${COMMENT_SELECT} WHERE c.postId = ? AND c.id > ? ORDER BY c.id ASC LIMIT ?`, [id, cursor, limit])
+      : await all(`${COMMENT_SELECT} WHERE c.postId = ? ORDER BY c.id ASC LIMIT ?`, [id, limit]);
+    const comments = rows.map(commentRowToJson);
+    res.json({ comments, nextCursor: comments.length === limit ? comments[comments.length - 1].id : null });
+  }));
+
+  app.post('/api/community/posts/:id/comments', h(async (req, res) => {
+    const uid = writeUid(req);
+    const author = await getPublicUserById(uid);
+    if (!author?.handle) throw Object.assign(new Error('Crea tu alias antes de comentar'), { status: 403 });
+    const id = Number(req.params.id);
+    if (!await get('SELECT id FROM posts WHERE id = ?', [id])) return res.status(404).json({ error: 'Publicación no encontrada' });
+    const body = String(req.body?.body || '').trim();
+    if (!body) throw Object.assign(new Error('El comentario está vacío'), { status: 400 });
+    if (body.length > 300) throw Object.assign(new Error('Máximo 300 caracteres'), { status: 400 });
+    const last = await get('SELECT created_at FROM comments WHERE userId = ? ORDER BY id DESC LIMIT 1', [uid]);
+    if (last && Date.now() - tsToMs(last.created_at) < 5000) {
+      throw Object.assign(new Error('Espera unos segundos antes de comentar de nuevo'), { status: 429 });
+    }
+    const info = await run('INSERT INTO comments (postId, userId, body) VALUES (?, ?, ?)', [id, uid, body]);
+    res.status(201).json(commentRowToJson(await get(`${COMMENT_SELECT} WHERE c.id = ?`, [info.lastInsertRowid])));
+  }));
+
+  // Borrar comentario: el autor del comentario O el autor del post (moderación).
+  app.delete('/api/community/comments/:id', h(async (req, res) => {
+    const uid = writeUid(req);
+    const info = await run(
+      'DELETE FROM comments WHERE id = ? AND (userId = ? OR postId IN (SELECT id FROM posts WHERE userId = ?))',
+      [Number(req.params.id), uid, uid]
+    );
+    if (!info.changes) return res.status(404).json({ error: 'Comentario no encontrado' });
     res.json({ ok: true });
   }));
 

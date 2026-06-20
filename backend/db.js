@@ -196,6 +196,21 @@ export async function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC, id DESC);
     CREATE INDEX IF NOT EXISTS idx_posts_user    ON posts(userId, id DESC);
+    CREATE TABLE IF NOT EXISTS post_likes (
+      postId     INTEGER NOT NULL,
+      userId     INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (postId, userId)
+    );
+    CREATE INDEX IF NOT EXISTS idx_likes_user ON post_likes(userId);
+    CREATE TABLE IF NOT EXISTS comments (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      postId     INTEGER NOT NULL,
+      userId     INTEGER NOT NULL,
+      body       TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(postId, id ASC);
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");

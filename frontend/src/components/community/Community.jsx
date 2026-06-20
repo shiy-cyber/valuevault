@@ -99,7 +99,10 @@ export default function Community({ user, profile, needsAlias, onEditAlias, onLo
         ) : (
           <>
             {posts.map(p => (
-              <PostCard key={p.id} post={p} currentUserId={user?.id} onDelete={remove} />
+              <PostCard key={p.id} post={p} currentUserId={user?.id}
+                canInteract={!!user && !needsAlias} onDelete={remove}
+                requireInteract={() => { if (!user) onLogin?.(); else if (needsAlias) onEditAlias?.(); }}
+                toast={toast} />
             ))}
             {cursor && (
               <button className="btn btn-outline" onClick={loadMore} disabled={loadingMore} style={{ alignSelf: 'center', marginTop: '4px' }}>

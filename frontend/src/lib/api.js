@@ -51,6 +51,11 @@ export const api = {
   listPosts: (cursor, limit = 20) => req('GET', `/api/community/posts?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`),
   getPost: (id) => req('GET', `/api/community/posts/${id}`),
   deletePost: (id) => req('DELETE', `/api/community/posts/${id}`),
+  likePost: (id) => req('POST', `/api/community/posts/${id}/like`),
+  unlikePost: (id) => req('DELETE', `/api/community/posts/${id}/like`),
+  listComments: (id, cursor) => req('GET', `/api/community/posts/${id}/comments${cursor ? `?cursor=${cursor}` : ''}`),
+  addComment: (id, body) => req('POST', `/api/community/posts/${id}/comments`, { body }),
+  deleteComment: (id) => req('DELETE', `/api/community/comments/${id}`),
 
   getExport: () => req('GET', '/api/export'),
 
