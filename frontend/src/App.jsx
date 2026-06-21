@@ -13,8 +13,7 @@ import VolProfile from './components/VolProfile.jsx';
 import SMC from './components/SMC.jsx';
 import Gamma from './components/Gamma.jsx';
 import TrendFollowing from './components/TrendFollowing.jsx';
-import Guide from './components/Guide.jsx';
-import Learning from './components/Learning.jsx';
+import Knowledge from './components/Knowledge.jsx';
 import Trends from './components/Trends.jsx';
 import Indices from './components/Indices.jsx';
 import Sentiment from './components/Sentiment.jsx';
@@ -353,8 +352,7 @@ export default function App() {
           {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onProfile={goProfile} onTicker={goTicker} toast={toast} />}
           {section === 'profile' && <Profile handle={profileHandle} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onAuthor={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
           {section === 'ticker' && <TickerPage ticker={activeTicker} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onProfile={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
-          {section === 'guide' && <Guide go={go} />}
-          {section === 'learning' && <Learning notes={notes} assets={assets} onAdd={addNote} />}
+          {section === 'learning' && <Knowledge notes={notes} assets={assets} onAdd={addNote} go={go} />}
           {section === 'trends' && <Trends theme={theme} toast={toast} />}
           {section === 'indices' && <Indices theme={theme} toast={toast} />}
           {section === 'sentiment' && <Sentiment theme={theme} toast={toast} />}

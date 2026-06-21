@@ -3,7 +3,7 @@ import { TOPIC_MAP } from '../lib/format.js';
 
 const TOPICS = [['all','Todos'],['value','Value Investing'],['growth','Growth'],['analysis','Análisis'],['macro','Macro'],['psychology','Psicología'],['strategy','Estrategia']];
 
-export default function Learning({ notes, assets, onAdd }) {
+export default function Learning({ notes, assets, onAdd, embed }) {
   const [topic, setTopic] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -15,7 +15,7 @@ export default function Learning({ notes, assets, onAdd }) {
   });
 
   return (
-    <div className="section active">
+    <div className={embed ? '' : 'section active'}>
       <div style={{ display:'flex', gap:'8px', marginBottom:'14px', alignItems:'center', flexWrap:'wrap' }}>
         <div className="search-bar" style={{ flex:1, minWidth:'220px', marginBottom:0 }}>
           <span className="search-icon">⌕</span>

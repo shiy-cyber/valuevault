@@ -73,7 +73,7 @@ const HELP = [
   { kw: ['notas', 'aprendizaje'], text: 'La sección «Aprendizaje» guarda notas de inversión, que puedes vincular a un activo concreto.', action: { label: 'Ir a Aprendizaje', section: 'learning' } },
   { kw: ['macro', 'tipos', 'inflacion', 'fed'], text: 'La sección «Macro Research» trae 37 indicadores en vivo (curva de tipos, inflación, empleo, Fed…) más fuentes de referencia.', action: { label: 'Ir a Macro', section: 'macro' } },
   { kw: ['mapa de mercado', 'treemap', 'finviz'], text: 'El «Mapa de Mercado» es un treemap tipo Finviz con grandes valores coloreados por variación diaria. Doble clic en un valor abre su ficha en Finviz.', action: { label: 'Ir al Mapa', section: 'marketmap' } },
-  { kw: ['manual', 'ayuda', 'como funciona', 'guia', 'instrucciones'], text: 'Tienes un «Manual de uso» completo en la sección Conocimiento. Y a mí puedes preguntarme definiciones, cómo usar cada sección y datos de tu cartera.', action: { label: 'Ir al Manual', section: 'guide' } },
+  { kw: ['manual', 'ayuda', 'como funciona', 'guia', 'instrucciones'], text: 'Tienes el «Manual de uso» en la sección «Aprendizaje y Manual» (pestaña Manual de uso). Y a mí puedes preguntarme definiciones, cómo usar cada sección y datos de tu cartera.', action: { label: 'Ir al Manual', section: 'learning' } },
 ];
 function helpHit(q) {
   for (const h of HELP) if (has(q, ...h.kw.map(norm))) return { text: '🧭 ' + h.text, action: h.action };

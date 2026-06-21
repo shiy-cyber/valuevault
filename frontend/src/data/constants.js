@@ -123,12 +123,11 @@ export const NAV = [
   { section:'Comunidad' },
   { id:'community', icon:'🗣', label:'Comunidad' },
   { section:'Conocimiento' },
-  { id:'guide', icon:'📖', label:'Manual de uso' },
-  { id:'learning', icon:'◉', label:'Aprendizaje' },
+  { id:'learning', icon:'📖', label:'Aprendizaje y Manual' },
   { id:'trends', icon:'📡', label:'Tendencias' },
   { id:'indices', icon:'🌎', label:'Índices' },
   { id:'sentiment', icon:'🧭', label:'Sentimiento' },
   { id:'marketmap', icon:'🗺', label:'Mapa de Mercado' },
   { id:'macro', icon:'🌐', label:'Macro Research' },
 ];
-export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', valuation:'Valoración · DCF / ROIC', volprofile:'Perfil de Volumen & VWAP', smc:'Smart Money · FVG / Order Blocks', gamma:'Exposición a Gamma · GEX', trendfollow:'Trend Following / CTA', community:'Comunidad', profile:'Perfil', ticker:'Publicaciones del valor', guide:'Manual de Uso', learning:'Aprendizaje', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research' };
+export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', valuation:'Valoración · DCF / ROIC', volprofile:'Perfil de Volumen & VWAP', smc:'Smart Money · FVG / Order Blocks', gamma:'Exposición a Gamma · GEX', trendfollow:'Trend Following / CTA', community:'Comunidad', profile:'Perfil', ticker:'Publicaciones del valor', learning:'Aprendizaje y Manual de Uso', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research' };

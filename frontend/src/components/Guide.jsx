@@ -30,6 +30,31 @@ const GUIDE = [
     ],
   },
   {
+    id: 'watchlist', icon: '★', title: 'Watchlist (Seguimiento)', tag: 'Cartera',
+    what: 'Tu lista de vigilancia: valores que sigues pero en los que aún no tienes posición, separados de la cartera real.',
+    use: [
+      'Añádelos con "+ Watchlist": no cuentan en el P&L ni en la concentración de tu cartera.',
+      'Cada fila se despliega con las mismas métricas que un activo (Score, fundamentales, gráfico…).',
+      'Cuando entres de verdad, edítalo y cámbialo a tipo "cartera".',
+    ],
+    read: [
+      'Sirve para vigilar sin ensuciar el rendimiento de tu cartera real.',
+      'Ideal para esperar a un precio o a un catalizador antes de comprar.',
+    ],
+  },
+  {
+    id: 'compare', icon: '⇄', title: 'Comparador de Activos', tag: 'Cartera',
+    what: 'Enfrenta 2-3 activos métrica a métrica para decidir entre ellos.',
+    use: [
+      'Selecciona los activos a comparar.',
+      'La tabla resalta en verde el mejor valor de cada métrica y en rojo el peor.',
+    ],
+    read: [
+      'Ideal para elegir entre candidatos parecidos (mismo sector o estrategia).',
+      'Mira el conjunto: un activo puede ganar en valoración pero perder en calidad.',
+    ],
+  },
+  {
     id: 'charts', icon: '◎', title: 'Gráficos · Concentración', tag: 'Cartera',
     what: 'La composición REAL de tu cartera ponderada por valor en euros: por activo, sector, estrategia, riesgo y horizonte, todo en %.',
     use: [
@@ -93,6 +118,19 @@ const GUIDE = [
     ],
   },
   {
+    id: 'marketmap', icon: '🗺', title: 'Mapa de Mercado', tag: 'En vivo',
+    what: 'Mapa de calor tipo Finviz: ~44 grandes valores agrupados por sector, con el color según su variación diaria.',
+    use: [
+      'Cada bloque es una acción; el color va de rojo (cae) a verde (sube), saturando a ±3%.',
+      'Doble clic en un valor abre su ficha en Finviz.',
+      'Pulsa ↻ para refrescar (caché de 15 min).',
+    ],
+    read: [
+      'De un vistazo ves qué sectores tiran del mercado y cuáles lastran ese día.',
+      'Verde generalizado = apetito por riesgo; rojo concentrado en un sector = problema sectorial.',
+    ],
+  },
+  {
     id: 'valuation', icon: '🧮', title: 'Valoración DCF + ROIC', tag: 'Herramienta',
     what: 'Calculadora de valor intrínseco por Descuento de Flujos de Caja (DCF), con ayuda de WACC por CAPM y el chequeo de calidad ROIC vs WACC.',
     use: [
@@ -107,6 +145,19 @@ const GUIDE = [
     ],
   },
   {
+    id: 'screener', icon: '⊞', title: 'Stock Screener', tag: 'Herramienta',
+    what: 'Constructor de filtros que abre screeners externos (Finviz, StockAnalysis, Yahoo) con tus criterios ya aplicados en la URL.',
+    use: [
+      'Elige sector, capitalización, P/E, P/B, dividendo, ROE, país o una estrategia predefinida.',
+      'Pulsa el screener de destino: se abre en una pestaña nueva con los filtros puestos.',
+      'Debajo hay enlaces complementarios (insiders, 13F, SEC EDGAR…).',
+    ],
+    read: [
+      'Es el punto de partida para DESCUBRIR ideas; luego analízalas en la ficha de activo o en Valoración.',
+      'Las estrategias predefinidas (Value, Growth, Dividend, Momentum) cargan combinaciones de filtros típicas.',
+    ],
+  },
+  {
     id: 'volprofile', icon: '📊', title: 'Volume Profile & VWAP', tag: 'Herramienta',
     what: 'Dónde se ha negociado de verdad el volumen: POC (precio de mayor actividad), Value Area (70% del volumen) y VWAP anclado.',
     use: [
@@ -116,6 +167,20 @@ const GUIDE = [
     read: [
       'POC = imán y soporte/resistencia. Value Area = zona de "valor justo"; fuera de ella, precio en descubrimiento.',
       'Precio por encima del VWAP anclado = compradores en control desde ese punto. La lectura 🟢/🔴/🟡 lo resume.',
+    ],
+  },
+  {
+    id: 'trendfollow', icon: '📈', title: 'Trend Following / CTA', tag: 'Herramienta',
+    what: 'Sistema de seguimiento de tendencia estilo CTA: señal larga / corta / fuera por cruce de medias (MA50/200) + canal Donchian + ATR, con sizing por volatilidad objetivo. Incluye un universo de 18 mercados descorrelacionados.',
+    use: [
+      'Pestaña "Ticker": escribe un valor y elige rango; verás la señal, el stop por ATR y el tamaño sugerido.',
+      'Ajusta el "objetivo de volatilidad" para recalcular el sizing en vivo.',
+      'Pestaña "Universo": tarjetas por clase de activo coloreadas por señal; toca una para abrirla en Ticker.',
+    ],
+    read: [
+      '"Flat" (lateral) = quedarse fuera; evita los latigazos de los mercados sin tendencia.',
+      'El sizing por volatilidad objetivo iguala el riesgo entre activos muy distintos (un índice vs el oro).',
+      'Es lo OPUESTO al value: no mira cuánto vale, sino qué hace el precio.',
     ],
   },
   {
@@ -162,6 +227,19 @@ const GUIDE = [
       'Es conversación entre usuarios, no asesoramiento: son opiniones personales, contrástalas siempre con tu propio análisis.',
     ],
   },
+  {
+    id: 'learning', icon: '◉', title: 'Aprendizaje · Notas', tag: 'Cartera', noNav: true,
+    what: 'Tu cuaderno de inversión (en la pestaña "Mis notas" de esta misma sección): notas con tema, etiquetas y vínculo opcional a un activo de tu cartera.',
+    use: [
+      'En "Mis notas" pulsa "+ Añadir Nota": título, tema, fuente, contenido y etiquetas; opcionalmente vincúlala a un activo.',
+      'Filtra por tema o busca por texto, etiqueta o activo.',
+      'Desde la ficha de un activo también puedes añadir una nota ya vinculada.',
+    ],
+    read: [
+      'Vincular notas a activos te da el "por qué" de cada posición cuando revisas la cartera meses después.',
+      'Documentar la tesis (y la contra-tesis) reduce el sesgo de confirmación.',
+    ],
+  },
 ];
 
 const GLOSSARY = [
@@ -191,7 +269,7 @@ const GLOSSARY = [
 
 const tagColor = (t) => t === 'Experimental' ? '#e67e22' : t === 'Herramienta' ? '#9b59b6' : t === 'Cartera' ? '#3a8eff' : t === 'Opciones' ? '#c9a84c' : t === 'Comunidad' ? '#e84393' : '#2ecc71';
 
-export default function Guide({ go }) {
+export default function Guide({ go, embed }) {
   const [open, setOpen] = useState(() => new Set(['valuation']));
   const toggle = (id) => setOpen(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -200,7 +278,7 @@ export default function Guide({ go }) {
   const subcap = { fontFamily: "'DM Mono',monospace", fontSize: '10px', color: 'var(--gold)', letterSpacing: '1px', textTransform: 'uppercase', marginTop: '12px' };
 
   return (
-    <div className="section active">
+    <div className={embed ? '' : 'section active'}>
       <div style={{ ...card, borderLeft: '4px solid var(--gold)', padding: '20px 24px', marginBottom: '18px' }}>
         <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '16px', marginBottom: '6px' }}>Manual de Uso</div>
         <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7 }}>Guía rápida de las secciones y herramientas de la app. Toca cada bloque para desplegarlo: qué es, cómo usarlo y cómo interpretarlo. Al final, un glosario de términos.</div>
@@ -226,7 +304,7 @@ export default function Guide({ go }) {
                   <ul style={list}>{g.use.map((x, i) => <li key={i}>{x}</li>)}</ul>
                   <div style={subcap}>Cómo leerlo</div>
                   <ul style={list}>{g.read.map((x, i) => <li key={i}>{x}</li>)}</ul>
-                  {go && <button className="btn btn-outline" style={{ marginTop: '14px', fontSize: '11px' }} onClick={() => go(g.id)}>Abrir {g.title} ↗</button>}
+                  {go && !g.noNav && <button className="btn btn-outline" style={{ marginTop: '14px', fontSize: '11px' }} onClick={() => go(g.id)}>Abrir {g.title} ↗</button>}
                 </div>
               )}
             </div>
