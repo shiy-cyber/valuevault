@@ -37,6 +37,12 @@ export const run = async (sql, args = []) => {
     lastInsertRowid: r.lastInsertRowid != null ? Number(r.lastInsertRowid) : null,
   };
 };
+// Ejecuta varias sentencias en UN solo viaje de red (transacción atómica).
+// Clave contra Turso remoto: convierte ~100 round-trips de siembra en 1-2.
+export const batch = async (statements) => {
+  if (!statements.length) return [];
+  return (await getDb()).batch(statements);
+};
 
 // ─── Columnas numéricas/JSON para (de)serialización ──────────
 // shares = tamaño de posición · target/stop = precio objetivo / invalidación
@@ -415,8 +421,11 @@ const BOT_FOLLOWS = [
 
 // Versión del contenido de bots. Subir este número regenera SOLO el contenido
 // de los bots (mantiene intacto lo de usuarios reales).
-const COMMUNITY_SEED_VERSION = 5;
+const COMMUNITY_SEED_VERSION = 6;
 
+// IMPORTANTE: toda la siembra va en LOTES (batch) → 2 viajes de red en vez de
+// ~100. Crítico contra Turso remoto: la versión secuencial superaba el límite
+// de 30s del serverless en el primer arranque y tumbaba TODA la API (502).
 async function seedCommunity() {
   const cur = Number((await get("SELECT value FROM config WHERE key = 'community_seed_v'"))?.value ?? 0);
   if (cur >= COMMUNITY_SEED_VERSION) return; // ya está la versión actual
@@ -425,63 +434,62 @@ async function seedCommunity() {
   // Si ya hay actividad real y nunca metimos bots → no intervenir.
   if (hasPosts && cur === 0 && existingBots.length === 0) return;
 
-  // 1) Limpia TODO el contenido de bots PREVIOS (cualquier versión/handle), por
-  //    dominio de email → robusto aunque hayan cambiado los handles. No toca
-  //    nada de usuarios reales.
+  const roster = COMMUNITY_BOTS.map(b => b.handle);
+  const rph = roster.map(() => '?').join(',');
+
+  // (a) Alta de los bots del roster que aún no existan (1 batch).
+  const have = new Set(existingBots.map(b => b.handle));
+  const missing = COMMUNITY_BOTS.filter(b => !have.has(b.handle));
+  if (missing.length) {
+    await batch(missing.map(b => ({
+      sql: 'INSERT INTO users (email, passwordHash, displayName, handle, avatar, bio) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [`${b.handle}@bots.valuevault.local`, 'x', b.name, b.handle, b.avatar, b.bio],
+    })));
+  }
+  const rosterRows = await all(`SELECT id, handle FROM users WHERE handle IN (${rph})`, roster);
+  const idByHandle = Object.fromEntries(rosterRows.map(r => [r.handle, Number(r.id)]));
+
+  // (b) BATCH 1: limpia TODO lo de bots previos (por dominio de email, robusto a
+  //     cambios de handle), refresca perfiles, borra bots fuera de roster e
+  //     inserta los posts EN ORDEN. No toca nada de usuarios reales.
   const prevIds = existingBots.map(b => Number(b.id));
+  const stmts1 = [];
   if (prevIds.length) {
     const ph = prevIds.map(() => '?').join(',');
-    const oldPosts = await all(`SELECT id FROM posts WHERE userId IN (${ph})`, prevIds);
-    for (const op of oldPosts) {
-      await run('DELETE FROM post_likes WHERE postId = ?', [op.id]);
-      await run('DELETE FROM comments WHERE postId = ?', [op.id]);
-      await run('DELETE FROM post_tickers WHERE postId = ?', [op.id]);
-      await run('DELETE FROM notifications WHERE postId = ?', [op.id]);
-    }
-    await run(`DELETE FROM posts WHERE userId IN (${ph})`, prevIds);
-    await run(`DELETE FROM post_likes WHERE userId IN (${ph})`, prevIds);
-    await run(`DELETE FROM comments WHERE userId IN (${ph})`, prevIds);
-    await run(`DELETE FROM follows WHERE followerId IN (${ph}) OR followedId IN (${ph})`, [...prevIds, ...prevIds]);
-    await run(`DELETE FROM notifications WHERE actorId IN (${ph})`, prevIds);
-    // Elimina cuentas bot que ya NO están en el roster actual (handles renombrados).
-    const keep = COMMUNITY_BOTS.map(b => b.handle);
-    const kph = keep.map(() => '?').join(',');
-    await run(`DELETE FROM users WHERE id IN (${ph}) AND handle NOT IN (${kph})`, [...prevIds, ...keep]);
+    const inPosts = `SELECT id FROM posts WHERE userId IN (${ph})`;
+    stmts1.push({ sql: `DELETE FROM post_likes WHERE postId IN (${inPosts})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM comments WHERE postId IN (${inPosts})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM post_tickers WHERE postId IN (${inPosts})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM notifications WHERE postId IN (${inPosts})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM posts WHERE userId IN (${ph})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM post_likes WHERE userId IN (${ph})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM comments WHERE userId IN (${ph})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM follows WHERE followerId IN (${ph}) OR followedId IN (${ph})`, args: [...prevIds, ...prevIds] });
+    stmts1.push({ sql: `DELETE FROM notifications WHERE actorId IN (${ph})`, args: prevIds });
+    stmts1.push({ sql: `DELETE FROM users WHERE id IN (${ph}) AND handle NOT IN (${rph})`, args: [...prevIds, ...roster] });
   }
+  for (const b of COMMUNITY_BOTS) stmts1.push({ sql: 'UPDATE users SET displayName = ?, avatar = ?, bio = ? WHERE handle = ?', args: [b.name, b.avatar, b.bio, b.handle] });
+  for (const p of BOT_POSTS) stmts1.push({ sql: "INSERT INTO posts (userId, body, tickers, created_at) VALUES (?, ?, ?, datetime('now', ?))", args: [idByHandle[p.by], p.body, JSON.stringify(p.tickers || []), p.ago] });
+  await batch(stmts1);
 
-  // 2) Asegura los usuarios bot del roster actual (por handle) y refresca perfil.
-  const idByHandle = {};
-  for (const b of COMMUNITY_BOTS) {
-    const u = await get('SELECT id FROM users WHERE handle = ?', [b.handle]);
-    if (u) {
-      idByHandle[b.handle] = Number(u.id);
-      await run('UPDATE users SET displayName = ?, avatar = ?, bio = ? WHERE id = ?', [b.name, b.avatar, b.bio, u.id]);
-    } else {
-      const info = await run('INSERT INTO users (email, passwordHash, displayName, handle, avatar, bio) VALUES (?, ?, ?, ?, ?, ?)',
-        [`${b.handle}@bots.valuevault.local`, 'x', b.name, b.handle, b.avatar, b.bio]);
-      idByHandle[b.handle] = Number(info.lastInsertRowid);
-    }
-  }
+  // ids de los posts recién insertados, en orden (alineados con BOT_POSTS).
+  const rosterIds = Object.values(idByHandle);
+  const iph = rosterIds.map(() => '?').join(',');
+  const newPosts = await all(`SELECT id FROM posts WHERE userId IN (${iph}) ORDER BY id ASC`, rosterIds);
+  const postIds = newPosts.map(r => Number(r.id));
 
-  // 3) (Re)inserta el contenido de bots.
-  const postIds = [];
-  for (const p of BOT_POSTS) {
-    const info = await run("INSERT INTO posts (userId, body, tickers, created_at) VALUES (?, ?, ?, datetime('now', ?))",
-      [idByHandle[p.by], p.body, JSON.stringify(p.tickers || []), p.ago]);
-    const pid = Number(info.lastInsertRowid);
-    postIds.push(pid);
-    for (const t of (p.tickers || [])) await run('INSERT OR IGNORE INTO post_tickers (postId, ticker) VALUES (?, ?)', [pid, t]);
-  }
-  for (const [i, h] of BOT_LIKES) await run('INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', [postIds[i], idByHandle[h]]);
-  for (const cm of BOT_COMMENTS) await run("INSERT INTO comments (postId, userId, body, created_at) VALUES (?, ?, ?, datetime('now', ?))", [postIds[cm.post], idByHandle[cm.by], cm.body, cm.ago]);
-  for (const [f, t] of BOT_FOLLOWS) await run('INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', [idByHandle[f], idByHandle[t]]);
+  // (c) BATCH 2: tickers + likes + comentarios + follows + invalida caché de
+  //     trending + marca la versión sembrada.
+  const stmts2 = [];
+  BOT_POSTS.forEach((p, i) => { for (const t of (p.tickers || [])) stmts2.push({ sql: 'INSERT OR IGNORE INTO post_tickers (postId, ticker) VALUES (?, ?)', args: [postIds[i], t] }); });
+  for (const [i, h] of BOT_LIKES) stmts2.push({ sql: 'INSERT OR IGNORE INTO post_likes (postId, userId) VALUES (?, ?)', args: [postIds[i], idByHandle[h]] });
+  for (const cm of BOT_COMMENTS) stmts2.push({ sql: "INSERT INTO comments (postId, userId, body, created_at) VALUES (?, ?, ?, datetime('now', ?))", args: [postIds[cm.post], idByHandle[cm.by], cm.body, cm.ago] });
+  for (const [f, t] of BOT_FOLLOWS) stmts2.push({ sql: 'INSERT OR IGNORE INTO follows (followerId, followedId) VALUES (?, ?)', args: [idByHandle[f], idByHandle[t]] });
+  stmts2.push({ sql: "DELETE FROM av_cache WHERE cacheKey IN ('TRENDING:posts', 'TRENDING:tickers')", args: [] });
+  stmts2.push({ sql: "INSERT OR REPLACE INTO config (key, value) VALUES ('community_seed_v', ?)", args: [String(COMMUNITY_SEED_VERSION)] });
+  await batch(stmts2);
 
-  // Limpia la caché de trending (posts y tickers) para que Global y Trending
-  // reflejen el contenido nuevo sin restos del anterior.
-  await run("DELETE FROM av_cache WHERE cacheKey IN ('TRENDING:posts', 'TRENDING:tickers')");
-
-  await run("INSERT OR REPLACE INTO config (key, value) VALUES ('community_seed_v', ?)", [String(COMMUNITY_SEED_VERSION)]);
-  console.log(`🤖 Comunidad sembrada/actualizada a v${COMMUNITY_SEED_VERSION}: ${COMMUNITY_BOTS.length} bots, ${BOT_POSTS.length} posts.`);
+  console.log(`🤖 Comunidad sembrada/actualizada a v${COMMUNITY_SEED_VERSION} (batch): ${COMMUNITY_BOTS.length} bots, ${BOT_POSTS.length} posts.`);
 }
 
 export async function seedIfEmpty() {
