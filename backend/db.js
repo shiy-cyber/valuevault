@@ -421,7 +421,7 @@ const BOT_FOLLOWS = [
 
 // Versión del contenido de bots. Subir este número regenera SOLO el contenido
 // de los bots (mantiene intacto lo de usuarios reales).
-const COMMUNITY_SEED_VERSION = 6;
+const COMMUNITY_SEED_VERSION = 7;
 
 // IMPORTANTE: toda la siembra va en LOTES (batch) → 2 viajes de red en vez de
 // ~100. Crítico contra Turso remoto: la versión secuencial superaba el límite
@@ -433,6 +433,23 @@ async function seedCommunity() {
   const existingBots = await all("SELECT id, handle FROM users WHERE email LIKE '%@bots.valuevault.local'");
   // Si ya hay actividad real y nunca metimos bots → no intervenir.
   if (hasPosts && cur === 0 && existingBots.length === 0) return;
+
+  // RECLAMO ATÓMICO: en el primer arranque tras un deploy, Netlify levanta
+  // VARIAS instancias a la vez y todas entran aquí. Solo una debe sembrar (si
+  // no, los INSERT de comentarios se duplican). El primero que sube la versión
+  // gana; el resto se retira. Las escrituras de Turso están serializadas, así
+  // que solo una de las UPDATE/INSERT concurrentes tiene efecto.
+  const claimed = await run(
+    "UPDATE config SET value = ? WHERE key = 'community_seed_v' AND CAST(value AS INTEGER) < ?",
+    [String(COMMUNITY_SEED_VERSION), COMMUNITY_SEED_VERSION]
+  );
+  let won = claimed.changes > 0;
+  if (!won) {
+    // La fila puede no existir aún (BD nueva): la crea solo una instancia.
+    const created = await run("INSERT OR IGNORE INTO config (key, value) VALUES ('community_seed_v', ?)", [String(COMMUNITY_SEED_VERSION)]);
+    won = created.changes > 0;
+  }
+  if (!won) return; // otra instancia ya reclamó/sembró esta versión
 
   const roster = COMMUNITY_BOTS.map(b => b.handle);
   const rph = roster.map(() => '?').join(',');
