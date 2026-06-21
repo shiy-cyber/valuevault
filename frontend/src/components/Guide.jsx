@@ -147,6 +147,21 @@ const GUIDE = [
       'Es una ESTIMACIÓN (el posicionamiento real de dealers no es público) y cubre un vencimiento.',
     ],
   },
+  {
+    id: 'community', icon: '🗣', title: 'Comunidad', tag: 'Comunidad',
+    what: 'Un muro donde la comunidad comparte ideas de inversión. Publicaciones de texto con menciones a valores ($TICKER) y a otros usuarios (@alias), me gusta, comentarios, perfiles públicos, seguir/seguidores, notificaciones y descubrimiento (Trending y búsqueda de usuarios).',
+    use: [
+      'La primera vez elige tu alias público (nombre + @alias + avatar). Tu email NUNCA se muestra.',
+      'Publica una idea (máx. 500 caracteres): escribe $MSFT para enlazar un valor y @alias para mencionar a alguien.',
+      'Da ❤ me gusta, 💬 comenta y sigue a otros usuarios. Cambia el feed entre 🌐 Global, 🔥 Trending y 👤 Siguiendo.',
+      'Toca un $TICKER para ver todas las publicaciones que lo mencionan; usa el buscador para encontrar usuarios; la campana 🔔 (arriba) reúne tus notificaciones.',
+    ],
+    read: [
+      'Cualquiera puede LEER el muro sin sesión; para publicar, comentar, dar like o seguir hay que iniciar sesión.',
+      'Trending ordena por interacción reciente (me gusta + comentarios de los últimos días); los tickers en tendencia son los más mencionados.',
+      'Es conversación entre usuarios, no asesoramiento: son opiniones personales, contrástalas siempre con tu propio análisis.',
+    ],
+  },
 ];
 
 const GLOSSARY = [
@@ -171,9 +186,10 @@ const GLOSSARY = [
   ['Gamma flip', 'Precio donde la GEX total cruza cero. Por encima suele dominar la estabilidad; por debajo, la inestabilidad.'],
   ['Call / Put wall', 'Strike con mayor gamma de calls (resistencia/imán) o de puts (soporte).'],
   ['Breaker block', 'Order Block roto: el precio lo atravesó y ahora actúa con el papel inverso (soporte ↔ resistencia).'],
+  ['$TICKER / @alias', 'En la Comunidad, $MSFT enlaza a la página del valor (publicaciones que lo mencionan) y @alias enlaza al perfil de un usuario.'],
 ];
 
-const tagColor = (t) => t === 'Experimental' ? '#e67e22' : t === 'Herramienta' ? '#9b59b6' : t === 'Cartera' ? '#3a8eff' : t === 'Opciones' ? '#c9a84c' : '#2ecc71';
+const tagColor = (t) => t === 'Experimental' ? '#e67e22' : t === 'Herramienta' ? '#9b59b6' : t === 'Cartera' ? '#3a8eff' : t === 'Opciones' ? '#c9a84c' : t === 'Comunidad' ? '#e84393' : '#2ecc71';
 
 export default function Guide({ go }) {
   const [open, setOpen] = useState(() => new Set(['valuation']));
@@ -187,7 +203,7 @@ export default function Guide({ go }) {
     <div className="section active">
       <div style={{ ...card, borderLeft: '4px solid var(--gold)', padding: '20px 24px', marginBottom: '18px' }}>
         <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '16px', marginBottom: '6px' }}>Manual de Uso</div>
-        <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7 }}>Guía rápida de las herramientas de análisis. Toca cada bloque para desplegarlo: qué es, cómo usarlo y cómo interpretarlo. Al final, un glosario de términos.</div>
+        <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7 }}>Guía rápida de las secciones y herramientas de la app. Toca cada bloque para desplegarlo: qué es, cómo usarlo y cómo interpretarlo. Al final, un glosario de términos.</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
