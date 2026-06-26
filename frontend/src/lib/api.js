@@ -25,6 +25,7 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  health: () => req('GET', '/api/health'),
   register: (email, password) => req('POST', '/api/auth/register', { email, password }),
   login:    (email, password) => req('POST', '/api/auth/login', { email, password }),
   me:       () => req('GET', '/api/auth/me'),

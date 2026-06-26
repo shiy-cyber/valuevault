@@ -29,6 +29,7 @@ import TickerPage from './components/community/TickerPage.jsx';
 import Notifications from './components/community/Notifications.jsx';
 import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
+import Maintenance from './components/Maintenance.jsx';
 
 export default function App() {
   const [assets, setAssets] = useState([]);
@@ -54,6 +55,8 @@ export default function App() {
   const [activeTicker, setActiveTicker] = useState(null);
   const [unread, setUnread] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Backend caído → mostramos pantalla de "en mantenimiento" en vez de errores
+  const [backendDown, setBackendDown] = useState(false);
   const needsAlias = !!user && !community?.handle;
   const canInteract = !!user && !needsAlias;
   const requireInteract = () => { if (!user) setAuthOpen(true); else if (needsAlias) setAliasOpen(true); };
@@ -83,8 +86,9 @@ export default function App() {
             .catch(() => {});
         }
       })
-      .catch(e => toast('⚠ No se pudo conectar con el backend: ' + e.message));
-  }, [toast]);
+      // Fallo de conexión con el backend → pantalla de mantenimiento (no error)
+      .catch(() => setBackendDown(true));
+  }, []);
 
   // ─── Perfil público de comunidad (del usuario logueado) ─
   const loadCommunity = useCallback(() => {
@@ -93,13 +97,25 @@ export default function App() {
       .catch(() => setCommunity(null));
   }, []);
 
-  // ─── Carga inicial: tema + sesión + cartera ─────────────
-  useEffect(() => {
+  // ─── Arranque: comprueba el backend; si responde, carga todo;
+  //     si no, muestra "en mantenimiento" (con reintento) ─────
+  const boot = useCallback(async () => {
+    // Carrera contra 8 s para no esperar el timeout largo del backend (502)
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000));
+    try {
+      await Promise.race([api.health(), timeout]);
+    } catch {
+      setBackendDown(true);
+      return;
+    }
+    setBackendDown(false);
     api.getConfig().then(c => setTheme(c.theme || 'dark')).catch(() => {});
     api.me().then(r => setUser(r.user)).catch(() => {});
     reloadPortfolio();
     loadCommunity();
   }, [reloadPortfolio, loadCommunity]);
+
+  useEffect(() => { boot(); }, [boot]);
 
   // Al entrar en Comunidad sin alias fijado → abrir onboarding
   useEffect(() => {
@@ -279,6 +295,7 @@ export default function App() {
 
   return (
     <>
+      {backendDown && <Maintenance onRetry={boot} />}
       {sidebarOpen && <div className="sidebar-overlay open" onClick={() => setSidebarOpen(false)} />}
 
       <nav className={`sidebar${sidebarOpen ? ' open' : ''}`}>
