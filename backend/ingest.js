@@ -16,9 +16,11 @@ async function activeUniverse() {
   return rows.map(r => r.ticker);
 }
 
-export async function ingestQuotes() {
+// Sin argumento → universo activo completo (lo llama el cron).
+// Con `only` (array de tickers) → solo esos (lo llama el refresco manual de un usuario).
+export async function ingestQuotes(only = null) {
   const startedAt = new Date().toISOString();
-  const tickers = await activeUniverse();
+  const tickers = (Array.isArray(only) && only.length) ? [...new Set(only)] : await activeUniverse();
   if (!tickers.length) return summarize({ startedAt, total: 0, updated: 0, failed: 0, errors: [] });
 
   const quotes = await getQuotes(tickers, true); // fuerza fetch fresco (es el cron quien paga la latencia)

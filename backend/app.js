@@ -486,10 +486,28 @@ export async function createApp() {
     res.json({ ticker, posts, nextCursor: posts.length === limit ? posts[posts.length - 1].id : null });
   }));
 
+  // Sobrepone el precio CACHEADO (tabla `quotes`, rellenada por el cron) sobre
+  // los activos → la lectura sirve el precio fresco SIN fetch en vivo. Gana la
+  // fuente más reciente (no pisa un refresh-data más nuevo con un quote viejo).
+  async function overlayQuotes(assets) {
+    const tickers = [...new Set(assets.map(a => a.ticker).filter(Boolean))];
+    if (!tickers.length) return assets;
+    const ph = tickers.map(() => '?').join(',');
+    const rows = await all(`SELECT ticker, price, currency, fetchedAt FROM quotes WHERE ticker IN (${ph})`, tickers);
+    const byTicker = Object.fromEntries(rows.map(r => [r.ticker, r]));
+    return assets.map(a => {
+      const q = byTicker[a.ticker];
+      if (q && q.price != null && (!a.priceUpdatedAt || String(q.fetchedAt) > String(a.priceUpdatedAt))) {
+        return { ...a, current: q.price, priceUpdatedAt: q.fetchedAt, currency: a.currency || q.currency || null };
+      }
+      return a;
+    });
+  }
+
   // ─── ASSETS (aislados por usuario) ─────────────────────────
   app.get('/api/assets', h(async (req, res) => {
     const rows = await all('SELECT * FROM assets WHERE userId = ? ORDER BY id ASC', [readUid(req)]);
-    res.json(rows.map(rowToAsset));
+    res.json(await overlayQuotes(rows.map(rowToAsset)));
   }));
 
   app.post('/api/assets', h(async (req, res) => {
@@ -791,25 +809,22 @@ export async function createApp() {
   app.get('/api/quote/:symbol', h(async (req, res) => { res.json(await getQuote(req.params.symbol)); }));
   app.get('/api/history/:symbol', h(async (req, res) => { res.json(await getHistory(req.params.symbol, req.query.range || '6mo')); }));
 
-  // Refresca el precio de todos los activos del usuario con Yahoo
+  // Refresco MANUAL de precios = ingesta CENTRALIZADA (escribe en `quotes`),
+  // no un fetch ad-hoc. Mismo camino que el cron, pero acotado a los tickers
+  // del usuario. La respuesta sirve los activos con el overlay del caché.
   app.post('/api/assets/refresh-prices', h(async (req, res) => {
     const uid = readUid(req);
-    const rows = await all('SELECT id, ticker, currency FROM assets WHERE userId = ?', [uid]);
+    const rows = await all('SELECT ticker, currency FROM assets WHERE userId = ?', [uid]);
     if (!rows.length) return res.json({ updated: 0, total: 0, assets: [], quotes: [] });
-    const quotes = await getQuotes(rows.map(r => r.ticker), true); // refresco explícito: fuerza fetch (con fallback a caché si Yahoo cae)
-    const byTicker = Object.fromEntries(quotes.map(q => [q.symbol, q]));
-    const now = new Date().toISOString();
-    let updated = 0;
-    for (const r of rows) {
-      const q = byTicker[r.ticker];
-      if (q && q.price != null) {
-        // Captura la divisa de Yahoo solo si el activo aún no la tiene fijada
-        if (q.currency && !r.currency) await run('UPDATE assets SET currency = ? WHERE id = ?', [q.currency, r.id]);
-        await run('UPDATE assets SET current = ?, priceUpdatedAt = ? WHERE id = ?', [q.price, now, r.id]); updated++;
-      }
+    const tickers = [...new Set(rows.map(r => r.ticker).filter(Boolean))];
+    const summary = await ingestQuotes(tickers);
+    // Persiste la divisa del caché en los activos que aún no la tengan (para FX).
+    const qrows = await all(`SELECT ticker, currency FROM quotes WHERE ticker IN (${tickers.map(() => '?').join(',')})`, tickers);
+    for (const r of qrows) {
+      if (r.currency) await run("UPDATE assets SET currency = ? WHERE userId = ? AND ticker = ? AND (currency IS NULL OR currency = '')", [r.currency, uid, r.ticker]);
     }
-    const assets = (await all('SELECT * FROM assets WHERE userId = ? ORDER BY id ASC', [uid])).map(rowToAsset);
-    res.json({ updated, total: rows.length, at: now, assets, quotes });
+    const assets = await overlayQuotes((await all('SELECT * FROM assets WHERE userId = ? ORDER BY id ASC', [uid])).map(rowToAsset));
+    res.json({ updated: summary.updated, total: summary.total, at: summary.finishedAt, assets, quotes: [] });
   }));
 
   // Refresca TODOS los datos de un activo del usuario: precio + fundamentales.
