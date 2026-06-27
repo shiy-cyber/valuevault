@@ -240,6 +240,14 @@ export async function initSchema() {
       PRIMARY KEY (postId, ticker)
     );
     CREATE INDEX IF NOT EXISTS idx_post_tickers ON post_tickers(ticker, postId DESC);
+    CREATE TABLE IF NOT EXISTS quotes (
+      ticker    TEXT PRIMARY KEY,
+      price     REAL,
+      currency  TEXT,
+      changePct REAL,
+      payload   TEXT,
+      fetchedAt TEXT
+    );
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");

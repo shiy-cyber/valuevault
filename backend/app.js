@@ -8,6 +8,7 @@ import express from 'express';
 import cors from 'cors';
 import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, getAvCache, saveAvCache, PUBLIC_USER_COLS, rowToPublicUser, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
 import { validateProfileInput, extractTickers, extractHandles } from './community.js';
+import { ingestQuotes } from './ingest.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
@@ -140,6 +141,29 @@ export async function createApp() {
 
   // ─── Salud ─────────────────────────────────────────────────
   app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
+  // ─── INGESTA (patrón cron → BD) · PROTOTIPO cotizaciones ───
+  // Disparo manual de la ingesta (para probar; el cron real la llama sola).
+  // Protegido por INGEST_SECRET si está definido (en local sin secret → libre).
+  app.post('/api/admin/ingest', h(async (req, res) => {
+    const secret = process.env.INGEST_SECRET;
+    if (secret && req.headers['x-ingest-secret'] !== secret) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+    res.json(await ingestQuotes());
+  }));
+
+  // Lectura de cotización SOLO desde la BD (jamás fetch en vivo en la petición).
+  // `stale` = el dato tiene más de 20 min (lo rellena el cron, no el usuario).
+  app.get('/api/market/quote/:ticker', h(async (req, res) => {
+    const row = await get('SELECT * FROM quotes WHERE ticker = ?', [String(req.params.ticker)]);
+    if (!row) return res.status(404).json({ error: 'Sin dato en caché todavía' });
+    const ageMs = Date.now() - new Date(row.fetchedAt).getTime();
+    res.json({
+      ticker: row.ticker, price: row.price, currency: row.currency,
+      changePct: row.changePct, fetchedAt: row.fetchedAt, stale: ageMs > 20 * 60 * 1000,
+    });
+  }));
 
   // ─── AUTH ──────────────────────────────────────────────────
   app.post('/api/auth/register', h(async (req, res) => {
