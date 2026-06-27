@@ -125,6 +125,16 @@ export async function saveAvCache(key, data, fetchedAt) {
     [String(key), JSON.stringify(data), fetchedAt]);
 }
 
+// ─── Snapshots globales (macro, sentimiento…) rellenados por el cron ─────
+export async function getSnapshot(key) {
+  const r = await get('SELECT data, fetchedAt FROM snapshots WHERE key = ?', [String(key)]);
+  return r ? { data: safeJson(r.data, null), fetchedAt: r.fetchedAt } : null;
+}
+export async function saveSnapshot(key, data) {
+  await run('INSERT OR REPLACE INTO snapshots (key, data, fetchedAt) VALUES (?, ?, ?)',
+    [String(key), JSON.stringify(data), new Date().toISOString()]);
+}
+
 // ─── Esquema + migraciones (idempotente) ─────────────────────
 async function ensureColumn(table, col, decl) {
   const cols = await all(`PRAGMA table_info(${table})`);
@@ -246,6 +256,16 @@ export async function initSchema() {
       currency  TEXT,
       changePct REAL,
       payload   TEXT,
+      fetchedAt TEXT
+    );
+    CREATE TABLE IF NOT EXISTS snapshots (
+      key       TEXT PRIMARY KEY,
+      data      TEXT,
+      fetchedAt TEXT
+    );
+    CREATE TABLE IF NOT EXISTS fundamentals_cache (
+      ticker    TEXT PRIMARY KEY,
+      data      TEXT,
       fetchedAt TEXT
     );
   `);

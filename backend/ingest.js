@@ -6,8 +6,11 @@
 //   · Última copia buena: si un símbolo falla, NO se sobreescribe su fila.
 //   · Monitorización: ping opcional a HEALTHCHECK_URL (dead-man switch).
 // ─────────────────────────────────────────────────────────────
-import { all, run } from './db.js';
+import { all, run, get, saveSnapshot } from './db.js';
 import { getQuotes } from './sectors.js';
+import { getMacro } from './macro.js';
+import { getSentiment } from './sentiment.js';
+import { getFundamentals } from './valuation.js';
 
 // Universo ACTIVO: solo los tickers que algún usuario tiene en cartera/watchlist.
 // Acota coste/cuota: no se trae "todo el mercado", solo lo que se usa.
@@ -53,6 +56,73 @@ export async function ingestQuotes(only = null) {
 
 function summarize({ startedAt, total, updated, failed, errors }) {
   return { ok: failed === 0, total, updated, failed, errors: errors.slice(0, 20), startedAt, finishedAt: new Date().toISOString() };
+}
+
+// ─── Snapshots globales (macro, sentimiento…) ───────────────────────────
+// Datos no por-usuario ni por-ticker: un único blob por clave. El cron lo
+// rellena; la API lee de la BD. Última copia buena: si falla, no sobreescribe.
+export async function ingestSnapshot(key, fetchFn) {
+  try { await saveSnapshot(key, await fetchFn()); return { key, ok: true }; }
+  catch (e) { return { key, ok: false, error: e.message }; }
+}
+export async function ingestSnapshots() {
+  const results = await Promise.all([
+    ingestSnapshot('macro', () => getMacro(true)),
+    ingestSnapshot('sentiment', () => getSentiment(true)),
+  ]);
+  const failed = results.filter(r => !r.ok);
+  const summary = {
+    ok: failed.length === 0, total: results.length, updated: results.length - failed.length,
+    failed: failed.length, errors: failed.map(f => `${f.key}: ${f.error}`), finishedAt: new Date().toISOString(),
+  };
+  await pingMonitor(summary).catch(() => {});
+  console.log(`📥 ingestSnapshots: ${summary.updated}/${summary.total} ok`);
+  return summary;
+}
+
+// ─── Fundamentales (Alpha Vantage, CUOTA 25/día) ─────────────────────────
+// Presupuesto por corrida + solo refresca los ausentes/viejos → respeta la
+// cuota aunque el cron corra a menudo. Pensado para un cron DIARIO.
+const FUND_BUDGET = 20;                 // máx. tickers por corrida
+const FUND_TTL_MS = 20 * 3600 * 1000;   // refresca si tiene > 20 h
+
+export async function ingestFundamentals(only = null) {
+  const startedAt = new Date().toISOString();
+  const universe = (Array.isArray(only) && only.length) ? [...new Set(only)] : await activeUniverse();
+  const cacheRows = await all('SELECT ticker, fetchedAt FROM fundamentals_cache');
+  const cachedAt = Object.fromEntries(cacheRows.map(r => [r.ticker, new Date(r.fetchedAt).getTime()]));
+  const cutoff = Date.now() - FUND_TTL_MS;
+  const due = universe
+    .filter(t => !(cachedAt[String(t).toUpperCase()] >= cutoff))                                  // ausente o viejo
+    .sort((a, b) => (cachedAt[String(a).toUpperCase()] || 0) - (cachedAt[String(b).toUpperCase()] || 0)) // más viejos primero
+    .slice(0, FUND_BUDGET);
+
+  let updated = 0, failed = 0; const errors = [];
+  for (const t of due) {
+    try {
+      const data = await getFundamentals(t);
+      await run('INSERT OR REPLACE INTO fundamentals_cache (ticker, data, fetchedAt) VALUES (?, ?, ?)',
+        [String(t).toUpperCase(), JSON.stringify(data), new Date().toISOString()]);
+      updated++;
+    } catch (e) { failed++; errors.push(`${t}: ${e.message}`); } // última copia buena
+  }
+  const s = summarize({ startedAt, total: due.length, updated, failed, errors });
+  await pingMonitor(s).catch(() => {});
+  console.log(`📥 ingestFundamentals: ${updated}/${due.length} ok (universo ${universe.length}, presupuesto ${FUND_BUDGET})`);
+  return s;
+}
+
+// Lectura de fundamentales con caché → evita gastar cuota AV en cada clic.
+export async function cachedFundamentals(ticker) {
+  const t = String(ticker).toUpperCase();
+  const row = await get('SELECT data, fetchedAt FROM fundamentals_cache WHERE ticker = ?', [t]);
+  if (row && Date.now() - new Date(row.fetchedAt).getTime() < FUND_TTL_MS) {
+    try { return { ...JSON.parse(row.data), _fetchedAt: row.fetchedAt, _cached: true }; } catch { /* cae a fetch */ }
+  }
+  const data = await getFundamentals(ticker);
+  await run('INSERT OR REPLACE INTO fundamentals_cache (ticker, data, fetchedAt) VALUES (?, ?, ?)',
+    [t, JSON.stringify(data), new Date().toISOString()]);
+  return { ...data, _cached: false };
 }
 
 // Monitorización: si HEALTHCHECK_URL está definido, "ficha" tras cada corrida.

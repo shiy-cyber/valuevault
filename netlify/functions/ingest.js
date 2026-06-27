@@ -4,13 +4,14 @@
 // PROTOTIPO: ingesta de cotizaciones. Ajusta el horario en `config.schedule`.
 // ─────────────────────────────────────────────────────────────
 import { ready } from '../../backend/db.js';
-import { ingestQuotes } from '../../backend/ingest.js';
+import { ingestQuotes, ingestSnapshots } from '../../backend/ingest.js';
 
-// Cada 15 min. En producción conviene afinar al horario de mercado.
+// Frecuente (cada 15 min): cotizaciones + snapshots (macro/sentimiento).
+// (Fundamentales van en una función DIARIA aparte por la cuota de AV.)
 export const config = { schedule: '*/15 * * * *' };
 
 export const handler = async () => {
   await ready();                       // asegura esquema (idempotente)
-  const summary = await ingestQuotes();
-  return { statusCode: 200, body: JSON.stringify(summary) };
+  const [quotes, snapshots] = await Promise.all([ingestQuotes(), ingestSnapshots()]);
+  return { statusCode: 200, body: JSON.stringify({ quotes, snapshots }) };
 };
