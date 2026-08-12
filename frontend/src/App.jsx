@@ -24,12 +24,14 @@ import LearnModal from './components/LearnModal.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import Community from './components/community/Community.jsx';
+import Thesis from './components/community/Thesis.jsx';
 import Profile from './components/community/Profile.jsx';
 import TickerPage from './components/community/TickerPage.jsx';
 import Notifications from './components/community/Notifications.jsx';
 import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
 import Maintenance from './components/Maintenance.jsx';
+import AboutUs from './components/AboutUs.jsx';
 
 export default function App() {
   const [assets, setAssets] = useState([]);
@@ -117,9 +119,9 @@ export default function App() {
 
   useEffect(() => { boot(); }, [boot]);
 
-  // Al entrar en Comunidad sin alias fijado → abrir onboarding
+  // Al entrar en Comunidad/Tesis sin alias fijado → abrir onboarding
   useEffect(() => {
-    if (section === 'community' && needsAlias) setAliasOpen(true);
+    if ((section === 'community' || section === 'thesis') && needsAlias) setAliasOpen(true);
   }, [section, needsAlias]);
 
   // Notificaciones no leídas: sondeo ligero cada 60 s mientras hay sesión
@@ -367,6 +369,7 @@ export default function App() {
           {section === 'gamma' && <Gamma theme={theme} toast={toast} />}
           {section === 'trendfollow' && <TrendFollowing theme={theme} toast={toast} />}
           {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onProfile={goProfile} onTicker={goTicker} toast={toast} />}
+          {section === 'thesis' && <Thesis user={user} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onTicker={goTicker} toast={toast} />}
           {section === 'profile' && <Profile handle={profileHandle} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onAuthor={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
           {section === 'ticker' && <TickerPage ticker={activeTicker} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onProfile={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
           {section === 'learning' && <Knowledge notes={notes} assets={assets} onAdd={addNote} go={go} />}
@@ -375,6 +378,7 @@ export default function App() {
           {section === 'sentiment' && <Sentiment theme={theme} toast={toast} />}
           {section === 'marketmap' && <MarketMap theme={theme} toast={toast} />}
           {section === 'macro' && <Macro theme={theme} toast={toast} />}
+          {section === 'about' && <AboutUs />}
         </div>
       </div>
 

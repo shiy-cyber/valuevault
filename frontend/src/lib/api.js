@@ -68,6 +68,26 @@ export const api = {
   addComment: (id, body) => req('POST', `/api/community/posts/${id}/comments`, { body }),
   deleteComment: (id) => req('DELETE', `/api/community/comments/${id}`),
 
+  // ─── Tesis de inversión (PDF) ────────────────────────────
+  listTheses: (cursor, ticker) => req('GET', `/api/thesis?limit=20${cursor ? `&cursor=${cursor}` : ''}${ticker ? `&ticker=${encodeURIComponent(ticker)}` : ''}`),
+  getThesis: (id) => req('GET', `/api/thesis/${id}`),
+  deleteThesis: (id) => req('DELETE', `/api/thesis/${id}`),
+  thesisPdfUrl: (id) => u(`/api/thesis/${id}/pdf`),
+  uploadThesis: async ({ title, ticker, summary, file }) => {
+    const fd = new FormData();
+    fd.append('title', title);
+    if (ticker) fd.append('ticker', ticker);
+    if (summary) fd.append('summary', summary);
+    fd.append('pdf', file);
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const r = await fetch(u('/api/thesis'), { method: 'POST', headers, body: fd });
+    const text = await r.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+    return data;
+  },
+
   getExport: () => req('GET', '/api/export'),
 
   lookup:  (ticker) => req('GET', `/api/lookup/${encodeURIComponent(ticker)}`),

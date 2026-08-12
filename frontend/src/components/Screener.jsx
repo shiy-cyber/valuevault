@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   SC_SECTORS, SC_SECTOR_LABELS, SC_CAP, SC_PE, SC_PB, SC_DIV, SC_ROE, SC_COUNTRY, SC_STRAT,
+  SC_FPE, SC_PEG, SC_EVEBITDA, SC_EPS_NEXTY, SC_EPS_5Y, SC_DEBTEQ, SC_RECOM, SC_GROSSMARGIN, SC_OPERMARGIN, SC_NETMARGIN,
   finvizURL, stockAnalysisURL, yahooScreenerURL, SCREENER_TOOLS,
 } from '../data/constants.js';
 
@@ -14,7 +15,10 @@ const Field = ({ label, value, onChange, options }) => (
 );
 
 export default function Screener() {
-  const [f, setF] = useState({ sector:'', cap:'', pe:'', pb:'', div:'', roe:'', country:'', strat:'' });
+  const [f, setF] = useState({
+    sector:'', cap:'', pe:'', pb:'', div:'', roe:'', country:'', strat:'',
+    fpe:'', peg:'', evebitda:'', epsNextY:'', eps5y:'', debteq:'', recom:'', grossmargin:'', opermargin:'', netmargin:'',
+  });
   const set = (k) => (v) => setF(prev => ({ ...prev, [k]: v }));
   const sectorOpts = SC_SECTORS.map(s => [s, SC_SECTOR_LABELS[s] || s]);
 
@@ -36,6 +40,16 @@ export default function Screener() {
           <Field label="ROE mínimo" value={f.roe} onChange={set('roe')} options={SC_ROE} />
           <Field label="País" value={f.country} onChange={set('country')} options={SC_COUNTRY} />
           <Field label="Estrategia" value={f.strat} onChange={set('strat')} options={SC_STRAT} />
+          <Field label="Forward P/E máximo" value={f.fpe} onChange={set('fpe')} options={SC_FPE} />
+          <Field label="PEG máximo" value={f.peg} onChange={set('peg')} options={SC_PEG} />
+          <Field label="EV/EBITDA máximo" value={f.evebitda} onChange={set('evebitda')} options={SC_EVEBITDA} />
+          <Field label="EPS Growth próximo año" value={f.epsNextY} onChange={set('epsNextY')} options={SC_EPS_NEXTY} />
+          <Field label="EPS Growth próx. 5 años" value={f.eps5y} onChange={set('eps5y')} options={SC_EPS_5Y} />
+          <Field label="Debt/Eq máximo" value={f.debteq} onChange={set('debteq')} options={SC_DEBTEQ} />
+          <Field label="Recomendación analistas" value={f.recom} onChange={set('recom')} options={SC_RECOM} />
+          <Field label="Gross Margin mínimo" value={f.grossmargin} onChange={set('grossmargin')} options={SC_GROSSMARGIN} />
+          <Field label="Operating Margin mínimo" value={f.opermargin} onChange={set('opermargin')} options={SC_OPERMARGIN} />
+          <Field label="Profit Margin mínimo" value={f.netmargin} onChange={set('netmargin')} options={SC_NETMARGIN} />
         </div>
 
         <div style={{ display:'flex', gap:'10px', marginTop:'16px', flexWrap:'wrap' }}>

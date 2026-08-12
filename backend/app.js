@@ -28,6 +28,9 @@ import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
 import { generateCapexNarrative } from './capexAI.js';
 import { generateCompanyIntro } from './companyAI.js';
 import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
+import multer from 'multer';
+import { validatePdfBuffer, safeFileName, MAX_THESIS_BYTES } from './thesis.js';
+import { saveBlob, getBlob, deleteBlob, thesisKey } from './blobs.js';
 
 const ALL_COLS = [...ASSET_TXT, ...ASSET_NUM, ...ASSET_JSON, 'type'];
 
@@ -51,6 +54,10 @@ const h = (fn) => async (req, res) => {
   try { await fn(req, res); }
   catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 };
+
+// Subida de PDFs de tesis: en memoria (no disco — serverless), tamaño acotado
+// aquí a nivel de transporte; la validación de contenido va en thesis.js.
+const uploadPdf = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_THESIS_BYTES, files: 1 } });
 
 // Usuario para LECTURA: el del token, o la cuenta demo si es anónimo
 const readUid = (req) => userFromReq(req)?.uid ?? DEMO_UID;
@@ -884,6 +891,111 @@ export async function createApp() {
     const updated = rowToAsset(await get('SELECT * FROM assets WHERE id = ?', [id]));
     res.json({ asset: updated, source });
   }));
+
+  // ─── Tesis de inversión (PDF subido por usuarios registrados) ─────────
+  // Lectura pública; subida y borrado requieren sesión. El PDF se valida
+  // en profundidad (firma real + sin JS embebido) en thesis.js antes de
+  // guardarse — nunca se confía en la extensión ni en el Content-Type
+  // que manda el navegador.
+  const thesisSelect = `SELECT t.id, t.title, t.ticker, t.summary, t.fileName, t.fileSize, t.created_at,
+    u.id AS authorId, u.displayName, u.handle, u.avatar
+    FROM theses t JOIN users u ON u.id = t.userId`;
+  function thesisRowToJson(r) {
+    if (!r) return null;
+    return {
+      id: Number(r.id),
+      title: r.title,
+      ticker: r.ticker || null,
+      summary: r.summary || null,
+      fileName: r.fileName,
+      fileSize: Number(r.fileSize),
+      createdAt: r.created_at,
+      author: { id: Number(r.authorId), displayName: r.displayName || null, handle: r.handle || null, avatar: r.avatar || null },
+    };
+  }
+
+  app.post('/api/thesis', uploadPdf.single('pdf'), h(async (req, res) => {
+    const uid = writeUid(req);
+    const author = await getPublicUserById(uid);
+    if (!author?.handle) throw Object.assign(new Error('Crea tu alias antes de publicar una tesis'), { status: 403 });
+    if (!req.file) throw Object.assign(new Error('Falta el fichero PDF'), { status: 400 });
+    const title = String(req.body?.title || '').trim().slice(0, 140);
+    if (!title) throw Object.assign(new Error('Falta el título'), { status: 400 });
+    const ticker = String(req.body?.ticker || '').trim().toUpperCase().slice(0, 12) || null;
+    const summary = String(req.body?.summary || '').trim().slice(0, 500) || null;
+
+    validatePdfBuffer(req.file.buffer, req.file.originalname); // lanza si no es válido/seguro
+    const fileName = safeFileName(req.file.originalname);
+
+    const info = await run(
+      `INSERT INTO theses (userId, title, ticker, summary, blobKey, fileName, fileSize) VALUES (?, ?, ?, ?, '', ?, ?)`,
+      [uid, title, ticker, summary, fileName, req.file.buffer.length]
+    );
+    const id = Number(info.lastInsertRowid);
+    const key = thesisKey(id);
+    await saveBlob(key, req.file.buffer);
+    await run('UPDATE theses SET blobKey = ? WHERE id = ?', [key, id]);
+
+    res.status(201).json(thesisRowToJson(await get(`${thesisSelect} WHERE t.id = ?`, [id])));
+  }));
+
+  // Lista paginada por cursor (id descendente). ticker= filtra por valor.
+  app.get('/api/thesis', h(async (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    const cursor = Number(req.query.cursor) || 0;
+    const conds = [];
+    const args = [];
+    if (req.query.ticker) { conds.push('t.ticker = ?'); args.push(String(req.query.ticker).trim().toUpperCase()); }
+    if (cursor > 0) { conds.push('t.id < ?'); args.push(cursor); }
+    args.push(limit);
+    const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
+    const rows = await all(`${thesisSelect} ${where} ORDER BY t.id DESC LIMIT ?`, args);
+    const theses = rows.map(thesisRowToJson);
+    res.json({ theses, nextCursor: theses.length === limit ? theses[theses.length - 1].id : null });
+  }));
+
+  app.get('/api/thesis/:id', h(async (req, res) => {
+    const row = await get(`${thesisSelect} WHERE t.id = ?`, [Number(req.params.id)]);
+    if (!row) return res.status(404).json({ error: 'Tesis no encontrada' });
+    res.json(thesisRowToJson(row));
+  }));
+
+  // Sirve el PDF. Cabeceras defensivas: tipo forzado a PDF (nosniff), nombre
+  // saneado, y "inline" para que se abra en el visor nativo del navegador
+  // (más seguro que descargar y abrir con un lector de escritorio arbitrario).
+  app.get('/api/thesis/:id/pdf', h(async (req, res) => {
+    const row = await get('SELECT blobKey, fileName FROM theses WHERE id = ?', [Number(req.params.id)]);
+    if (!row) return res.status(404).json({ error: 'Tesis no encontrada' });
+    const buf = await getBlob(row.blobKey);
+    if (!buf) return res.status(404).json({ error: 'Fichero no encontrado' });
+    res.set({
+      'Content-Type': 'application/pdf',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Disposition': `inline; filename="${safeFileName(row.fileName)}"`,
+      'Cache-Control': 'private, max-age=3600',
+    });
+    res.send(buf);
+  }));
+
+  app.delete('/api/thesis/:id', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const row = await get('SELECT blobKey FROM theses WHERE id = ? AND userId = ?', [id, uid]);
+    if (!row) return res.status(404).json({ error: 'Tesis no encontrada' });
+    await run('DELETE FROM theses WHERE id = ? AND userId = ?', [id, uid]);
+    await deleteBlob(row.blobKey);
+    res.json({ ok: true });
+  }));
+
+  // Handler de error global: captura sobre todo errores de multer (p.ej.
+  // LIMIT_FILE_SIZE) que ocurren ANTES del wrapper h() de la ruta.
+  app.use((err, _req, res, _next) => {
+    const status = err.status || (err.code === 'LIMIT_FILE_SIZE' ? 400 : 500);
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? `El PDF supera el máximo de ${MAX_THESIS_BYTES / (1024 * 1024)} MB`
+      : (err.message || 'Error del servidor');
+    res.status(status).json({ error: message });
+  });
 
   return app;
 }

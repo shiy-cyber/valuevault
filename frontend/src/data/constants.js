@@ -63,6 +63,17 @@ export const SC_DIV = [['','Cualquiera'],['o1','Más de 1%'],['o2','Más de 2%']
 export const SC_ROE = [['','Cualquiera'],['o10','Más de 10%'],['o15','Más de 15%'],['o20','Más de 20%'],['o25','Más de 25%'],['o30','Más de 30%']];
 export const SC_COUNTRY = [['','Todos'],['USA','USA'],['Europe','Europa'],['Spain','España'],['Germany','Alemania'],['UK','Reino Unido'],['Japan','Japón'],['China','China']];
 export const SC_STRAT = [['','Todas'],['value','Value'],['growth','Growth'],['dividend','Dividend'],['momentum','Momentum']];
+// Ampliación (2026-08): Forward P/E, PEG, EV/EBITDA, crecimiento EPS, Debt/Eq, RECOM y márgenes.
+export const SC_FPE = [['','Cualquiera'],['u5','Menos de 5'],['u10','Menos de 10'],['u15','Menos de 15'],['u20','Menos de 20'],['u25','Menos de 25'],['u30','Menos de 30'],['u40','Menos de 40'],['u50','Menos de 50']];
+export const SC_PEG = [['','Cualquiera'],['low','Negativo (<0)'],['u1','Menos de 1'],['u2','Menos de 2'],['u3','Menos de 3']];
+export const SC_EVEBITDA = [['','Cualquiera'],['u5','Menos de 5'],['u10','Menos de 10'],['u15','Menos de 15'],['u20','Menos de 20'],['u25','Menos de 25'],['u30','Menos de 30']];
+export const SC_EPS_NEXTY = [['','Cualquiera'],['o5','Más de 5%'],['o10','Más de 10%'],['o15','Más de 15%'],['o20','Más de 20%'],['o25','Más de 25%'],['o30','Más de 30%']];
+export const SC_EPS_5Y = [['','Cualquiera'],['o5','Más de 5%'],['o10','Más de 10%'],['o15','Más de 15%'],['o20','Más de 20%'],['o25','Más de 25%'],['o30','Más de 30%']];
+export const SC_DEBTEQ = [['','Cualquiera'],['u0.1','Menos de 0,1'],['u0.3','Menos de 0,3'],['u0.5','Menos de 0,5'],['u1','Menos de 1'],['o0.5','Más de 0,5'],['o1','Más de 1']];
+export const SC_RECOM = [['','Cualquiera'],['strongbuy','Compra fuerte'],['buybetter','Compra o mejor'],['buy','Compra'],['holdbetter','Mantener o mejor'],['hold','Mantener'],['holdworse','Mantener o peor'],['sell','Venta'],['sellworse','Venta o peor'],['strongsell','Venta fuerte']];
+export const SC_GROSSMARGIN = [['','Cualquiera'],['o20','Más de 20%'],['o30','Más de 30%'],['o40','Más de 40%'],['o50','Más de 50%'],['o60','Más de 60%']];
+export const SC_OPERMARGIN = [['','Cualquiera'],['o10','Más de 10%'],['o15','Más de 15%'],['o20','Más de 20%'],['o25','Más de 25%'],['o30','Más de 30%']];
+export const SC_NETMARGIN = [['','Cualquiera'],['o5','Más de 5%'],['o10','Más de 10%'],['o15','Más de 15%'],['o20','Más de 20%'],['o25','Más de 25%'],['o30','Más de 30%']];
 
 // ─── Constructores de URL de screeners externos ─────────────
 export function buildFinvizFilters(f) {
@@ -73,6 +84,16 @@ export function buildFinvizFilters(f) {
   if (f.pb)      filters.push('fa_pb_' + f.pb);
   if (f.div)     filters.push('fa_div_' + f.div);
   if (f.roe)     filters.push('fa_roe_' + f.roe);
+  if (f.fpe)          filters.push('fa_fpe_' + f.fpe);
+  if (f.peg)          filters.push('fa_peg_' + f.peg);
+  if (f.evebitda)     filters.push('fa_evebitda_' + f.evebitda);
+  if (f.epsNextY)      filters.push('fa_epsyoy1_' + f.epsNextY);
+  if (f.eps5y)         filters.push('fa_estltgrowth_' + f.eps5y);
+  if (f.debteq)       filters.push('fa_debteq_' + f.debteq);
+  if (f.recom)        filters.push('an_recom_' + f.recom);
+  if (f.grossmargin)  filters.push('fa_grossmargin_' + f.grossmargin);
+  if (f.opermargin)   filters.push('fa_opermargin_' + f.opermargin);
+  if (f.netmargin)    filters.push('fa_netmargin_' + f.netmargin);
   if (f.country) filters.push('geo_' + f.country.replace(/ /g, '%20'));
   if (f.strat === 'value')    filters.push('fa_pe_u15', 'fa_pb_u2');
   if (f.strat === 'growth')   filters.push('fa_epsqoq_o15', 'fa_salesqoq_o10');
@@ -122,6 +143,7 @@ export const NAV = [
   { id:'trendfollow', icon:'📈', label:'Trend Following / CTA' },
   { section:'Comunidad' },
   { id:'community', icon:'🗣', label:'Comunidad' },
+  { id:'thesis', icon:'📄', label:'Tesis de Inversión' },
   { section:'Conocimiento' },
   { id:'learning', icon:'📖', label:'Aprendizaje y Manual' },
   { id:'trends', icon:'📡', label:'Tendencias' },
@@ -129,5 +151,7 @@ export const NAV = [
   { id:'sentiment', icon:'🧭', label:'Sentimiento' },
   { id:'marketmap', icon:'🗺', label:'Mapa de Mercado' },
   { id:'macro', icon:'🌐', label:'Macro Research' },
+  { section:'Info' },
+  { id:'about', icon:'ℹ️', label:'Quiénes somos' },
 ];
-export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', valuation:'Valoración · DCF / ROIC', volprofile:'Perfil de Volumen & VWAP', smc:'Smart Money · FVG / Order Blocks', gamma:'Exposición a Gamma · GEX', trendfollow:'Trend Following / CTA', community:'Comunidad', profile:'Perfil', ticker:'Publicaciones del valor', learning:'Aprendizaje y Manual de Uso', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research' };
+export const PAGE_TITLES = { dashboard:'Dashboard', assets:'Mis Activos', watchlist:'Watchlist', compare:'Comparador de Activos', charts:'Gráficos', screener:'Stock Screener', valuation:'Valoración · DCF / ROIC', volprofile:'Perfil de Volumen & VWAP', smc:'Smart Money · FVG / Order Blocks', gamma:'Exposición a Gamma · GEX', trendfollow:'Trend Following / CTA', community:'Comunidad', thesis:'Tesis de Inversión', profile:'Perfil', ticker:'Publicaciones del valor', learning:'Aprendizaje y Manual de Uso', trends:'Tendencias de Mercado', indices:'Índices Bursátiles', sentiment:'Sentimiento de Mercado', marketmap:'Mapa de Mercado', macro:'Macro Research', about:'Quiénes somos' };

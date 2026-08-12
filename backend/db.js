@@ -268,6 +268,24 @@ export async function initSchema() {
       data      TEXT,
       fetchedAt TEXT
     );
+    CREATE TABLE IF NOT EXISTS theses (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId     INTEGER NOT NULL,
+      title      TEXT NOT NULL,
+      ticker     TEXT,
+      summary    TEXT,
+      blobKey    TEXT NOT NULL,
+      fileName   TEXT NOT NULL,
+      fileSize   INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_theses_created ON theses(created_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_theses_user    ON theses(userId, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_theses_ticker  ON theses(ticker, id DESC);
+    CREATE TABLE IF NOT EXISTS blobs (
+      key  TEXT PRIMARY KEY,
+      data TEXT NOT NULL
+    );
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");
