@@ -112,18 +112,23 @@ export default function Gamma({ theme, toast }) {
         }
         return null;
       };
-      const hline = (price, color, label) => {
+      // labelBelow: cuando spot y flip están muy cerca, sus líneas casi se
+      // superponen — si los dos textos se dibujaran siempre por encima de su
+      // línea, quedarían pintados uno sobre el otro. Poniendo el de flip
+      // siempre por debajo (y el de spot siempre por encima) nunca chocan,
+      // aunque las dos líneas coincidan en el mismo píxel.
+      const hline = (price, color, label, labelBelow) => {
         const y = yFor(price);
         if (y == null) return;
         ctx.save();
         ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
         ctx.beginPath(); ctx.moveTo(chartArea.left, y); ctx.lineTo(chartArea.right, y); ctx.stroke();
         ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "10px 'DM Mono', monospace"; ctx.textAlign = 'right';
-        ctx.fillText(label, chartArea.right - 4, y - 3); ctx.textAlign = 'left';
+        ctx.fillText(label, chartArea.right - 4, labelBelow ? y + 11 : y - 3); ctx.textAlign = 'left';
         ctx.restore();
       };
-      hline(data?.spot, spotColor, 'spot $' + data?.spot);
-      hline(data?.gammaFlip, flipColor, 'flip $' + data?.gammaFlip);
+      hline(data?.spot, spotColor, 'spot $' + data?.spot, false);
+      hline(data?.gammaFlip, flipColor, 'flip $' + data?.gammaFlip, true);
     },
   };
 
@@ -132,7 +137,10 @@ export default function Gamma({ theme, toast }) {
     id: 'gammaRefs',
     afterDraw(chart) {
       const { ctx, chartArea, scales } = chart;
-      const vline = (val, color, label) => {
+      // Igual que en el perfil por strike: si spot y flip están muy cerca, sus
+      // líneas casi coinciden en X — apilamos las etiquetas en vertical (una
+      // más abajo que la otra) para que nunca se solapen.
+      const vline = (val, color, label, row) => {
         if (val == null) return;
         const x = scales.x.getPixelForValue(val);
         if (x < chartArea.left || x > chartArea.right) return;
@@ -140,11 +148,11 @@ export default function Gamma({ theme, toast }) {
         ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
         ctx.beginPath(); ctx.moveTo(x, chartArea.top); ctx.lineTo(x, chartArea.bottom); ctx.stroke();
         ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "10px 'DM Mono', monospace";
-        ctx.fillText(label, x + 4, chartArea.top + 11);
+        ctx.fillText(label, x + 4, chartArea.top + 11 + row * 13);
         ctx.restore();
       };
-      vline(data?.spot, spotColor, 'spot $' + data?.spot);
-      vline(data?.gammaFlip, flipColor, 'flip $' + data?.gammaFlip);
+      vline(data?.spot, spotColor, 'spot $' + data?.spot, 0);
+      vline(data?.gammaFlip, flipColor, 'flip $' + data?.gammaFlip, 1);
     },
   };
 
