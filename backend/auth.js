@@ -102,6 +102,38 @@ export async function regenerateRecovery(uid) {
   return { recoveryCode };
 }
 
+// ─── Recuperación por enlace de un solo uso (email, vía Resend) ─────────────
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
+
+// Genera un token de reseteo si el email existe; si no, no hace nada (no se
+// revela si el email está o no registrado — misma respuesta pública siempre).
+// Devuelve el token EN CLARO solo para que la capa de email lo mande al
+// usuario; en BD solo se guarda su hash.
+export async function requestPasswordReset(email) {
+  email = String(email || '').trim().toLowerCase();
+  const u = await get('SELECT id FROM users WHERE email = ?', [email]);
+  if (!u) return null;
+  const token = crypto.randomBytes(32).toString('base64url');
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString();
+  await run('UPDATE users SET resetTokenHash = ?, resetTokenExpiresAt = ? WHERE id = ?', [hashPassword(token), expiresAt, u.id]);
+  return { token, uid: u.id };
+}
+
+// Restablece la contraseña con el token del enlace de email; deja la sesión iniciada
+export async function resetWithToken(email, token, newPassword) {
+  email = String(email || '').trim().toLowerCase();
+  if (String(newPassword || '').length < 6) throw Object.assign(new Error('La nueva contraseña debe tener al menos 6 caracteres'), { status: 400 });
+  const u = await get('SELECT * FROM users WHERE email = ?', [email]);
+  if (!u || !u.resetTokenHash || !verifyPassword(String(token || ''), u.resetTokenHash)) {
+    throw Object.assign(new Error('Enlace de recuperación inválido'), { status: 401 });
+  }
+  if (!u.resetTokenExpiresAt || new Date(u.resetTokenExpiresAt).getTime() < Date.now()) {
+    throw Object.assign(new Error('El enlace de recuperación ha caducado, pide uno nuevo'), { status: 401 });
+  }
+  await run('UPDATE users SET passwordHash = ?, resetTokenHash = NULL, resetTokenExpiresAt = NULL WHERE id = ?', [hashPassword(newPassword), u.id]);
+  return { token: signToken({ uid: u.id, email: u.email }), user: { id: u.id, email: u.email } };
+}
+
 export async function loginUser(email, password) {
   email = String(email || '').trim().toLowerCase();
   const u = await get('SELECT * FROM users WHERE email = ?', [email]);

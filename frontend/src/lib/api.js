@@ -31,6 +31,8 @@ export const api = {
   me:       () => req('GET', '/api/auth/me'),
   reset:    (email, code, password) => req('POST', '/api/auth/reset', { email, code, password }),
   regenerateCode: () => req('POST', '/api/auth/recovery-code'),
+  forgotPassword: (email) => req('POST', '/api/auth/forgot', { email }),
+  resetWithLink: (email, token, password) => req('POST', '/api/auth/reset-link', { email, token, password }),
 
   getAssets:   () => req('GET', '/api/assets'),
   createAsset: (a) => req('POST', '/api/assets', a),

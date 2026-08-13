@@ -27,7 +27,8 @@ import { getSMC } from './smc.js';
 import { getTrendFollowing, getTrendUniverse } from './trendfollow.js';
 import { generateCapexNarrative } from './capexAI.js';
 import { generateCompanyIntro } from './companyAI.js';
-import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery } from './auth.js';
+import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery, requestPasswordReset, resetWithToken } from './auth.js';
+import { sendPasswordResetEmail } from './email.js';
 import multer from 'multer';
 import { validatePdfBuffer, safeFileName, MAX_THESIS_BYTES } from './thesis.js';
 import { saveBlob, getBlob, deleteBlob, thesisKey } from './blobs.js';
@@ -193,6 +194,18 @@ export async function createApp() {
   }));
   app.post('/api/auth/reset', h(async (req, res) => {
     res.json(await resetWithCode(req.body.email, req.body.code, req.body.password));
+  }));
+  // Pide un enlace de recuperación por email. Respuesta SIEMPRE genérica
+  // (no revela si el email existe o no) — el envío real es best-effort.
+  app.post('/api/auth/forgot', h(async (req, res) => {
+    try {
+      const r = await requestPasswordReset(req.body.email);
+      if (r) await sendPasswordResetEmail(req.body.email, req.body.email, r.token);
+    } catch (e) { console.error('[auth/forgot]', e.message); }
+    res.json({ ok: true });
+  }));
+  app.post('/api/auth/reset-link', h(async (req, res) => {
+    res.json(await resetWithToken(req.body.email, req.body.token, req.body.password));
   }));
   app.post('/api/auth/recovery-code', h(async (req, res) => {
     const u = userFromReq(req);

@@ -49,6 +49,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [presetCode, setPresetCode] = useState(null);
+  const [resetLink, setResetLink] = useState(null); // { email, token } — enlace de recuperación por email
   const [fxRates, setFxRates] = useState({ EUR: 1 });
   // Comunidad: perfil público propio (null si anónimo o sin alias aún)
   const [community, setCommunity] = useState(null);
@@ -118,6 +119,19 @@ export default function App() {
   }, [reloadPortfolio, loadCommunity]);
 
   useEffect(() => { boot(); }, [boot]);
+
+  // Enlace de recuperación de contraseña por email: ?reset=<token>&email=<email>
+  // Se limpia de la URL enseguida (no dejar el token visible/reutilizable en el historial).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('reset');
+    const email = params.get('email');
+    if (token && email) {
+      setResetLink({ email, token });
+      setAuthOpen(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Al entrar en Comunidad/Tesis sin alias fijado → abrir onboarding
   useEffect(() => {
@@ -385,7 +399,7 @@ export default function App() {
       <AssetModal open={assetModal.open} editing={assetModal.editing} presetType={assetModal.presetType} onClose={closeAssetModal} onSave={saveAsset} toast={toast} />
       <LearnModal open={learnModal.open} assets={assets} linkedAssetId={learnModal.linkedAssetId} onClose={() => setLearnModal({ open: false, linkedAssetId: null })} onSave={saveNote} toast={toast} />
       <DetailModal asset={detailAsset} notes={notes} onClose={() => setDetailId(null)} onAddNote={(id) => { setDetailId(null); addNote(id); }} />
-      <AuthModal open={authOpen} presetCode={presetCode} onClose={() => { setAuthOpen(false); setPresetCode(null); }} onAuth={onAuth} toast={toast} />
+      <AuthModal open={authOpen} presetCode={presetCode} resetLink={resetLink} onClose={() => { setAuthOpen(false); setPresetCode(null); setResetLink(null); }} onAuth={onAuth} toast={toast} />
       <AliasModal open={aliasOpen} current={community} onClose={() => setAliasOpen(false)} onSaved={(pub) => { setCommunity(pub); setUser(u => u ? { ...u, displayName: pub.displayName, handle: pub.handle, avatar: pub.avatar } : u); setAliasOpen(false); }} toast={toast} />
       <Notifications open={notifOpen} onClose={() => setNotifOpen(false)} onProfile={goProfile} onRead={() => setUnread(0)} toast={toast} />
 

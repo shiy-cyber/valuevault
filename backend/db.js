@@ -295,6 +295,10 @@ export async function initSchema() {
   await ensureColumn('notes', 'userId', 'INTEGER');
   // Recuperación de cuenta: hash del código de recuperación
   await ensureColumn('users', 'recoveryHash', 'TEXT');
+  // Recuperación por enlace de un solo uso enviado por email (Resend).
+  // Se guarda solo el hash del token y su caducidad (1h); nunca el token en claro.
+  await ensureColumn('users', 'resetTokenHash', 'TEXT');
+  await ensureColumn('users', 'resetTokenExpiresAt', 'TEXT');
   // Comunidad social: identidad pública (el email NUNCA se expone).
   // displayName = nombre mostrado · handle = alias único para @menciones/URL
   // (se guarda en minúsculas → unicidad efectiva case-insensitive) · avatar =
