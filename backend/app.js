@@ -145,7 +145,10 @@ export async function createApp() {
   await initAuthSecret(); // clave JWT (entorno o BD), una vez por instancia
 
   const app = express();
-  app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+  // Sin CORS_ORIGIN en el entorno (fácil de olvidar en Netlify), el default
+  // ya NO es '*' (cualquier origen) — se fija a los dominios propios conocidos.
+  const DEFAULT_CORS_ORIGINS = ['https://valuevault.es', 'http://localhost:5173'];
+  app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : DEFAULT_CORS_ORIGINS }));
   app.use(express.json({ limit: '1mb' }));
 
   // ─── Salud ─────────────────────────────────────────────────

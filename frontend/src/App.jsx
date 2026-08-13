@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { api, setToken } from './lib/api.js';
+import { api, setToken, setNetworkStatusHandler } from './lib/api.js';
 import { NAV, PAGE_TITLES } from './data/constants.js';
 import { timeAgo } from './lib/format.js';
 import { usePageMeta } from './lib/usePageMeta.js';
@@ -80,8 +80,11 @@ export default function App() {
   const requireInteract = () => { if (!user) setAuthOpen(true); else if (needsAlias) setAliasOpen(true); };
 
   // Cartera vs seguimiento
-  const portfolio = assets.filter(a => a.type !== 'watchlist');
-  const watchlist = assets.filter(a => a.type === 'watchlist');
+  // Memoizado: sin esto, cada render de App (toasts, sondeo de notificaciones
+  // cada 60s, sidebarOpen…) generaba arrays nuevos y propagaba re-render a
+  // todo Dashboard/Assets/Watchlist/Charts aunque `assets` no hubiera cambiado.
+  const portfolio = useMemo(() => assets.filter(a => a.type !== 'watchlist'), [assets]);
+  const watchlist = useMemo(() => assets.filter(a => a.type === 'watchlist'), [assets]);
 
   // ─── Toast ──────────────────────────────────────────────
   const toast = useCallback((msg) => {
@@ -141,6 +144,14 @@ export default function App() {
   }, [reloadPortfolio, loadCommunity]);
 
   useEffect(() => { boot(); }, [boot]);
+
+  // Cualquier fetch de la app (no solo el de boot) que falle a nivel de red
+  // activa la misma pantalla de Mantenimiento; se desactiva sola en cuanto
+  // vuelve a llegar cualquier respuesta.
+  useEffect(() => {
+    setNetworkStatusHandler(setBackendDown);
+    return () => setNetworkStatusHandler(null);
+  }, []);
 
   // Enlace de recuperación de contraseña por email: ?reset=<token>&email=<email>
   // Se limpia de la URL enseguida (no dejar el token visible/reutilizable en el historial).

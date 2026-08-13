@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
+import StatCard from './shared/StatCard.jsx';
 
 const bn = (v) => v == null ? '—' : (Math.abs(v) >= 1e9 ? (v / 1e9).toFixed(2) + ' bn' : (v / 1e6).toFixed(0) + ' M');
 
@@ -156,13 +157,7 @@ export default function Gamma({ theme, toast }) {
     },
   };
 
-  const stat = (label, value, sub, color) => (
-    <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px 14px' }}>
-      <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", textTransform: 'uppercase', letterSpacing: '1px' }}>{label}</div>
-      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: '16px', fontWeight: 700, color: color || 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: '9px', color: 'var(--muted)' }}>{sub}</div>}
-    </div>
-  );
+  const stat = (label, value, sub, color) => <StatCard label={label} value={value} sub={sub} color={color} />;
 
   const regimePos = data?.regime === 'positive';
   const flipVsSpot = data && data.gammaFlip != null ? (data.spot >= data.gammaFlip ? 'por encima' : 'por debajo') : null;

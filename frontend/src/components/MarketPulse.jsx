@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
+import SparkChart from './shared/SparkChart.jsx';
 
 // Índices clave para el vistazo rápido de "cómo está el mercado hoy".
 const IDX = [
@@ -15,12 +15,9 @@ const vixColor = (x) => x == null ? '#7a8694' : x < 13 ? '#16a085' : x < 20 ? '#
 const vixZone = (x) => x == null ? '—' : x < 13 ? 'Complacencia' : x < 20 ? 'Calma' : x < 30 ? 'Cautela' : x < 40 ? 'Miedo' : 'Pánico';
 const chgColor = (c) => c == null ? '#7a8694' : c >= 0 ? '#2ecc71' : '#e74c3c';
 
-// Mini-gráfica sin ejes, mismo patrón que Macro.jsx / Sentiment.jsx.
 function Spark({ points, color }) {
   if (!points || points.length < 2) return null;
-  const data = { labels: points.map((_, i) => i), datasets: [{ data: points, borderColor: color, backgroundColor: color + '22', borderWidth: 1.5, pointRadius: 0, tension: 0.35, fill: true }] };
-  const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } };
-  return <div style={{ height: '30px', width: '100%' }}><Line data={data} options={opts} /></div>;
+  return <div style={{ height: '30px', width: '100%' }}><SparkChart points={points} color={color} borderWidth={1.5} /></div>;
 }
 
 // Franja compacta al inicio del Dashboard con la situación general del

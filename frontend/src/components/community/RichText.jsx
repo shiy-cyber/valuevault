@@ -3,7 +3,10 @@ import React from 'react';
 // Resalta $TICKER y @handle dentro de un texto de usuario.
 // Trocea el string y devuelve nodos React (cada trozo es texto que React
 // escapa por defecto) → sin dangerouslySetInnerHTML, contenido inerte.
-const TOKEN_RE = /(\$[A-Za-z]{1,6}(?:\.[A-Za-z]{1,2})?|@[a-z0-9_]{3,20})/g;
+// Flag `i`: sin ella, @Alias con alguna mayúscula no se resaltaba aunque el
+// backend SÍ lo detecta y notifica (community.js normaliza a minúsculas) —
+// quedaba sin color, sin click y sin pista de que había generado notificación.
+const TOKEN_RE = /(\$[A-Za-z]{1,6}(?:\.[A-Za-z]{1,2})?|@[a-z0-9_]{3,20})/gi;
 
 export default function RichText({ text, onTicker, onHandle }) {
   const parts = String(text || '').split(TOKEN_RE);

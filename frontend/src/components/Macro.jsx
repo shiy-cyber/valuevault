@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Line } from 'react-chartjs-2';
 import { MACRO_SOURCES, MACRO_CATS } from '../data/constants.js';
 import { api } from '../lib/api.js';
+import SparkChart from './shared/SparkChart.jsx';
 
 // Color por estado de la curva / inflación
 const statusColor = (s) => s === 'Invertida' ? '#e74c3c' : s === 'Plana' ? '#c9a84c' : s === 'Normal' ? '#2ecc71' : 'var(--muted)';
@@ -11,9 +12,7 @@ const gdpColor = (v) => v == null ? 'var(--muted)' : v >= 2 ? '#2ecc71' : v >= 0
 
 function Spark({ points, color }) {
   if (!points || points.length < 2) return null;
-  const data = { labels: points.map((_, i) => i), datasets: [{ data: points, borderColor: color, backgroundColor: color + '22', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true }] };
-  const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } };
-  return <div style={{ height: '40px', marginTop: '8px' }}><Line data={data} options={opts} /></div>;
+  return <div style={{ height: '40px', marginTop: '8px' }}><SparkChart points={points} color={color} tension={0.3} /></div>;
 }
 
 export default function Macro({ theme, toast }) {

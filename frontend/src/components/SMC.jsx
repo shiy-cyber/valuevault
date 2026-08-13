@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
+import StatCard from './shared/StatCard.jsx';
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const RANGES = [['3mo','3M'],['6mo','6M'],['1y','1A']];
@@ -58,13 +59,7 @@ export default function SMC({ theme, toast }) {
   const activeOB = data ? data.orderBlocks.filter(o => !o.mitigated) : [];
   const strongestOB = activeOB.length ? Math.max(...activeOB.map(o => o.strength || 0)) : null;
 
-  const stat = (label, value, sub, color) => (
-    <div style={{ background: 'var(--surface2)', borderRadius: '10px', padding: '12px 14px' }}>
-      <div style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", textTransform: 'uppercase', letterSpacing: '1px' }}>{label}</div>
-      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: '16px', fontWeight: 700, color: color || 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: '9px', color: 'var(--muted)' }}>{sub}</div>}
-    </div>
-  );
+  const stat = (label, value, sub, color) => <StatCard label={label} value={value} sub={sub} color={color} />;
 
   const statusBadge = (z) => {
     const { label, col } = z.filled ? { label: z.kind === 'OB' ? 'mitigada' : 'llena', col: 'var(--muted)' }

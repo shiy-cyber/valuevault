@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
+import SparkChart from './shared/SparkChart.jsx';
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
@@ -47,11 +48,9 @@ function Gauge({ value }) {
 }
 
 // Mini-gráfica sin ejes para tarjetas (VIX / Crypto)
-function Spark({ points, color, isDark }) {
+function Spark({ points, color }) {
   if (!points || points.length < 2) return null;
-  const data = { labels: points.map((_, i) => i), datasets: [{ data: points, borderColor: color, backgroundColor: color + '22', borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true }] };
-  const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display:false }, tooltip: { enabled:false } }, scales: { x: { display:false }, y: { display:false } }, elements: { line: { borderJoinStyle:'round' } } };
-  return <div style={{ height:'46px', marginTop:'8px' }}><Line data={data} options={opts} /></div>;
+  return <div style={{ height:'46px', marginTop:'8px' }}><SparkChart points={points} color={color} roundJoins /></div>;
 }
 
 export default function Sentiment({ theme, toast }) {

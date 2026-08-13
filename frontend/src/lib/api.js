@@ -13,11 +13,26 @@ export function setToken(t) {
 }
 export function getToken() { return token; }
 
+// ─── Estado de red compartido ────────────────────────────────
+// App.jsx se suscribe para mostrar la pantalla de Mantenimiento ante CUALQUIER
+// fetch que falle a nivel de red (backend inalcanzable), no solo el de boot()
+// — antes, si el backend caía después del arranque, cada pantalla mostraba su
+// propio error/spinner colgado en vez del aviso unificado.
+let onNetworkStatus = null;
+export function setNetworkStatusHandler(fn) { onNetworkStatus = fn; }
+
 async function req(method, path, body) {
   const opts = { method, headers: {} };
   if (token) opts.headers['Authorization'] = `Bearer ${token}`;
   if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
-  const r = await fetch(u(path), opts);
+  let r;
+  try {
+    r = await fetch(u(path), opts);
+  } catch (e) {
+    onNetworkStatus?.(true); // fetch() no llegó a completarse: backend inalcanzable de verdad
+    throw e;
+  }
+  onNetworkStatus?.(false); // hubo respuesta (aunque sea un error de la app) → el backend está vivo
   const text = await r.text();
   const data = text ? JSON.parse(text) : null;
   if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
