@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { api, setToken } from './lib/api.js';
 import { NAV, PAGE_TITLES } from './data/constants.js';
@@ -91,21 +91,28 @@ export default function App() {
   }, []);
 
   // ─── Carga de la cartera (del usuario o demo) ───────────
+  // Guarda de secuencia: login/logout rápidos (o cambio de cuenta) pueden
+  // dejar dos llamadas en vuelo con distinto token; sin esto, la que responde
+  // más tarde "gana" y puede pisar el estado con datos de la sesión anterior.
+  // Solo se aplica la respuesta si sigue siendo la llamada más reciente.
+  const portfolioSeq = useRef(0);
   const reloadPortfolio = useCallback(() => {
+    const seq = ++portfolioSeq.current;
     return Promise.all([api.getAssets(), api.getNotes()])
       .then(([a, n]) => {
+        if (seq !== portfolioSeq.current) return; // respuesta obsoleta, descartada
         setAssets(a); setNotes(n);
         const stamps = a.map(x => x.priceUpdatedAt).filter(Boolean).sort();
         setLastRefresh(stamps.length ? timeAgo(stamps[stamps.length - 1]) : null);
         // Demo sin precios refrescados (datos semilla) → traer precios en vivo
         if (a.length && a.every(x => !x.priceUpdatedAt)) {
           api.refreshPrices()
-            .then(r => { if (r.assets) { setAssets(r.assets); setLastRefresh(timeAgo(r.at)); } })
+            .then(r => { if (seq === portfolioSeq.current && r.assets) { setAssets(r.assets); setLastRefresh(timeAgo(r.at)); } })
             .catch(() => {});
         }
       })
       // Fallo de conexión con el backend → pantalla de mantenimiento (no error)
-      .catch(() => setBackendDown(true));
+      .catch(() => { if (seq === portfolioSeq.current) setBackendDown(true); });
   }, []);
 
   // ─── Perfil público de comunidad (del usuario logueado) ─

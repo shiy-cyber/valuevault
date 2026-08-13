@@ -35,7 +35,11 @@ export function yahooSymbol(t) {
 
 export async function fetchChart(symbol, range = '1y', interval = '1d') {
   const url = `${YF_BASE}/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-  const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
+  // Timeout explícito: sin esto, una petición colgada dentro de un Promise.all
+  // de 20-44 fetches concurrentes (getSectors/getIndices/getMarketMap) puede
+  // no resolver nunca y tumbar toda la función serverless por su propio
+  // límite de ejecución, en vez de degradar al fallback ya programado.
+  const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json' }, signal: AbortSignal.timeout(9000) });
   if (!r.ok) throw new Error(`Yahoo HTTP ${r.status}`);
   const j = await r.json();
   const res = j?.chart?.result?.[0];

@@ -8,7 +8,13 @@ const REGIONS = ['USA', 'Europa', 'Asia'];
 // Periodos intra-mes (puntos diarios) → etiqueta "12 May"; el resto → "May '25".
 const INTRADAY = new Set(['1m', '3m', '6m', 'ytd']);
 
-const lastVal = (s, p) => s[p][s[p].length - 1];
+// Null-safe: si el backend cae al fallback (serie vacía/ausente para ese
+// periodo), evita romper toda la página con un TypeError sobre undefined.
+const lastVal = (s, p) => {
+  const arr = s?.[p];
+  return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : null;
+};
+const fmtPct = (v) => v != null ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : '—';
 
 const fmtLabel = (ts, period) => {
   const d = new Date(ts);
@@ -85,7 +91,7 @@ export default function Indices({ theme, toast }) {
 
   const byRegion = useMemo(() => REGIONS.map(r => ({
     region: r,
-    items: [...indices.filter(s => s.region === r)].sort((a, b) => lastVal(b, period) - lastVal(a, period)),
+    items: [...indices.filter(s => s.region === r)].sort((a, b) => (lastVal(b, period) ?? -Infinity) - (lastVal(a, period) ?? -Infinity)),
   })).filter(g => g.items.length), [indices, period]);
 
   const signal = (v) => v > 5 ? '🔥 Fuerte alza' : v > 2 ? '📈 Alcista' : v > 0 ? '➡️ Neutro+' : v > -2 ? '➡️ Neutro-' : v > -5 ? '📉 Bajista' : '❄️ Fuerte baja';
@@ -118,8 +124,8 @@ export default function Indices({ theme, toast }) {
           <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'10px' }}>{group.region}</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:'10px' }}>
             {group.items.map(s => {
-              const v = lastVal(s, period); const pos = v >= 0;
-              const dv = s.changePercent; const dpos = dv >= 0;
+              const v = lastVal(s, period); const pos = v != null && v >= 0;
+              const dv = s.changePercent; const dpos = dv != null && dv >= 0;
               return (
                 <div key={s.symbol} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'16px', transition:'all .2s' }}
                   onMouseOver={e => { e.currentTarget.style.borderColor = s.color; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px var(--shadow)'; }}
@@ -129,7 +135,7 @@ export default function Indices({ theme, toast }) {
                       <span style={{ fontSize:'18px' }}>{s.icon}</span>
                       <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'12px', color:'var(--text)', fontWeight:600 }}>{s.name}</span>
                     </div>
-                    <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', padding:'2px 7px', borderRadius:'10px', background: dpos ? 'rgba(46,204,113,.15)' : 'rgba(231,76,60,.15)', color: dpos ? 'var(--green)' : 'var(--red)' }}>{dpos ? '▲' : '▼'} {dpos ? '+' : ''}{dv.toFixed(2)}%</span>
+                    <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', padding:'2px 7px', borderRadius:'10px', background: dpos ? 'rgba(46,204,113,.15)' : 'rgba(231,76,60,.15)', color: dpos ? 'var(--green)' : 'var(--red)' }}>{dv != null ? (dpos ? '▲' : '▼') + ' ' : ''}{fmtPct(dv)}</span>
                   </div>
                   <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'20px', fontWeight:700, color:'var(--text)' }}>
                     {s.price != null ? s.price.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
@@ -137,7 +143,7 @@ export default function Indices({ theme, toast }) {
                   </div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'8px', paddingTop:'8px', borderTop:'1px solid var(--border)' }}>
                     <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)' }}>{PERIODS.find(p => p[0] === period)[1]}</span>
-                    <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'13px', fontWeight:700, color: pos ? 'var(--green)' : 'var(--red)' }}>{pos ? '+' : ''}{v.toFixed(2)}%</span>
+                    <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'13px', fontWeight:700, color: pos ? 'var(--green)' : 'var(--red)' }}>{fmtPct(v)}</span>
                   </div>
                 </div>
               );
@@ -181,16 +187,16 @@ export default function Indices({ theme, toast }) {
             </thead>
             <tbody>
               {byRegion.flatMap(g => g.items).map((s, i) => {
-                const v = lastVal(s, period); const pos = v >= 0;
-                const dpos = s.changePercent >= 0;
+                const v = lastVal(s, period); const pos = v != null && v >= 0;
+                const dpos = s.changePercent != null && s.changePercent >= 0;
                 return (
                   <tr key={s.symbol} style={{ background: i % 2 === 0 ? '' : 'var(--surface2)' }}>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px' }}><span style={{ marginRight:'6px' }}>{s.icon}</span><span style={{ color:'var(--text)' }}>{s.name}</span></td>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'11px', color:'var(--muted)' }}>{s.region}</td>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', color:'var(--text)' }}>{s.price != null ? s.price.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
-                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', fontWeight:600, color: dpos ? 'var(--green)' : 'var(--red)' }}>{dpos ? '+' : ''}{s.changePercent.toFixed(2)}%</td>
-                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', fontWeight:600, color: pos ? 'var(--green)' : 'var(--red)' }}>{pos ? '+' : ''}{v.toFixed(2)}%</td>
-                    <td style={{ padding:'12px 14px', fontSize:'12px', textAlign:'right' }}>{signal(v)}</td>
+                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', fontWeight:600, color: dpos ? 'var(--green)' : 'var(--red)' }}>{fmtPct(s.changePercent)}</td>
+                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', fontWeight:600, color: pos ? 'var(--green)' : 'var(--red)' }}>{fmtPct(v)}</td>
+                    <td style={{ padding:'12px 14px', fontSize:'12px', textAlign:'right' }}>{v != null ? signal(v) : '—'}</td>
                     <td style={{ padding:'12px 14px', textAlign:'center' }}><a href={`https://finance.yahoo.com/quote/${encodeURIComponent(s.symbol)}`} target="_blank" rel="noreferrer" className="insider-link" style={{ fontSize:'10px' }}>↗</a></td>
                   </tr>
                 );

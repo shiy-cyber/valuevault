@@ -895,6 +895,9 @@ export async function createApp() {
   // no un fetch ad-hoc. Mismo camino que el cron, pero acotado a los tickers
   // del usuario. La respuesta sirve los activos con el overlay del caché.
   app.post('/api/assets/refresh-prices', h(async (req, res) => {
+    // OJO: readUid (no writeUid) a propósito — refresca vía Yahoo (ingestQuotes),
+    // sin tocar la cuota de Alpha Vantage, y la demo pública depende de poder
+    // llamarlo sin sesión (App.jsx la refresca sola al cargar la primera vez).
     const uid = readUid(req);
     const rows = await all('SELECT ticker, currency FROM assets WHERE userId = ?', [uid]);
     if (!rows.length) return res.json({ updated: 0, total: 0, assets: [], quotes: [] });
@@ -911,7 +914,10 @@ export async function createApp() {
 
   // Refresca TODOS los datos de un activo del usuario: precio + fundamentales.
   app.post('/api/assets/:id/refresh-data', h(async (req, res) => {
-    const uid = readUid(req);
+    // Exige sesión: este endpoint gasta cuota GLOBAL de Alpha Vantage
+    // (25 req/día compartidas por toda la app) vía lookupTicker() — sin esto,
+    // cualquiera sin login podía agotarla en bucle y romper /quality para todos.
+    const uid = writeUid(req);
     const id = Number(req.params.id);
     const existing = await get('SELECT * FROM assets WHERE id = ? AND userId = ?', [id, uid]);
     if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });

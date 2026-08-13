@@ -7,7 +7,13 @@ const PERIODS = [['1m','1 Mes'],['3m','3 Meses'],['6m','6 Meses'],['ytd','YTD'],
 // Periodos intra-mes (puntos diarios) → etiqueta "12 May"; el resto → "May '25".
 const INTRADAY = new Set(['1m', '3m', '6m', 'ytd']);
 
-const lastVal = (s, p) => s[p][s[p].length - 1];
+// Null-safe: si el backend cae al fallback (serie vacía/ausente para ese
+// periodo), evita romper toda la página con un TypeError sobre undefined.
+const lastVal = (s, p) => {
+  const arr = s?.[p];
+  return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : null;
+};
+const fmtPct = (v, digits = 2) => v != null ? `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%` : '—';
 
 const fmtLabel = (ts, period) => {
   const d = new Date(ts);
@@ -42,7 +48,7 @@ export default function Trends({ theme, toast }) {
 
   useEffect(() => { load(false); }, [load]);
 
-  const sorted = useMemo(() => [...sectors].sort((a, b) => lastVal(b, period) - lastVal(a, period)), [sectors, period]);
+  const sorted = useMemo(() => [...sectors].sort((a, b) => (lastVal(b, period) ?? -Infinity) - (lastVal(a, period) ?? -Infinity)), [sectors, period]);
 
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
@@ -84,9 +90,9 @@ export default function Trends({ theme, toast }) {
   const barData = {
     labels: sorted.map(s => s.name),
     datasets: [{
-      data: sorted.map(s => lastVal(s, period)),
-      backgroundColor: sorted.map(s => lastVal(s, period) >= 0 ? 'rgba(46,204,113,.7)' : 'rgba(231,76,60,.7)'),
-      borderColor: sorted.map(s => lastVal(s, period) >= 0 ? '#2ecc71' : '#e74c3c'),
+      data: sorted.map(s => lastVal(s, period) ?? 0),
+      backgroundColor: sorted.map(s => (lastVal(s, period) ?? 0) >= 0 ? 'rgba(46,204,113,.7)' : 'rgba(231,76,60,.7)'),
+      borderColor: sorted.map(s => (lastVal(s, period) ?? 0) >= 0 ? '#2ecc71' : '#e74c3c'),
       borderWidth: 1, borderRadius: 5,
     }],
   };
@@ -130,7 +136,7 @@ export default function Trends({ theme, toast }) {
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'14px' }}>Mapa de Calor — Rendimiento Sectorial</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:'8px' }}>
           {sorted.map(s => {
-            const v = lastVal(s, period); const pos = v >= 0; const intensity = Math.min(Math.abs(v) / 20, 1);
+            const v = lastVal(s, period); const pos = v != null && v >= 0; const intensity = v != null ? Math.min(Math.abs(v) / 20, 1) : 0;
             const bg = pos ? `rgba(46,204,113,${0.1 + intensity * 0.4})` : `rgba(231,76,60,${0.1 + intensity * 0.4})`;
             const border = pos ? 'rgba(46,204,113,.4)' : 'rgba(231,76,60,.4)';
             return (
@@ -139,7 +145,7 @@ export default function Trends({ theme, toast }) {
                 <div style={{ fontSize:'20px', marginBottom:'5px' }}>{s.icon}</div>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--text)', fontWeight:500, marginBottom:'3px' }}>{s.name}</div>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'11px', color:'var(--muted)', marginBottom:'6px' }}>{s.etf}{s.price ? ` · $${s.price}` : ''}</div>
-                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'16px', fontWeight:700, color: pos ? 'var(--green)' : 'var(--red)' }}>{pos ? '+' : ''}{v.toFixed(1)}%</div>
+                <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'16px', fontWeight:700, color: pos ? 'var(--green)' : 'var(--red)' }}>{fmtPct(v, 1)}</div>
               </div>
             );
           })}
@@ -189,13 +195,13 @@ export default function Trends({ theme, toast }) {
             </thead>
             <tbody>
               {sorted.map((s, i) => {
-                const v = lastVal(s, period); const pos = v >= 0;
+                const v = lastVal(s, period); const pos = v != null && v >= 0;
                 return (
                   <tr key={s.etf} style={{ background: i % 2 === 0 ? '' : 'var(--surface2)' }}>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px' }}><span style={{ marginRight:'6px' }}>{s.icon}</span><span style={{ color:'var(--text)' }}>{s.name}</span></td>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'12px', color:'var(--gold)' }}>{s.etf}</td>
-                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'14px', textAlign:'right', fontWeight:600, color: pos ? 'var(--green)' : 'var(--red)' }}>{pos ? '+' : ''}{v.toFixed(2)}%</td>
-                    <td style={{ padding:'12px 14px', fontSize:'12px', textAlign:'right' }}>{signal(v)}</td>
+                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'14px', textAlign:'right', fontWeight:600, color: pos ? 'var(--green)' : 'var(--red)' }}>{fmtPct(v)}</td>
+                    <td style={{ padding:'12px 14px', fontSize:'12px', textAlign:'right' }}>{v != null ? signal(v) : '—'}</td>
                     <td style={{ padding:'12px 14px', textAlign:'center' }}><a href={`https://finviz.com/quote.ashx?t=${s.etf}`} target="_blank" rel="noreferrer" className="insider-link" style={{ fontSize:'10px' }}>↗</a></td>
                   </tr>
                 );
