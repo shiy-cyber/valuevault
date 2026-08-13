@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 // Índices clave para el vistazo rápido de "cómo está el mercado hoy".
 const IDX = [
   { symbol: '^GSPC', label: 'S&P 500' },
-  { symbol: '^IXIC', label: 'Nasdaq' },
+  { symbol: '^NDX', label: 'Nasdaq 100' },
   { symbol: '^DJI', label: 'Dow Jones' },
 ];
 
