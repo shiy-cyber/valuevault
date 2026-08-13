@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import PostCard from './PostCard.jsx';
 
-// Página de un $TICKER: todas las publicaciones que lo mencionan.
-export default function TickerPage({ ticker, currentUser, canInteract, onBack, onProfile, onTicker, requireInteract, toast }) {
+// Página de un $TICKER: todas las publicaciones que lo mencionan. Ruta /comunidad/ticker/:symbol.
+export default function TickerPage({ currentUser, canInteract, onBack, onProfile, onTicker, requireInteract, toast }) {
+  const { symbol: ticker } = useParams();
   const [posts, setPosts] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { api, setToken } from './lib/api.js';
 import { NAV, PAGE_TITLES } from './data/constants.js';
 import { timeAgo } from './lib/format.js';
+import { usePageMeta } from './lib/usePageMeta.js';
+
+// Páginas de cartera privada del usuario: sin valor público, se marcan
+// noindex (Fase 1 SEO — el resto de secciones sí es indexable).
+const PRIVATE_SECTIONS = new Set(['dashboard', 'assets', 'watchlist', 'compare', 'charts', 'learning']);
 import Dashboard from './components/Dashboard.jsx';
 import Assets from './components/Assets.jsx';
 import Watchlist from './components/Watchlist.jsx';
@@ -34,10 +40,21 @@ import Maintenance from './components/Maintenance.jsx';
 import AboutUs from './components/AboutUs.jsx';
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Sección "lógica" derivada de la URL (sustituye al viejo useState('dashboard')).
+  // /comunidad/u/:handle y /comunidad/ticker/:symbol se mapean a los mismos ids
+  // pseudo-sección que usaba el código antiguo (profile/ticker) para no tocar
+  // el resto de la lógica (PAGE_TITLES, resaltado de NAV, etc.).
+  const path = location.pathname;
+  const section = path === '/' ? 'dashboard'
+    : path.startsWith('/comunidad/u/') ? 'profile'
+    : path.startsWith('/comunidad/ticker/') ? 'ticker'
+    : path.split('/')[1] || 'dashboard';
+
   const [assets, setAssets] = useState([]);
   const [notes, setNotes] = useState([]);
   const [theme, setTheme] = useState('dark');
-  const [section, setSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
@@ -54,8 +71,6 @@ export default function App() {
   // Comunidad: perfil público propio (null si anónimo o sin alias aún)
   const [community, setCommunity] = useState(null);
   const [aliasOpen, setAliasOpen] = useState(false);
-  const [profileHandle, setProfileHandle] = useState(null);
-  const [activeTicker, setActiveTicker] = useState(null);
   const [unread, setUnread] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   // Backend caído → mostramos pantalla de "en mantenimiento" en vez de errores
@@ -189,9 +204,9 @@ export default function App() {
     api.setConfig('theme', t).catch(() => {});
   };
 
-  const go = (id) => { setSection(id); setSidebarOpen(false); };
-  const goProfile = (handle) => { setProfileHandle(handle); setSection('profile'); setSidebarOpen(false); };
-  const goTicker = (ticker) => { setActiveTicker(ticker); setSection('ticker'); setSidebarOpen(false); };
+  const go = (id) => { navigate(id === 'dashboard' ? '/' : '/' + id); setSidebarOpen(false); };
+  const goProfile = (handle) => { navigate('/comunidad/u/' + encodeURIComponent(handle)); setSidebarOpen(false); };
+  const goTicker = (ticker) => { navigate('/comunidad/ticker/' + encodeURIComponent(ticker)); setSidebarOpen(false); };
 
   // ─── CRUD activos ───────────────────────────────────────
   const saveAsset = async (payload, editId) => {
@@ -309,6 +324,8 @@ export default function App() {
 
   const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset, onRefreshData: refreshAssetData, onRefreshQuality: refreshQuality };
 
+  usePageMeta(PAGE_TITLES[section], !PRIVATE_SECTIONS.has(section));
+
   return (
     <>
       {backendDown && <Maintenance onRetry={boot} />}
@@ -371,28 +388,32 @@ export default function App() {
               👁 Estás viendo la cartera <b>DEMO</b> compartida (solo lectura). <span onClick={() => setAuthOpen(true)} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>Crea tu cuenta privada</span> para gestionar tus propios activos y notas.
             </div>
           )}
-          {section === 'dashboard' && <Dashboard assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />}
-          {section === 'assets' && <Assets assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} />}
-          {section === 'watchlist' && <Watchlist assets={watchlist} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} onAdd={() => newAsset('watchlist')} />}
-          {section === 'compare' && <Compare assets={assets} />}
-          {section === 'charts' && <Charts assets={portfolio} theme={theme} fxRates={fxRates} />}
-          {section === 'screener' && <Screener />}
-          {section === 'valuation' && <Valuation toast={toast} />}
-          {section === 'volprofile' && <VolProfile theme={theme} toast={toast} />}
-          {section === 'smc' && <SMC theme={theme} toast={toast} />}
-          {section === 'gamma' && <Gamma theme={theme} toast={toast} />}
-          {section === 'trendfollow' && <TrendFollowing theme={theme} toast={toast} />}
-          {section === 'community' && <Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onProfile={goProfile} onTicker={goTicker} toast={toast} />}
-          {section === 'thesis' && <Thesis user={user} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onTicker={goTicker} toast={toast} />}
-          {section === 'profile' && <Profile handle={profileHandle} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onAuthor={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
-          {section === 'ticker' && <TickerPage ticker={activeTicker} currentUser={user} canInteract={canInteract} onBack={() => go('community')} onProfile={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />}
-          {section === 'learning' && <Knowledge notes={notes} assets={assets} onAdd={addNote} go={go} />}
-          {section === 'trends' && <Trends theme={theme} toast={toast} />}
-          {section === 'indices' && <Indices theme={theme} toast={toast} />}
-          {section === 'sentiment' && <Sentiment theme={theme} toast={toast} />}
-          {section === 'marketmap' && <MarketMap theme={theme} toast={toast} />}
-          {section === 'macro' && <Macro theme={theme} toast={toast} />}
-          {section === 'about' && <AboutUs />}
+          <Routes>
+            <Route path="/" element={<Dashboard assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            <Route path="/assets" element={<Assets assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} />} />
+            <Route path="/watchlist" element={<Watchlist assets={watchlist} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} onAdd={() => newAsset('watchlist')} />} />
+            <Route path="/compare" element={<Compare assets={assets} />} />
+            <Route path="/charts" element={<Charts assets={portfolio} theme={theme} fxRates={fxRates} />} />
+            <Route path="/screener" element={<Screener />} />
+            <Route path="/valuation" element={<Valuation toast={toast} />} />
+            <Route path="/volprofile" element={<VolProfile theme={theme} toast={toast} />} />
+            <Route path="/smc" element={<SMC theme={theme} toast={toast} />} />
+            <Route path="/gamma" element={<Gamma theme={theme} toast={toast} />} />
+            <Route path="/trendfollow" element={<TrendFollowing theme={theme} toast={toast} />} />
+            <Route path="/community" element={<Community user={user} profile={community} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onProfile={goProfile} onTicker={goTicker} toast={toast} />} />
+            <Route path="/thesis" element={<Thesis user={user} needsAlias={needsAlias} onEditAlias={() => setAliasOpen(true)} onLogin={() => setAuthOpen(true)} onTicker={goTicker} toast={toast} />} />
+            <Route path="/comunidad/u/:handle" element={<Profile currentUser={user} canInteract={canInteract} onBack={() => navigate(-1)} onAuthor={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />} />
+            <Route path="/comunidad/ticker/:symbol" element={<TickerPage currentUser={user} canInteract={canInteract} onBack={() => navigate(-1)} onProfile={goProfile} onTicker={goTicker} requireInteract={requireInteract} toast={toast} />} />
+            <Route path="/learning" element={<Knowledge notes={notes} assets={assets} onAdd={addNote} go={go} />} />
+            <Route path="/trends" element={<Trends theme={theme} toast={toast} />} />
+            <Route path="/indices" element={<Indices theme={theme} toast={toast} />} />
+            <Route path="/sentiment" element={<Sentiment theme={theme} toast={toast} />} />
+            <Route path="/marketmap" element={<MarketMap theme={theme} toast={toast} />} />
+            <Route path="/macro" element={<Macro theme={theme} toast={toast} />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
       </div>
 

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import PostCard from './PostCard.jsx';
 
-// Perfil público de un usuario (navegado por estado: section='profile').
-export default function Profile({ handle, currentUser, canInteract, onBack, onTicker, onAuthor, requireInteract, toast }) {
+// Perfil público de un usuario — ruta /comunidad/u/:handle.
+export default function Profile({ currentUser, canInteract, onBack, onTicker, onAuthor, requireInteract, toast }) {
+  const { handle } = useParams();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [cursor, setCursor] = useState(null);
