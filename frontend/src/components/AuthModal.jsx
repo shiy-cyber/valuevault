@@ -104,6 +104,13 @@ export default function AuthModal({ open, onClose, onAuth, toast, presetCode }) 
               {busy ? '⏳…' : (mode === 'login' ? 'Entrar' : mode === 'register' ? 'Crear cuenta' : 'Restablecer')}
             </button>
 
+            {mode === 'register' && (
+              <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '10px', color: 'var(--muted)' }}>
+                Al crear una cuenta aceptas nuestra{' '}
+                <a href="/privacidad.html" target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>Política de Privacidad</a>.
+              </div>
+            )}
+
             <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.9 }}>
               {mode === 'login' && <>¿No tienes cuenta? <span onClick={() => setMode('register')} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>Regístrate</span><br /><span onClick={() => setMode('reset')} style={{ color: 'var(--muted)', cursor: 'pointer', textDecoration: 'underline' }}>¿Olvidaste tu contraseña?</span></>}
               {mode === 'register' && <>¿Ya tienes cuenta? <span onClick={() => setMode('login')} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>Inicia sesión</span></>}

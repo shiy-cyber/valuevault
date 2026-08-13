@@ -28,6 +28,8 @@ export default function AboutUs() {
           <p style={{ margin: 0 }}>
             ¿Preguntas, fallos o alguna idea? Escríbenos a{' '}
             <a href="mailto:hola@valuevault.es" style={{ color: 'var(--gold)' }}>hola@valuevault.es</a>.
+            {' '}Consulta también nuestra{' '}
+            <a href="/privacidad.html" style={{ color: 'var(--gold)' }}>Política de Privacidad</a>.
           </p>
         </div>
       </div>
