@@ -29,6 +29,7 @@ import { generateCapexNarrative } from './capexAI.js';
 import { generateCompanyIntro } from './companyAI.js';
 import { registerUser, loginUser, userFromReq, initAuthSecret, resetWithCode, regenerateRecovery, requestPasswordReset, resetWithToken } from './auth.js';
 import { sendPasswordResetEmail } from './email.js';
+import { checkRateLimit, registerAttempt, clearRateLimit, clientIp, LOGIN_LIMIT, FORGOT_LIMIT, REGISTER_LIMIT } from './rateLimit.js';
 import multer from 'multer';
 import { validatePdfBuffer, safeFileName, MAX_THESIS_BYTES } from './thesis.js';
 import { saveBlob, getBlob, deleteBlob, thesisKey } from './blobs.js';
@@ -179,11 +180,35 @@ export async function createApp() {
   }));
 
   // ─── AUTH ──────────────────────────────────────────────────
+  // Rate-limit respaldado en BD (rateLimit.js) — un contador en memoria no
+  // protegería nada aquí: Netlify puede servir la siguiente petición desde
+  // una instancia de Node distinta.
   app.post('/api/auth/register', h(async (req, res) => {
+    const ipKey = `register:${clientIp(req)}`;
+    const guard = await checkRateLimit(ipKey);
+    if (guard.blocked) {
+      throw Object.assign(new Error(`Demasiadas cuentas creadas desde aquí. Prueba de nuevo en ${Math.ceil(guard.secondsLeft / 60)} min.`), { status: 429 });
+    }
+    await registerAttempt(ipKey, REGISTER_LIMIT); // cuenta cada intento, éxito o no
     res.status(201).json(await registerUser(req.body.email, req.body.password));
   }));
   app.post('/api/auth/login', h(async (req, res) => {
-    res.json(await loginUser(req.body.email, req.body.password));
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const emailKey = `login:email:${email}`;
+    const ipKey = `login:ip:${clientIp(req)}`;
+    const [byEmail, byIp] = await Promise.all([checkRateLimit(emailKey), checkRateLimit(ipKey)]);
+    if (byEmail.blocked || byIp.blocked) {
+      const secs = Math.max(byEmail.secondsLeft, byIp.secondsLeft);
+      throw Object.assign(new Error(`Demasiados intentos. Prueba de nuevo en ${Math.ceil(secs / 60)} min.`), { status: 429 });
+    }
+    try {
+      const result = await loginUser(req.body.email, req.body.password);
+      await Promise.all([clearRateLimit(emailKey), clearRateLimit(ipKey)]);
+      res.json(result);
+    } catch (e) {
+      await Promise.all([registerAttempt(emailKey, LOGIN_LIMIT), registerAttempt(ipKey, LOGIN_LIMIT)]);
+      throw e;
+    }
   }));
   app.get('/api/auth/me', h(async (req, res) => {
     const u = userFromReq(req);
@@ -197,7 +222,18 @@ export async function createApp() {
   }));
   // Pide un enlace de recuperación por email. Respuesta SIEMPRE genérica
   // (no revela si el email existe o no) — el envío real es best-effort.
+  // Rate-limit por email Y por IP: evita tanto floodear la bandeja de una
+  // víctima como agotar la cuota de Resend probando muchos emails seguidos.
   app.post('/api/auth/forgot', h(async (req, res) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const emailKey = `forgot:email:${email || 'sin-email'}`;
+    const ipKey = `forgot:ip:${clientIp(req)}`;
+    const [byEmail, byIp] = await Promise.all([checkRateLimit(emailKey), checkRateLimit(ipKey)]);
+    if (byEmail.blocked || byIp.blocked) {
+      // Misma respuesta genérica de siempre: no delatamos el límite, solo dejamos de reenviar.
+      return res.json({ ok: true });
+    }
+    await Promise.all([registerAttempt(emailKey, FORGOT_LIMIT), registerAttempt(ipKey, FORGOT_LIMIT)]);
     try {
       const r = await requestPasswordReset(req.body.email);
       if (r) await sendPasswordResetEmail(req.body.email, req.body.email, r.token);

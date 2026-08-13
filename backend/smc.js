@@ -8,6 +8,7 @@
 // soporte/resistencia no mitigada más cercana al precio. Cache 10 min.
 // ─────────────────────────────────────────────────────────────
 import { yahooSymbol } from './sectors.js';
+import { cached } from './cache.js';
 
 const YF_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -136,16 +137,19 @@ function detectOB(bars, impulse = IMPULSE) {
   return out;
 }
 
-const cache = new Map();
 const TTL = 10 * 60 * 1000;
 
+// Respaldada en BD (av_cache) vía cached() — un `Map()` de módulo no
+// sobrevive entre invocaciones de Netlify Functions (cada una puede ser una
+// instancia de Node nueva), así que antes era cache-miss casi siempre.
 export async function getSMC(symbol, range = '6mo') {
   const sym = yahooSymbol(symbol);
   const r = RANGE_INTERVAL[range] ? range : '6mo';
-  const key = `${sym}|${r}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.ts < TTL) return hit.data;
+  const { data } = await cached(`SMC:${sym}|${r}`, TTL, () => fetchSMC(sym, r));
+  return data;
+}
 
+async function fetchSMC(sym, r) {
   const { bars, meta } = await fetchOHLC(sym, r, RANGE_INTERVAL[r]);
   if (bars.length < 5) throw Object.assign(new Error('Sin datos suficientes para ' + sym), { status: 404 });
 
@@ -188,6 +192,5 @@ export async function getSMC(symbol, range = '6mo') {
       obHtf: obList.filter(z => z.htf).length,
     },
   };
-  cache.set(key, { ts: Date.now(), data });
   return data;
 }

@@ -286,6 +286,12 @@ export async function initSchema() {
       key  TEXT PRIMARY KEY,
       data TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      rkey        TEXT PRIMARY KEY,
+      attempts    INTEGER DEFAULT 0,
+      windowStart TEXT,
+      blockedUntil TEXT
+    );
   `);
   // 'portfolio' = en cartera · 'watchlist' = en seguimiento
   await ensureColumn('assets', 'type', "TEXT DEFAULT 'portfolio'");

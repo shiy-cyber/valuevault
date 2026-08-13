@@ -110,7 +110,6 @@ function buildSeriesByTime(points, years) {
   return { series, labels };
 }
 
-let cache = { ts: 0, data: null };
 const TTL = 10 * 60 * 1000; // 10 min
 
 // Periodos cortos → datos diarios (1 año). Periodos largos → histórico máximo
@@ -118,10 +117,18 @@ const TTL = 10 * 60 * 1000; // 10 min
 const SEC_LONG_YEARS = { '3y': 3, '5y': 5, '10y': 10 };
 const SEC_PERIODS = [...PERIODS, ...Object.keys(SEC_LONG_YEARS)];
 
+// Respaldada en BD (av_cache) vía cached() — igual que getQuote/getQuotes.
+// Antes era una variable de módulo (`let cache = {...}`): en Netlify
+// Functions cada invocación puede ser una instancia de Node nueva, así que
+// esa caché era cache-miss casi siempre y, ante fallo de Yahoo, degradaba a
+// un array de ceros en vez de a la última copia buena conocida.
 export async function getSectors(force = false) {
-  if (!force && cache.data && Date.now() - cache.ts < TTL) return cache.data;
+  const { data } = await cached('SECTORS:all', TTL, () => fetchSectors(), { force });
+  return data;
+}
 
-  const results = await Promise.all(SECTOR_META.map(async (m) => {
+async function fetchSectors() {
+  return Promise.all(SECTOR_META.map(async (m) => {
     const base = { ...m };
     try {
       // Diario (1a) para periodos cortos + mensual (máx histórico) para los largos
@@ -165,9 +172,6 @@ export async function getSectors(force = false) {
     }
     return base;
   }));
-
-  cache = { ts: Date.now(), data: results };
-  return results;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -200,11 +204,13 @@ const IDX_SHORT = ['1m', '3m', '6m', '1y', 'ytd'];
 const IDX_LONG_YEARS = { '3y': 3, '5y': 5, '10y': 10, '20y': 20 };
 const IDX_PERIODS = [...IDX_SHORT, ...Object.keys(IDX_LONG_YEARS)];
 
-let idxCache = { ts: 0, data: null };
 export async function getIndices(force = false) {
-  if (!force && idxCache.data && Date.now() - idxCache.ts < TTL) return idxCache.data;
+  const { data } = await cached('INDICES:all', TTL, () => fetchIndices(), { force });
+  return data;
+}
 
-  const results = await Promise.all(INDEX_META.map(async (m) => {
+async function fetchIndices() {
+  return Promise.all(INDEX_META.map(async (m) => {
     const base = { ...m };
     try {
       // Diario (1a) para periodos cortos + mensual (máx histórico) para los largos
@@ -247,9 +253,6 @@ export async function getIndices(force = false) {
     }
     return base;
   }));
-
-  idxCache = { ts: Date.now(), data: results };
-  return results;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -327,11 +330,14 @@ function dailyChange(points, meta) {
   return { price: price != null ? +Number(price).toFixed(2) : null, prev, change };
 }
 
-let mmCache = { ts: 0, data: null };
+const MARKETMAP_TTL = 15 * 60 * 1000;
 export async function getMarketMap(force = false) {
-  if (!force && mmCache.data && Date.now() - mmCache.ts < 15 * 60 * 1000) return mmCache.data;
+  const { data } = await cached('MARKETMAP:all', MARKETMAP_TTL, () => fetchMarketMap(), { force });
+  return data;
+}
 
-  const out = await Promise.all(MARKET_BASKET.map(async (s) => {
+async function fetchMarketMap() {
+  return Promise.all(MARKET_BASKET.map(async (s) => {
     try {
       const { points, meta } = await fetchChart(yahooSymbol(s.ticker), '5d', '1d');
       const { price, change } = dailyChange(points, meta);
@@ -340,9 +346,6 @@ export async function getMarketMap(force = false) {
       return { ...s, price: null, changePercent: 0, live: false };
     }
   }));
-
-  mmCache = { ts: Date.now(), data: out };
-  return out;
 }
 
 const QUOTE_TTL = 10 * 60 * 1000; // 10 min
