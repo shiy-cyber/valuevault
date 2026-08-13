@@ -106,6 +106,7 @@ export const api = {
   fx: (symbols) => req('GET', `/api/fx?symbols=${encodeURIComponent((symbols || []).join(','))}`),
   risk: (symbols, range = '1y') => req('GET', `/api/risk?symbols=${encodeURIComponent((symbols || []).join(','))}&range=${range}`),
   quote:   (symbol) => req('GET', `/api/quote/${encodeURIComponent(symbol)}`),
+  quotes:  (symbols, fresh) => req('GET', `/api/quotes?symbols=${encodeURIComponent((symbols || []).join(','))}${fresh ? '&fresh=1' : ''}`),
   history: (symbol, range) => req('GET', `/api/history/${encodeURIComponent(symbol)}?range=${range}`),
   refreshPrices: () => req('POST', '/api/assets/refresh-prices'),
   refreshAssetData: (id) => req('POST', `/api/assets/${id}/refresh-data`),

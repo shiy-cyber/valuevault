@@ -836,6 +836,10 @@ export async function createApp() {
     res.json(await getRisk(symbols, req.query.range || '1y'));
   }));
   app.get('/api/quote/:symbol', h(async (req, res) => { res.json(await getQuote(req.params.symbol)); }));
+  app.get('/api/quotes', h(async (req, res) => {
+    const symbols = String(req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean);
+    res.json(await getQuotes(symbols, req.query.fresh === '1'));
+  }));
   app.get('/api/history/:symbol', h(async (req, res) => { res.json(await getHistory(req.params.symbol, req.query.range || '6mo')); }));
 
   // Refresco MANUAL de precios = ingesta CENTRALIZADA (escribe en `quotes`),

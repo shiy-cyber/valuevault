@@ -1,6 +1,7 @@
 import React from 'react';
 import AssetRow from './AssetRow.jsx';
 import RiskPanel from './RiskPanel.jsx';
+import MarketPulse from './MarketPulse.jsx';
 import { portfolioStats, fmtBase } from '../lib/format.js';
 
 export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality, goAssets, onRefresh, refreshing, lastRefresh }) {
@@ -13,6 +14,8 @@ export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEd
 
   return (
     <div className="section active">
+      <MarketPulse />
+
       <div className="kpi-grid">
         <div className="kpi-card">
           <div className="kpi-label">Valor Cartera</div>
