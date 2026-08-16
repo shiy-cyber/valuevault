@@ -23,6 +23,18 @@
 
 </head>
 <body>
+  <!-- Contenido visible para bots/lectores que no ejecutan JavaScript (la app
+       real es una SPA React que se pinta en /src/main.jsx). Sin esto, un
+       fetch crudo solo ve <div id="root"></div> vacío y puede malinterpretar
+       el sitio como una plantilla vacía/sospechosa. -->
+  <noscript>
+    <div style="max-width:640px;margin:60px auto;padding:0 24px;font-family:sans-serif;line-height:1.7;color:#1a1d23;">
+      <h1>ValueVault</h1>
+      <p>Plataforma de inversión: cartera personal, herramientas de análisis de mercado (DCF, macro, sentimiento, gamma, trend following) y una comunidad de inversores. Esta aplicación necesita JavaScript para funcionar — actívalo en tu navegador para usarla.</p>
+      <p><b>Responsable del sitio:</b> Shiyu Bao. Contacto: <a href="mailto:hola@valuevault.es">hola@valuevault.es</a>.</p>
+      <p>Consulta la <a href="/privacidad.html">Política de Privacidad</a>.</p>
+    </div>
+  </noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

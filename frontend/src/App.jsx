@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { api, setToken, setNetworkStatusHandler } from './lib/api.js';
 import { NAV, PAGE_TITLES } from './data/constants.js';
@@ -8,36 +8,52 @@ import { usePageMeta } from './lib/usePageMeta.js';
 // Páginas de cartera privada del usuario: sin valor público, se marcan
 // noindex (Fase 1 SEO — el resto de secciones sí es indexable).
 const PRIVATE_SECTIONS = new Set(['dashboard', 'assets', 'watchlist', 'compare', 'charts', 'learning']);
-import Dashboard from './components/Dashboard.jsx';
-import Assets from './components/Assets.jsx';
-import Watchlist from './components/Watchlist.jsx';
-import Compare from './components/Compare.jsx';
-import Charts from './components/Charts.jsx';
-import Screener from './components/Screener.jsx';
-import Valuation from './components/Valuation.jsx';
-import VolProfile from './components/VolProfile.jsx';
-import SMC from './components/SMC.jsx';
-import Gamma from './components/Gamma.jsx';
-import TrendFollowing from './components/TrendFollowing.jsx';
-import Knowledge from './components/Knowledge.jsx';
-import Trends from './components/Trends.jsx';
-import Indices from './components/Indices.jsx';
-import Sentiment from './components/Sentiment.jsx';
-import MarketMap from './components/MarketMap.jsx';
-import Macro from './components/Macro.jsx';
+
+// Componentes de página, cargados bajo demanda (uno por ruta): con rutas
+// reales ya no hace falta empaquetar Gamma/SMC/Valuation/etc. en el bundle
+// inicial — solo se descarga el código de la página que se está viendo.
+const Dashboard = lazy(() => import('./components/Dashboard.jsx'));
+const Assets = lazy(() => import('./components/Assets.jsx'));
+const Watchlist = lazy(() => import('./components/Watchlist.jsx'));
+const Compare = lazy(() => import('./components/Compare.jsx'));
+const Charts = lazy(() => import('./components/Charts.jsx'));
+const Screener = lazy(() => import('./components/Screener.jsx'));
+const Valuation = lazy(() => import('./components/Valuation.jsx'));
+const VolProfile = lazy(() => import('./components/VolProfile.jsx'));
+const SMC = lazy(() => import('./components/SMC.jsx'));
+const Gamma = lazy(() => import('./components/Gamma.jsx'));
+const TrendFollowing = lazy(() => import('./components/TrendFollowing.jsx'));
+const Knowledge = lazy(() => import('./components/Knowledge.jsx'));
+const Trends = lazy(() => import('./components/Trends.jsx'));
+const Indices = lazy(() => import('./components/Indices.jsx'));
+const Sentiment = lazy(() => import('./components/Sentiment.jsx'));
+const MarketMap = lazy(() => import('./components/MarketMap.jsx'));
+const Macro = lazy(() => import('./components/Macro.jsx'));
+const Community = lazy(() => import('./components/community/Community.jsx'));
+const Thesis = lazy(() => import('./components/community/Thesis.jsx'));
+const Profile = lazy(() => import('./components/community/Profile.jsx'));
+const TickerPage = lazy(() => import('./components/community/TickerPage.jsx'));
+const AboutUs = lazy(() => import('./components/AboutUs.jsx'));
+
+// Siempre montados (modales/overlays globales, no dependen de la ruta) —
+// se quedan en el bundle principal, no tiene sentido diferirlos.
 import AssetModal from './components/AssetModal.jsx';
 import LearnModal from './components/LearnModal.jsx';
 import DetailModal from './components/DetailModal.jsx';
 import AuthModal from './components/AuthModal.jsx';
-import Community from './components/community/Community.jsx';
-import Thesis from './components/community/Thesis.jsx';
-import Profile from './components/community/Profile.jsx';
-import TickerPage from './components/community/TickerPage.jsx';
 import Notifications from './components/community/Notifications.jsx';
 import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
 import Maintenance from './components/Maintenance.jsx';
-import AboutUs from './components/AboutUs.jsx';
+
+// Fallback de Suspense mientras se descarga el chunk de una página.
+function RouteFallback() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", fontSize: '12px' }}>
+      ⏳ Cargando…
+    </div>
+  );
+}
 
 export default function App() {
   const navigate = useNavigate();
@@ -406,6 +422,7 @@ export default function App() {
               👁 Estás viendo la cartera <b>DEMO</b> compartida (solo lectura). <span onClick={() => setAuthOpen(true)} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>Crea tu cuenta privada</span> para gestionar tus propios activos y notas.
             </div>
           )}
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Dashboard assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />} />
             <Route path="/dashboard" element={<Navigate to="/" replace />} />
@@ -432,6 +449,7 @@ export default function App() {
             <Route path="/about" element={<AboutUs />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </div>
       </div>
 
