@@ -6,8 +6,9 @@
 // por ticker. Si AV agota cuota, se devuelve {limited:true} y la
 // calculadora sigue funcionando en modo manual.
 // ─────────────────────────────────────────────────────────────
-import { getQuote } from './sectors.js';
+import { getQuote, getHistory } from './sectors.js';
 import { avQuery } from './avCache.js';
+import { fmpQuery } from './fmp.js';
 
 const num = (v) => {
   if (v === undefined || v === null || v === 'None' || v === '' || v === '-') return null;
@@ -66,6 +67,90 @@ function capexProfileOf(capexToRevenue, capexToDA) {
 const cache = new Map(); // ticker → { ts, data }
 const TTL = 24 * 60 * 60 * 1000;
 
+// Respaldo Financial Modeling Prep para los 4 estados financieros (OVERVIEW +
+// CASH_FLOW + INCOME_STATEMENT + BALANCE_SHEET), SOLO cuando Alpha Vantage
+// falla (cuota/red) o no cubre el ticker. Normaliza la respuesta de FMP a la
+// MISMA forma que usa el resto de este archivo (annualReports con los
+// nombres de campo de Alpha Vantage) — así el cálculo de ROIC/WACC/CapEx/
+// valuationHistory que sigue no necesita saber de qué proveedor vino el
+// dato, y nunca se mezclan campos de los dos proveedores para un mismo
+// ticker (evitaría inconsistencias: normalizaciones contables distintas).
+// Comprobado en vivo: FMP cubre en su plan gratis income-statement,
+// balance-sheet-statement, cash-flow-statement y profile para AAPL (que AV
+// SÍ cubre en estos 4 endpoints — el hueco real de AV está en otros
+// endpoints, como EARNINGS_ESTIMATES); este respaldo cubre el caso general
+// de cuota agotada o un ticker sin cobertura en estos 4 concretos.
+async function fetchFMPStatements(sym) {
+  // OJO: el plan gratis de FMP limita income/balance/cash-flow-statement a
+  // 5 registros (comprobado en vivo — distinto del límite de 10 que sí
+  // admite analyst-estimates). Pedir más da un error "Premium Query
+  // Parameter" y fmpQuery lo trataría como "sin dato".
+  const [incRows, balRows, cfRows, profileRows] = await Promise.all([
+    fmpQuery('income-statement', { symbol: sym, period: 'annual', limit: 5 }),
+    fmpQuery('balance-sheet-statement', { symbol: sym, period: 'annual', limit: 5 }),
+    fmpQuery('cash-flow-statement', { symbol: sym, period: 'annual', limit: 5 }),
+    fmpQuery('profile', { symbol: sym }),
+  ]);
+  if (!incRows?.length || !balRows?.length || !cfRows?.length) return null; // FMP tampoco cubre este ticker
+
+  // Nº de acciones: FMP lo da en income-statement (weightedAverageShsOut), no
+  // en el balance como AV — se cruza por año fiscal para rellenar el balance.
+  const sharesByYear = {};
+  incRows.forEach(r => { if (r.date) sharesByYear[r.date.slice(0, 4)] = r.weightedAverageShsOut ?? null; });
+
+  const income = { annualReports: incRows.map(r => ({
+    fiscalDateEnding: r.date,
+    totalRevenue: r.revenue,
+    grossProfit: r.grossProfit,
+    ebit: r.ebit,
+    ebitda: r.ebitda,
+    operatingIncome: r.operatingIncome,
+    incomeBeforeTax: r.incomeBeforeTax,
+    incomeTaxExpense: r.incomeTaxExpense,
+    netIncome: r.netIncome,
+  })) };
+  const balance = { annualReports: balRows.map(r => ({
+    fiscalDateEnding: r.date,
+    totalShareholderEquity: r.totalStockholdersEquity,
+    commonStockSharesOutstanding: sharesByYear[r.date?.slice(0, 4)] ?? null,
+    shortTermDebt: r.shortTermDebt,
+    longTermDebt: r.longTermDebt,
+    shortLongTermDebtTotal: r.totalDebt,
+    cashAndShortTermInvestments: r.cashAndShortTermInvestments,
+  })) };
+  // FMP da capex/recompras/dividendos en NEGATIVO (salida de caja); AV los da
+  // en positivo — se homogeniza con Math.abs para que el resto del cálculo
+  // (pensado para el signo de AV) no cambie.
+  const cash = { annualReports: cfRows.map(r => ({
+    fiscalDateEnding: r.date,
+    operatingCashflow: r.operatingCashFlow,
+    capitalExpenditures: r.capitalExpenditure != null ? Math.abs(r.capitalExpenditure) : null,
+    depreciationDepletionAndAmortization: r.depreciationAndAmortization,
+    paymentsForRepurchaseOfCommonStock: r.commonStockRepurchased != null ? Math.abs(r.commonStockRepurchased) : null,
+    dividendPayout: r.netDividendsPaid != null ? Math.abs(r.netDividendsPaid) : null,
+  })) };
+  const profile = profileRows?.[0] || {};
+  // Overview reducido: solo lo que FMP realmente tiene gratis (nombre, sector,
+  // beta, nº de acciones). Rating de analistas/medias móviles/dividend yield
+  // quedan null — no están cubiertos por los endpoints gratis de FMP; el resto
+  // de la app ya tiene respaldo propio para consenso de analistas (Yahoo,
+  // estimates.js), así que no es una pérdida crítica.
+  const overview = {
+    Symbol: sym,
+    Name: profile.companyName || sym,
+    Sector: profile.sector || null,
+    Beta: profile.beta ?? null,
+    SharesOutstanding: sharesByYear[incRows[0]?.date?.slice(0, 4)] ?? null,
+    DividendYield: null,
+    '50DayMovingAverage': null,
+    '200DayMovingAverage': null,
+    AnalystRatingStrongBuy: 0, AnalystRatingBuy: 0, AnalystRatingHold: 0, AnalystRatingSell: 0, AnalystRatingStrongSell: 0,
+    AnalystTargetPrice: null,
+    ReturnOnEquityTTM: null,
+  };
+  return { overview, income, balance, cash };
+}
+
 export async function getFundamentals(ticker) {
   const sym = String(ticker || '').trim().toUpperCase();
   if (!sym) throw Object.assign(new Error('Ticker vacío'), { status: 400 });
@@ -76,15 +161,28 @@ export async function getFundamentals(ticker) {
   let price = null;
   try { const q = await getQuote(sym); price = q.price; } catch { /* sin precio */ }
 
-  // Cada llamada pasa por la caché global (avCache): TTL por tipo, throttle y
-  // resiliencia (si AV agota cuota sin copia previa, lanza 429 {limited}). Se
-  // captura `fetchedAt` de cada una para mostrar la antigüedad del dato fuente.
-  const ovR = await avQuery('OVERVIEW', sym), overview = ovR.data;
-  const cashR = await avQuery('CASH_FLOW', sym), cash = cashR.data;
-  const incR = await avQuery('INCOME_STATEMENT', sym), income = incR.data;
-  const balR = await avQuery('BALANCE_SHEET', sym), balance = balR.data;
-  // Antigüedad = la del dato MÁS VIEJO de los cuatro (el más conservador).
-  const fetchedAt = [ovR, cashR, incR, balR].map(r => r.fetchedAt).filter(Boolean).sort()[0] || null;
+  // Estados financieros: Alpha Vantage primero (caché avCache, TTL por tipo,
+  // resiliencia); si CUALQUIERA de las 4 llamadas falla (cuota/red) o AV no
+  // cubre el ticker (OVERVIEW vacío, sin campo Symbol — comprobado que pasa
+  // con algunos valores grandes), se cae a FMP para las 4 a la vez, nunca
+  // mezclando un proveedor a medias.
+  let overview, cash, income, balance, fetchedAt, source = 'av';
+  try {
+    const ovR = await avQuery('OVERVIEW', sym);
+    if (!ovR.data?.Symbol) throw Object.assign(new Error('AV sin cobertura'), { status: 502 });
+    const cashR = await avQuery('CASH_FLOW', sym);
+    const incR = await avQuery('INCOME_STATEMENT', sym);
+    const balR = await avQuery('BALANCE_SHEET', sym);
+    overview = ovR.data; cash = cashR.data; income = incR.data; balance = balR.data;
+    // Antigüedad = la del dato MÁS VIEJO de los cuatro (el más conservador).
+    fetchedAt = [ovR, cashR, incR, balR].map(r => r.fetchedAt).filter(Boolean).sort()[0] || null;
+  } catch {
+    const fmp = await fetchFMPStatements(sym);
+    if (!fmp) throw Object.assign(new Error('Sin fundamentales disponibles (Alpha Vantage y FMP agotados o sin cobertura)'), { status: 502 });
+    ({ overview, cash, income, balance } = fmp);
+    fetchedAt = new Date().toISOString();
+    source = 'fmp';
+  }
 
   const cf = cash.annualReports?.[0] || {};
   const inc = income.annualReports?.[0] || {};
@@ -132,6 +230,134 @@ export async function getFundamentals(ticker) {
   }
   // Crecimiento ROBUSTO (regresión log-lineal) → el que autocompleta el modelo
   const rg = robustGrowth(fcfHistory);
+
+  // ─── Evolución histórica de valoración (P/E, P/B, EV/EBITDA, ROE, márgenes, D/E) ──
+  // Reutiliza los mismos annualReports (sin coste de API AV adicional). Combina
+  // cada ejercicio con el precio real de Yahoo en esa fecha (histórico gratis,
+  // sin cuota) para múltiplos DE VERDAD por año, no solo el TTM actual.
+  // Forward P/E histórico REAL (no trailing): Alpha Vantage EARNINGS_ESTIMATES
+  // da el consenso de EPS por trimestre desde ~2017 (incluye 90 días de
+  // revisiones). Sumando los 4 trimestres siguientes a cada cierre de ejercicio
+  // se reconstruye el EPS estimado a 12 meses vista de ESE momento → Forward
+  // P/E real por año, no una aproximación. Llamada aparte y opcional: si falla
+  // (cuota AV, ticker sin cobertura de analistas) no rompe el resto.
+  let quarterlyEstimates = [];
+  try {
+    const eeR = await avQuery('EARNINGS_ESTIMATES', sym);
+    quarterlyEstimates = (eeR.data?.estimates || [])
+      .filter(e => e.horizon === 'fiscal quarter' && e.date && num(e.eps_estimate_average) != null)
+      .map(e => ({ date: e.date, eps: num(e.eps_estimate_average) }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  } catch { /* sin cobertura de analistas o cuota agotada → se intenta el respaldo FMP */ }
+  // Respaldo: Financial Modeling Prep, SOLO si AV no tiene nada para este
+  // ticker (AV cubre bastantes valores grandes; FMP cubre otros que AV no —
+  // ninguna de las dos cubre el 100%, por eso se combinan en vez de sustituir).
+  // Da el EPS estimado ANUAL directo (no hace falta sumar trimestres). Free
+  // tier de FMP: máx. 10 registros por llamada y universo de símbolos propio.
+  let annualEstimatesFMP = [];
+  if (!quarterlyEstimates.length && process.env.FMP_API_KEY) {
+    try {
+      const url = `https://financialmodelingprep.com/stable/analyst-estimates?symbol=${encodeURIComponent(sym)}&period=annual&limit=10&apikey=${process.env.FMP_API_KEY}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(9000) });
+      const j = await r.json();
+      if (Array.isArray(j)) {
+        annualEstimatesFMP = j.filter(e => e.date && num(e.epsAvg) != null).map(e => ({ date: e.date, eps: num(e.epsAvg) }));
+      }
+    } catch { /* tampoco disponible en FMP → este ticker se queda sin Fwd P/E histórico */ }
+  }
+  // EPS estimado a 12 meses vista DESDE una fecha: suma los 4 trimestres AV
+  // cuyo cierre cae después de esa fecha (año fiscal siguiente completo), o si
+  // AV no tiene datos, el primer ejercicio ANUAL de FMP que cierra después.
+  // Margen de proximidad: si la fuente no cubre esa fecha, el siguiente dato
+  // disponible puede estar años más adelante — usarlo daría un Fwd P/E FALSO
+  // (precio de hace años ÷ estimación de un ejercicio muy posterior). Si el
+  // primer trimestre/ejercicio disponible no empieza dentro de ~15 meses, se
+  // considera que no hay cobertura real para esa fecha y se deja en null.
+  const MAX_GAP_MS = 450 * 24 * 3600 * 1000;
+  const forwardEpsFrom = (dateStr) => {
+    if (!dateStr) return null;
+    const t = new Date(dateStr).getTime();
+    const nextQ = quarterlyEstimates.filter(q => new Date(q.date).getTime() > t).sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (nextQ.length >= 4 && new Date(nextQ[0].date).getTime() - t <= MAX_GAP_MS) {
+      return nextQ.slice(0, 4).reduce((s, q) => s + q.eps, 0);
+    }
+    const nextFMP = annualEstimatesFMP.filter(e => new Date(e.date).getTime() > t).sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+    if (nextFMP && new Date(nextFMP.date).getTime() - t <= MAX_GAP_MS) return nextFMP.eps;
+    return null;
+  };
+
+  let valuationHistory = [];
+  try {
+    const hist = await getHistory(sym, '10y');
+    const pricePts = hist?.points || [];
+    const priceNear = (dateStr) => {
+      if (!pricePts.length || !dateStr) return null;
+      const target = new Date(dateStr).getTime();
+      if (!Number.isFinite(target)) return null;
+      let best = null, bestDiff = Infinity;
+      for (const p of pricePts) {
+        const diff = Math.abs(p.t - target);
+        if (diff < bestDiff) { bestDiff = diff; best = p; }
+      }
+      return (best && bestDiff <= 12 * 24 * 3600 * 1000) ? best.close : null; // ~12 días de margen (barras semanales en 5y)
+    };
+    const byYear = (reports) => {
+      const map = {};
+      (reports || []).forEach(r => { const y = r.fiscalDateEnding?.slice(0, 4); if (y) map[y] = r; });
+      return map;
+    };
+    const incY = byYear(income.annualReports), balY = byYear(balance.annualReports), cashY = byYear(cash.annualReports);
+    const years = Object.keys(incY).filter(y => balY[y]).sort((a, b) => b - a).slice(0, 10);
+    valuationHistory = years.map(y => {
+      const ir = incY[y], br = balY[y], cr = cashY[y] || {};
+      const px = priceNear(ir.fiscalDateEnding);
+      const sh = num(br.commonStockSharesOutstanding);
+      const ni = num(ir.netIncome);
+      const eq = num(br.totalShareholderEquity);
+      const rev = num(ir.totalRevenue);
+      const gp = num(ir.grossProfit);
+      const opInc = num(ir.ebit) ?? num(ir.operatingIncome);
+      const ebitdaDirect = num(ir.ebitda); // AV lo da directo — más fiable que EBIT+D&A
+      const daY = num(cr.depreciationDepletionAndAmortization);
+      const stD = num(br.shortTermDebt), ltD = num(br.longTermDebt);
+      const debtY = (stD != null || ltD != null) ? (stD || 0) + (ltD || 0) : null;
+      const cashEqY = num(br.cashAndShortTermInvestments) ?? num(br.cashAndCashEquivalentsAtCarryingValue);
+      const eps = (ni != null && sh) ? ni / sh : null;
+      const bvps = (eq != null && sh) ? eq / sh : null;
+      const mcapY = (px != null && sh) ? px * sh : null;
+      const ebitdaY = ebitdaDirect ?? (opInc != null ? opInc + (daY || 0) : null);
+      const evY = (mcapY != null && debtY != null) ? mcapY + debtY - (cashEqY || 0) : null;
+      const fwdEps = forwardEpsFrom(ir.fiscalDateEnding);
+      return {
+        year: y,
+        price: px != null ? +px.toFixed(2) : null,
+        eps, // interno, para el crecimiento interanual (PEG) — no se muestra directamente
+        pe: (px != null && eps > 0) ? +(px / eps).toFixed(2) : null,
+        fpe: (px != null && fwdEps > 0) ? +(px / fwdEps).toFixed(2) : null,
+        pb: (px != null && bvps > 0) ? +(px / bvps).toFixed(2) : null,
+        evEbitda: (evY != null && ebitdaY > 0) ? +(evY / ebitdaY).toFixed(2) : null,
+        roe: (ni != null && eq) ? +((ni / eq) * 100).toFixed(2) : null,
+        netMargin: (ni != null && rev) ? +((ni / rev) * 100).toFixed(2) : null,
+        grossMargin: (gp != null && rev) ? +((gp / rev) * 100).toFixed(2) : null,
+        debtToEquity: (debtY != null && eq) ? +(debtY / eq).toFixed(2) : null,
+      };
+    });
+    // PEG histórico = P/E ÷ crecimiento interanual del EPS (TRAILING, no forward:
+    // el PEG "oficial" de Alpha Vantage usa estimaciones de analistas de HOY, que
+    // no tenemos con retroactividad — este es el único PEG que se puede calcular
+    // con datos reales año a año). Compara cada año con el inmediatamente anterior
+    // (el array va de más reciente a más antiguo → el "anterior" es el siguiente índice).
+    valuationHistory.forEach((r, i) => {
+      const prev = valuationHistory[i + 1];
+      const epsGrowth = (r.eps != null && prev?.eps > 0) ? (r.eps / prev.eps - 1) * 100 : null;
+      // Umbral mínimo de crecimiento (2%): con crecimiento casi nulo el PEG
+      // (P/E entre un número casi cero) se dispara a valores absurdos y deja de
+      // ser informativo — práctica habitual es no mostrarlo en ese caso.
+      r.peg = (r.pe != null && epsGrowth != null && epsGrowth > 2) ? +(r.pe / epsGrowth).toFixed(2) : null;
+      delete r.eps; // interno, no se expone
+    });
+    valuationHistory = valuationHistory.filter(r => r.pe != null || r.fpe != null || r.pb != null || r.evEbitda != null || r.roe != null);
+  } catch { /* histórico de precio no disponible → sin evolución, no rompe el resto */ }
 
   const shares = num(overview.SharesOutstanding);
   const beta = num(overview.Beta);
@@ -257,6 +483,8 @@ export async function getFundamentals(ticker) {
     capexToDA,
     capexHistory,
     capexProfile,
+    // Evolución de múltiplos de valoración y calidad por ejercicio fiscal (hasta 5 años)
+    valuationHistory,
     // Quick-wins coste 0 (OVERVIEW): consenso de analistas (respaldo gratis de
     // Yahoo) y rentabilidad por dividendo.
     consensus,
@@ -267,8 +495,10 @@ export async function getFundamentals(ticker) {
     ma200,
     shYield,
     sharesChg,
-    // Antigüedad del dato fuente de AV (para el badge de procedencia).
+    // Antigüedad del dato fuente (para el badge de procedencia) + qué
+    // proveedor lo sirvió ('av' | 'fmp', respaldo solo si AV falló/no cubría).
     fetchedAt,
+    source,
   };
   cache.set(sym, { ts: Date.now(), data });
   return data;

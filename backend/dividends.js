@@ -4,17 +4,19 @@
 // anual? (proxy de "dividend aristocrat") + importe por año. Bajo
 // demanda (no en /quality): su propio endpoint + botón. Cacheado vía
 // avCache (TTL 7d). Agrega los pagos por año (ex_dividend_date).
+//
+// Respaldo Financial Modeling Prep (SOLO si AV falla/no cubre el ticker):
+// su plan gratis limita a 5 pagos (~1,25 años con dividendo trimestral) —
+// bastante menos profundidad que AV, así que la racha/histórico saldrán
+// más cortos. Dato real igual, sin rellenar lo que falta.
 // ─────────────────────────────────────────────────────────────
 import { avQuery } from './avCache.js';
+import { fmpQuery } from './fmp.js';
 
-export async function getDividends(symbol) {
-  const sym = String(symbol || '').trim().toUpperCase();
-  if (!sym) return null;
-
-  const { data, stale, fetchedAt } = await avQuery('DIVIDENDS', sym);
-  const rows = Array.isArray(data?.data) ? data.data : [];
-
-  // Suma de importes por año natural (ex-dividend date).
+// Agrega filas {ex_dividend_date|payment_date, amount} en dividendo anual,
+// racha de subidas consecutivas e histórico de 6 años — mismo cálculo sin
+// importar si las filas vienen de AV o (respaldo) de FMP.
+function aggregateDividends(rows, { stale, fetchedAt }) {
   const byYear = {};
   for (const r of rows) {
     const amt = parseFloat(r.amount);
@@ -52,4 +54,21 @@ export async function getDividends(symbol) {
     stale: !!stale,
     fetchedAt,
   };
+}
+
+export async function getDividends(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) return null;
+
+  try {
+    const { data, stale, fetchedAt } = await avQuery('DIVIDENDS', sym);
+    const rows = Array.isArray(data?.data) ? data.data : [];
+    const result = aggregateDividends(rows, { stale, fetchedAt });
+    if (result) return result;
+  } catch { /* AV caído/cuota agotada → se intenta el respaldo FMP */ }
+
+  const rows = await fmpQuery('dividends', { symbol: sym, limit: 5 });
+  if (!rows?.length) return null;
+  const mapped = rows.map(r => ({ ex_dividend_date: r.date, amount: r.dividend }));
+  return aggregateDividends(mapped, { stale: false, fetchedAt: new Date().toISOString() });
 }

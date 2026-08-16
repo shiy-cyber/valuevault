@@ -3,6 +3,12 @@
 // "Smart money": ¿los directivos compran o venden sus propias acciones?
 // Bajo demanda (no en /quality): su propio endpoint + botón. Cacheado vía
 // avCache (TTL 7d por defecto). acquisition_or_disposal: A=compra, D=venta.
+//
+// SIN respaldo Financial Modeling Prep (comprobado, no al descuido): su
+// endpoint (`insider-trading/search`) da "Restricted Endpoint" en el plan
+// gratis — no hay forma real de cubrir este hueco sin pasar a un plan de
+// pago. Si AV falla o no tiene el ticker, esta función simplemente no
+// devuelve datos (como ya pasaba antes).
 // ─────────────────────────────────────────────────────────────
 import { avQuery } from './avCache.js';
 

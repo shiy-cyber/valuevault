@@ -418,7 +418,7 @@ export async function getFx(symbols = []) {
 }
 
 // Serie histórica de cierres para el gráfico por activo
-const RANGE_INTERVAL = { '1mo': '1d', '6mo': '1d', '1y': '1d', '5y': '1wk' };
+const RANGE_INTERVAL = { '1mo': '1d', '6mo': '1d', '1y': '1d', '5y': '1wk', '10y': '1wk' };
 export async function getHistory(symbol, range = '6mo') {
   const r = RANGE_INTERVAL[range] ? range : '6mo';
   const { points } = await fetchChart(yahooSymbol(symbol), r, RANGE_INTERVAL[r]);

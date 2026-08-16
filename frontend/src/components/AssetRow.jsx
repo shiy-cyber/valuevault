@@ -140,6 +140,73 @@ function CapexChart({ history, theme }) {
   );
 }
 
+// Evolución histórica de múltiplos de valoración/calidad (hasta 5 ejercicios),
+// con selector de métrica. `history` viene de valuation.js: cada año combina
+// el precio REAL de Yahoo en esa fecha con los estados financieros de Alpha
+// Vantage — no son cifras inventadas, cuando falta un dato el punto queda null.
+const VALUATION_METRICS = [
+  { key: 'pe', label: 'P/E', color: '#c9a84c', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
+  { key: 'fpe', label: 'Fwd P/E', color: '#f39c12', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
+  { key: 'peg', label: 'PEG', color: '#e8c96a', fmt: v => v == null ? '—' : v.toFixed(2) },
+  { key: 'pb', label: 'P/B', color: '#3a8eff', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
+  { key: 'evEbitda', label: 'EV/EBITDA', color: '#9b59b6', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
+  { key: 'roe', label: 'ROE', color: '#2ecc71', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
+  { key: 'netMargin', label: 'Margen neto', color: '#16a085', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
+  { key: 'grossMargin', label: 'Margen bruto', color: '#e67e22', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
+  { key: 'debtToEquity', label: 'Deuda/Equity', color: '#e74c3c', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
+];
+
+const VALUATION_YEAR_RANGES = [[3, '3A'], [5, '5A'], [10, '10A']];
+
+function ValuationHistoryChart({ history, theme }) {
+  const isDark = theme === 'dark';
+  const [metric, setMetric] = useState('pe');
+  const [years, setYears] = useState(5);
+  if (!Array.isArray(history) || history.length < 2) return null;
+  const allRows = [...history].reverse(); // cronológico (más antiguo primero), hasta 10 ejercicios
+  const rows = years >= allRows.length ? allRows : allRows.slice(-years);
+  const available = VALUATION_METRICS.filter(m => allRows.some(r => r[m.key] != null));
+  if (!available.length) return null;
+  const cfg = available.find(m => m.key === metric) || available[0];
+  const textColor = isDark ? '#7a8694' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
+  const data = {
+    labels: rows.map(r => r.year),
+    datasets: [{ label: cfg.label, data: rows.map(r => r[cfg.key]), borderColor: cfg.color, backgroundColor: cfg.color + '22', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.25, fill: true, spanGaps: true }],
+  };
+  const opts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1, callbacks: { label: c => cfg.label + ': ' + cfg.fmt(c.parsed.y) } },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
+      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => cfg.fmt(v) } },
+    },
+  };
+  return (
+    <div style={{ marginTop: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+        <div className="mv-section-label" style={{ margin: 0 }}>Evolución de Valoración</div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {VALUATION_YEAR_RANGES.map(([n, l]) => (
+            <button key={n} className={`filter-chip${years === n ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setYears(n)}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+        {available.map(m => (
+          <button key={m.key} className={`filter-chip${cfg.key === m.key ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setMetric(m.key)}>{m.label}</button>
+        ))}
+      </div>
+      <div style={{ position: 'relative', height: '160px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px' }}>
+        <Line data={data} options={opts} />
+      </div>
+    </div>
+  );
+}
+
 // Narrativa IA: "en qué invierte la empresa" (categorías reales del 10-K).
 // MEMORIA por ejercicio fiscal: se genera una vez por informe anual y se
 // reutiliza SIN coste hasta que haya un informe más reciente (latestFiscalYear
@@ -504,6 +571,12 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           <div className="mv-grid">
             <MV label="P/E" val={a.pe} suffix="x" /><MV label="Fwd P/E" val={a.fpe} suffix="x" /><MV label="P/B" val={a.pb} suffix="x" />
             <MV label="PEG" val={a.peg} /><MV label="EV/EBITDA" val={a.evebitda} suffix="x" /><MV label="P/Sales" val={a.ps} suffix="x" />
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <ValuationHistoryChart history={a.valuationHistory} theme={theme} />
+            {(!a.valuationHistory || a.valuationHistory.length < 2) && (
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>Pulsa «📊 Fundamentales» para calcular la evolución histórica (P/E, P/B, EV/EBITDA, ROE…).</div>
+            )}
           </div>
 
           <div className="mv-section-label">EPS & Revisiones</div>

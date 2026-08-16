@@ -8,6 +8,12 @@
 // symbolParam. Para el sentimiento específico del ticker se usa el bloque
 // `ticker_sentiment` de cada artículo (ponderado por relevancia), no el
 // sentimiento global del artículo.
+//
+// SIN respaldo Financial Modeling Prep (comprobado, no al descuido): su
+// endpoint de noticias (`news/stock`) da "Restricted Endpoint" en el plan
+// gratis — no hay forma real de cubrir este hueco sin pasar a un plan de
+// pago. Si AV falla o no tiene el ticker, esta función simplemente no
+// devuelve datos (como ya pasaba antes).
 // ─────────────────────────────────────────────────────────────
 import { avQuery } from './avCache.js';
 

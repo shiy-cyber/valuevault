@@ -68,6 +68,7 @@ export function rowToAsset(r) {
     capexHistory: safeJson(r.capexHistory, []),
     capexNarrative: safeJson(r.capexNarrative, null),
     earningsSurprises: safeJson(r.earningsSurprises, null),
+    valuationHistory: safeJson(r.valuationHistory, []),
   };
 }
 export function rowToNote(r) {
@@ -346,6 +347,10 @@ export async function initSchema() {
   await ensureColumn('assets', 'capexProfile', 'TEXT');
   await ensureColumn('assets', 'capexHistory', 'TEXT');
   await ensureColumn('assets', 'capexNarrative', 'TEXT');
+  // Evolución histórica (hasta 5 ejercicios) de múltiplos de valoración
+  // (P/E, P/B, EV/EBITDA) y calidad (ROE, márgenes, deuda/equity) — la
+  // escribe /quality, mismo patrón que capexHistory.
+  await ensureColumn('assets', 'valuationHistory', 'TEXT');
   // Introducción breve de la empresa (perfil de negocio). Origen: campo
   // Description de Alpha Vantage OVERVIEW; editable por el usuario.
   await ensureColumn('assets', 'description', 'TEXT');
