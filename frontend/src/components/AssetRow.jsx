@@ -144,45 +144,65 @@ function CapexChart({ history, theme }) {
 // con selector de métrica. `history` viene de valuation.js: cada año combina
 // el precio REAL de Yahoo en esa fecha con los estados financieros de Alpha
 // Vantage — no son cifras inventadas, cuando falta un dato el punto queda null.
+// axis: 'mult' (múltiplos/ratios, ej. 12x) o 'pct' (porcentajes) — al
+// seleccionar varias métricas a la vez se agrupan en dos ejes Y (izquierda/
+// derecha) para no aplastar visualmente las de escala más pequeña.
 const VALUATION_METRICS = [
-  { key: 'pe', label: 'P/E', color: '#c9a84c', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
-  { key: 'fpe', label: 'Fwd P/E', color: '#f39c12', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
-  { key: 'peg', label: 'PEG', color: '#e8c96a', fmt: v => v == null ? '—' : v.toFixed(2) },
-  { key: 'pb', label: 'P/B', color: '#3a8eff', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
-  { key: 'evEbitda', label: 'EV/EBITDA', color: '#9b59b6', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
-  { key: 'roe', label: 'ROE', color: '#2ecc71', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
-  { key: 'netMargin', label: 'Margen neto', color: '#16a085', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
-  { key: 'grossMargin', label: 'Margen bruto', color: '#e67e22', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
-  { key: 'debtToEquity', label: 'Deuda/Equity', color: '#e74c3c', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
+  { key: 'pe', label: 'P/E', color: '#c9a84c', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
+  { key: 'fpe', label: 'Fwd P/E', color: '#f39c12', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
+  { key: 'peg', label: 'PEG', color: '#e8c96a', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(2) },
+  { key: 'pb', label: 'P/B', color: '#3a8eff', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
+  { key: 'evEbitda', label: 'EV/EBITDA', color: '#9b59b6', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
+  { key: 'roe', label: 'ROE', color: '#2ecc71', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
+  { key: 'netMargin', label: 'Margen neto', color: '#16a085', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
+  { key: 'grossMargin', label: 'Margen bruto', color: '#e67e22', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
+  { key: 'debtToEquity', label: 'Deuda/Equity', color: '#e74c3c', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
 ];
 
 const VALUATION_YEAR_RANGES = [[3, '3A'], [5, '5A'], [10, '10A']];
 
 function ValuationHistoryChart({ history, theme }) {
   const isDark = theme === 'dark';
-  const [metric, setMetric] = useState('pe');
+  const [selected, setSelected] = useState(() => new Set(['pe']));
   const [years, setYears] = useState(5);
   if (!Array.isArray(history) || history.length < 2) return null;
   const allRows = [...history].reverse(); // cronológico (más antiguo primero), hasta 10 ejercicios
   const rows = years >= allRows.length ? allRows : allRows.slice(-years);
   const available = VALUATION_METRICS.filter(m => allRows.some(r => r[m.key] != null));
   if (!available.length) return null;
-  const cfg = available.find(m => m.key === metric) || available[0];
+
+  const toggle = (key) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) { if (next.size > 1) next.delete(key); } // siempre queda al menos 1 activa
+    else next.add(key);
+    return next;
+  });
+
+  const active = available.filter(m => selected.has(m.key));
+  const shown = active.length ? active : [available[0]];
+  const usesMult = shown.some(m => m.axis === 'mult');
+  const usesPct = shown.some(m => m.axis === 'pct');
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
   const data = {
     labels: rows.map(r => r.year),
-    datasets: [{ label: cfg.label, data: rows.map(r => r[cfg.key]), borderColor: cfg.color, backgroundColor: cfg.color + '22', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.25, fill: true, spanGaps: true }],
+    datasets: shown.map(m => ({
+      label: m.label, data: rows.map(r => r[m.key]), borderColor: m.color, backgroundColor: m.color + '22',
+      borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.25, fill: shown.length === 1, spanGaps: true,
+      yAxisID: m.axis === 'pct' ? 'pct' : 'mult', _fmt: m.fmt,
+    })),
   };
   const opts = {
     responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { display: false },
-      tooltip: { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1, callbacks: { label: c => cfg.label + ': ' + cfg.fmt(c.parsed.y) } },
+      legend: { display: shown.length > 1, position: 'bottom', labels: { color: textColor, font: { family: 'DM Mono', size: 9 }, boxWidth: 10, padding: 8 } },
+      tooltip: { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1, callbacks: { label: c => c.dataset.label + ': ' + c.dataset._fmt(c.parsed.y) } },
     },
     scales: {
       x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
-      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => cfg.fmt(v) } },
+      mult: { display: usesMult, position: 'left', grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => v + 'x' } },
+      pct: { display: usesPct, position: 'right', grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => v + '%' } },
     },
   };
   return (
@@ -197,10 +217,10 @@ function ValuationHistoryChart({ history, theme }) {
       </div>
       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
         {available.map(m => (
-          <button key={m.key} className={`filter-chip${cfg.key === m.key ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setMetric(m.key)}>{m.label}</button>
+          <button key={m.key} className={`filter-chip${selected.has(m.key) ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => toggle(m.key)}>{m.label}</button>
         ))}
       </div>
-      <div style={{ position: 'relative', height: '160px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px' }}>
+      <div style={{ position: 'relative', height: shown.length > 1 ? '190px' : '160px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px' }}>
         <Line data={data} options={opts} />
       </div>
     </div>

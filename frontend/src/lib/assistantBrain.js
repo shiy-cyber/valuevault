@@ -10,7 +10,12 @@
 // ─────────────────────────────────────────────────────────────
 import { changePct, positionMetrics, portfolioStats, compositeScore, fmt, fmtBase, fmtUsdCompact } from './format.js';
 
-const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+// Quita acentos, la letra griega alfa (α → alfa, usada en "Motor α") y
+// separadores de las etiquetas de la ficha (P/E, Deuda/Equity, EPS Gr.5Y,
+// ROIC − WACC…) para que preguntar con el texto tal cual aparece en pantalla
+// funcione igual que preguntar con una frase natural.
+const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/α/g, 'alfa').replace(/[/&.\-−]/g, '').replace(/\s+/g, ' ').trim();
 const has = (q, ...words) => words.some(w => q.includes(w));
 const portfolioOf = (assets) => (assets || []).filter(a => a.type !== 'watchlist');
 const watchlistOf = (assets) => (assets || []).filter(a => a.type === 'watchlist');
@@ -44,13 +49,80 @@ const GLOSSARY = {
   'fear and greed': ['Fear & Greed', 'Índice de miedo y codicia (CNN) + VIX + cripto. Miedo extremo puede ser señal contrarian de compra; codicia extrema, de cautela. Sección "Sentimiento".'],
   cape: ['CAPE / Shiller PE', 'CAPE (Shiller PE / PE10) = precio del S&P 500 ÷ beneficios medios de 10 años ajustados por inflación. Mide si el MERCADO ENTERO está caro o barato vs su historia (media ~17). Un CAPE alto se asocia a menores retornos a 10 años, pero es mal indicador de timing. Lo tienes EN VIVO en la sección "Sentimiento".'],
   shiller: ['CAPE / Shiller PE', 'El CAPE de Shiller (PE10) valora el S&P 500 con 10 años de beneficios ajustados por inflación. Media histórica ~17; alto = mercado caro. En vivo en la sección "Sentimiento".'],
-  score: ['Score compuesto', 'Score compuesto (0-100) en 3 pilares: Valor, Calidad y Momentum. Convierte ~24 ratios en 3 decisiones. El de Momentum es un proxy si no hay revisiones de analistas.'],
+  score: ['Score compuesto', 'Score compuesto (0-100) en 3 pilares: Valor (¿está barata? P/E, P/B, PEG, EV/EBITDA…), Calidad (¿es un buen negocio? ROE, ROIC, márgenes, deuda) y Momentum (¿va a mejor? revisiones de EPS, sorpresas de resultados, tendencia de precio). Convierte ~24 ratios en 3 decisiones. El de Momentum es un proxy (rango 52 semanas + crecimiento del EPS) si aún no has traído revisiones de analistas.'],
+
+  // ─── Ficha de un activo (panel expandido en Mis Activos) ─────
+  'fwd pe': ['Fwd P/E (Forward)', 'Fwd P/E o P/E adelantado = precio ÷ beneficio por acción ESPERADO para el próximo ejercicio (no el ya reportado). Si es más bajo que el P/E normal, el mercado espera que el beneficio crezca; si es más alto, espera que caiga.'],
+  'forward pe': ['Fwd P/E (Forward)', 'Fwd P/E o P/E adelantado = precio ÷ beneficio por acción ESPERADO para el próximo ejercicio (no el ya reportado). Si es más bajo que el P/E normal, el mercado espera que el beneficio crezca; si es más alto, espera que caiga.'],
+  'motor alfa': ['Motor de Alfa', 'Etiqueta de qué tipo de ventaja buscas en ese activo: A·Momentum (se mueve por tendencia/noticias), B·Valor (barata frente a lo que vale) o C·Gema oculta (poco seguida, potencial no descubierto). La eliges tú al dar de alta el activo.'],
+  catalizador: ['Catalizador', 'Catalizador = evento concreto que puede destapar el valor de la tesis (resultados, lanzamiento de producto, aprobación regulatoria…). Si no lo defines tú, la app auto-rellena la próxima fecha de resultados.'],
+  'precio objetivo': ['Precio Objetivo (Consenso)', 'Precio Objetivo = media de las estimaciones de precio a 12 meses de los analistas que cubren la acción. El "Potencial" es cuánto le falta al precio actual para llegar ahí.'],
+  'potencial de subida': ['Potencial (Upside)', 'Potencial = (precio objetivo del consenso ÷ precio actual − 1). Positivo = los analistas creen que puede subir; negativo = creen que está por encima de lo razonable.'],
+  'consenso de analistas': ['Consenso de Analistas', 'Recomendación media de los analistas que cubren la acción (Compra fuerte, Compra, Mantener, Venta, Venta fuerte) + cuántos analistas la siguen. Más analistas = consenso más fiable, pero no infalible.'],
+  'eps diluido': ['EPS Diluido', 'EPS Diluido = beneficio por acción contando TODAS las acciones que podrían llegar a existir (opciones, convertibles…), no solo las actuales. Suele ser algo menor que el EPS normal; es la cifra más conservadora.'],
+  'eps del proximo ano': ['EPS Next Year', 'EPS estimado para el PRÓXIMO ejercicio fiscal, según el consenso de analistas. Compararlo con el EPS actual te dice el crecimiento de beneficio que se espera.'],
+  'crecimiento del eps': ['Crecimiento del EPS (5 años)', 'Tasa de crecimiento anual esperada del beneficio por acción a 5 años. Es el denominador del PEG (P/E ÷ crecimiento) y una de las bases del pilar Momentum del score.'],
+  'revision de eps': ['Revisión de EPS (30 días)', 'Cuánto han subido o bajado los analistas su estimación de beneficio en los últimos 30 días. Positivo = están mejorando su opinión sobre la empresa (momentum fundamental); negativo = la están empeorando.'],
+  'sorpresa de resultados': ['Sorpresa de Resultados', 'Sorpresa = (beneficio REPORTADO − beneficio ESTIMADO) ÷ estimado, en %. "Batió" el trimestre si es positiva. Batir sistemáticamente varios trimestres seguidos es señal de que los analistas están siendo conservadores con esa empresa.'],
+  'bate estimaciones': ['Sorpresa de Resultados', 'Sorpresa = (beneficio REPORTADO − beneficio ESTIMADO) ÷ estimado, en %. "Batió" el trimestre si es positiva. Batir sistemáticamente varios trimestres seguidos es señal de que los analistas están siendo conservadores con esa empresa.'],
+  'crea valor destruye valor': ['ROIC − WACC (spread)', 'Si el ROIC supera al WACC, cada euro que la empresa reinvierte en el negocio vale MÁS de un euro (crea valor). Si el WACC supera al ROIC, reinvertir destruye valor — mejor que ese dinero vuelva vía dividendo/recompra que seguir invirtiéndolo dentro.'],
+  'capex sobre ingresos': ['CapEx / Ingresos', 'Qué porcentaje de las ventas se reinvierte en activos fijos. ≥15% = intensiva en capital (fábricas, telecos…); 6-15% = moderada; <6% = ligera en activos (software, servicios).'],
+  'capex sobre caja operativa': ['CapEx / Caja Operativa', 'Qué parte de la caja que genera el negocio (antes de invertir) se destina a CapEx. Un ratio muy alto deja poco margen para dividendos, recompras o pagar deuda.'],
+  'capex sobre amortizacion': ['CapEx / Amortización (D&A)', 'Compara lo que se invierte hoy con lo que se está desgastando de los activos actuales. ≥1.2x = fase de expansión (invierte más de lo que desgasta); 0.8-1.2x = mantenimiento; <0.8x = desinversión o "cosecha" del negocio.'],
+  'perfil de capex': ['Perfil de CapEx', 'Etiqueta que resume la intensidad de capital (Intensiva en capital / Capital moderado / Ligera en activos) y la fase (expansión / mantenimiento / desinversión) a partir de CapEx/Ingresos y CapEx/Amortización.'],
+  'media movil': ['Medias Móviles (MA50/MA200)', 'MA50/MA200 = precio medio de los últimos 50 y 200 días — suavizan el ruido diario para ver la tendencia de fondo. Precio por encima de la MA200 suele leerse como tendencia alcista de largo plazo; por debajo, bajista.'],
+  ma200: ['Medias Móviles (MA50/MA200)', 'MA50/MA200 = precio medio de los últimos 50 y 200 días — suavizan el ruido diario para ver la tendencia de fondo. Precio por encima de la MA200 suele leerse como tendencia alcista de largo plazo; por debajo, bajista.'],
+  'shareholder yield': ['Shareholder Yield', 'Shareholder Yield = (recompras de acciones + dividendos pagados) ÷ capitalización. Mide TODO lo que la empresa devuelve al accionista, no solo el dividendo — muchas empresas devuelven más vía recompras que vía dividendo.'],
+  dilucion: ['Dilución / Recompra de Acciones', 'Variación del número de acciones en circulación en 5 años. Negativo = la empresa ha recomprado acciones (tu porcentaje de la empresa sube sin hacer nada, bueno); positivo = ha emitido más acciones (te diluye, tu porcentaje baja).'],
+  'racha de dividendos': ['Racha de Dividendos', 'Años CONSECUTIVOS que el dividendo anual ha subido respecto al anterior — proxy de "dividend aristocrat". Rachas largas (5+ años) suelen indicar un negocio estable con caja de sobra.'],
+  'deuda equity': ['Deuda / Equity', 'Deuda total ÷ patrimonio neto. Cuánta deuda usa la empresa en relación a su capital propio. Por encima de 1-2x conviene mirar con más cuidado la capacidad de pagarla, sobre todo en sectores cíclicos.'],
+  'current ratio': ['Current Ratio (Liquidez)', 'Activo corriente ÷ pasivo corriente. Por encima de 1 la empresa puede pagar sus deudas a corto plazo con lo que tiene a mano; por debajo de 1, podría tener apuros de liquidez.'],
+  'quick ratio': ['Quick Ratio (Prueba Ácida)', 'Como el Current Ratio pero sin contar el inventario (más difícil de convertir en caja rápido). Mide la liquidez "de verdad" más exigente.'],
+  'payout ratio': ['Payout Ratio', 'Qué porcentaje del beneficio se reparte como dividendo. Muy alto (>80-90%) deja poco margen de seguridad: si el beneficio cae un año malo, el dividendo puede peligrar.'],
+  'market cap': ['Capitalización de Mercado', 'Precio de la acción × número de acciones = lo que el mercado valora la empresa entera hoy. Determina si es small/mid/large cap, algo relevante para el riesgo (las pequeñas suelen ser más volátiles).'],
+  '52 week': ['Máximo / Mínimo de 52 Semanas', 'El precio más alto y más bajo que ha tocado la acción en el último año. Sirve de referencia rápida de dónde cotiza ahora dentro de su rango reciente.'],
+  '52w high': ['Máximo / Mínimo de 52 Semanas', 'El precio más alto y más bajo que ha tocado la acción en el último año. Sirve de referencia rápida de dónde cotiza ahora dentro de su rango reciente.'],
+  '52w low': ['Máximo / Mínimo de 52 Semanas', 'El precio más alto y más bajo que ha tocado la acción en el último año. Sirve de referencia rápida de dónde cotiza ahora dentro de su rango reciente.'],
+  insider: ['Transacciones de Insiders', 'Compras y ventas de acciones de la propia empresa por parte de sus directivos/consejeros (información pública obligatoria en EE. UU.). Compras de insiders con su propio dinero suelen leerse como señal de confianza; ventas son más ambiguas (pueden ser solo diversificación personal).'],
+  'sentimiento de noticias': ['Sentimiento de Noticias', 'Puntuación de -1 (muy bajista) a +1 (muy alcista) sobre las noticias recientes de esa acción en concreto, ponderada por lo relevante que es cada artículo para ese ticker — no es el sentimiento general del mercado (eso está en la sección "Sentimiento").'],
+  pnl: ['P&L (Pérdidas y Ganancias)', 'P&L = valor actual de la posición − lo que invertiste, en tu divisa base (€). Se separa del "Ret. divisa": tu ganancia puede venir del propio activo, del movimiento de la divisa, o de ambos.'],
+  pl: ['P&L (Pérdidas y Ganancias)', 'P&L = valor actual de la posición − lo que invertiste, en tu divisa base (€). Se separa del "Ret. divisa": tu ganancia puede venir del propio activo, del movimiento de la divisa, o de ambos.'],
+
+  // ─── Alias de las etiquetas EXACTAS de la ficha (texto tal cual en pantalla) ──
+  pe: ['P/E (PER)', 'P/E o PER (Precio/Beneficio) = precio entre beneficio por acción; cuántos años de beneficios pagas por la acción. Más bajo = más barato, en igualdad de condiciones.'],
+  psales: ['P/S', 'P/S (Precio/Ventas) = capitalización ÷ ingresos. Útil cuando aún no hay beneficios (growth).'],
+  deudaequity: ['Deuda / Equity', 'Deuda total ÷ patrimonio neto. Cuánta deuda usa la empresa en relación a su capital propio. Por encima de 1-2x conviene mirar con más cuidado la capacidad de pagarla, sobre todo en sectores cíclicos.'],
+  'roic wacc': ['ROIC − WACC (spread)', 'Si el ROIC supera al WACC, cada euro que la empresa reinvierte en el negocio vale MÁS de un euro (crea valor). Si el WACC supera al ROIC, reinvertir destruye valor — mejor que ese dinero vuelva vía dividendo/recompra que seguir invirtiéndolo dentro.'],
+  'eps diluted': ['EPS Diluido', 'EPS Diluido = beneficio por acción contando TODAS las acciones que podrían llegar a existir (opciones, convertibles…), no solo las actuales. Suele ser algo menor que el EPS normal; es la cifra más conservadora.'],
+  'eps next y': ['EPS Next Year', 'EPS estimado para el PRÓXIMO ejercicio fiscal, según el consenso de analistas. Compararlo con el EPS actual te dice el crecimiento de beneficio que se espera.'],
+  'eps gr5y': ['Crecimiento del EPS (5 años)', 'Tasa de crecimiento anual esperada del beneficio por acción a 5 años. Es el denominador del PEG (P/E ÷ crecimiento) y una de las bases del pilar Momentum del score.'],
+  'rev eps': ['Revisión de EPS (30 días)', 'Cuánto han subido o bajado los analistas su estimación de beneficio en los últimos 30 días. Positivo = están mejorando su opinión sobre la empresa (momentum fundamental); negativo = la están empeorando.'],
+  potencial: ['Potencial (Upside)', 'Potencial = (precio objetivo del consenso ÷ precio actual − 1). Positivo = los analistas creen que puede subir; negativo = creen que está por encima de lo razonable.'],
+  recomendacion: ['Consenso de Analistas', 'Recomendación media de los analistas que cubren la acción (Compra fuerte, Compra, Mantener, Venta, Venta fuerte) + cuántos analistas la siguen. Más analistas = consenso más fiable, pero no infalible.'],
+  analistas: ['Consenso de Analistas', 'Recomendación media de los analistas que cubren la acción (Compra fuerte, Compra, Mantener, Venta, Venta fuerte) + cuántos analistas la siguen. Más analistas = consenso más fiable, pero no infalible.'],
+  'capex ingresos': ['CapEx / Ingresos', 'Qué porcentaje de las ventas se reinvierte en activos fijos. ≥15% = intensiva en capital (fábricas, telecos…); 6-15% = moderada; <6% = ligera en activos (software, servicios).'],
+  'capex caja oper': ['CapEx / Caja Operativa', 'Qué parte de la caja que genera el negocio (antes de invertir) se destina a CapEx. Un ratio muy alto deja poco margen para dividendos, recompras o pagar deuda.'],
+  'capex amortizacion': ['CapEx / Amortización (D&A)', 'Compara lo que se invierte hoy con lo que se está desgastando de los activos actuales. ≥1.2x = fase de expansión (invierte más de lo que desgasta); 0.8-1.2x = mantenimiento; <0.8x = desinversión o "cosecha" del negocio.'],
+  ma50: ['Medias Móviles (MA50/MA200)', 'MA50/MA200 = precio medio de los últimos 50 y 200 días — suavizan el ruido diario para ver la tendencia de fondo. Precio por encima de la MA200 suele leerse como tendencia alcista de largo plazo; por debajo, bajista.'],
+  'div yield': ['Dividendo', 'Dividend Yield = dividendo anual ÷ precio. Payout = % del beneficio repartido. Un payout muy alto puede ser insostenible.'],
+  'mkt cap': ['Capitalización de Mercado', 'Precio de la acción × número de acciones = lo que el mercado valora la empresa entera hoy. Determina si es small/mid/large cap, algo relevante para el riesgo (las pequeñas suelen ser más volátiles).'],
+  momentum: ['Score compuesto', 'Score compuesto (0-100) en 3 pilares: Valor (¿está barata? P/E, P/B, PEG, EV/EBITDA…), Calidad (¿es un buen negocio? ROE, ROIC, márgenes, deuda) y Momentum (¿va a mejor? revisiones de EPS, sorpresas de resultados, tendencia de precio). Convierte ~24 ratios en 3 decisiones. El de Momentum es un proxy (rango 52 semanas + crecimiento del EPS) si aún no has traído revisiones de analistas.'],
+  'ret divisa': ['Ret. Divisa', 'Retorno por tipo de cambio: cuánto ha ganado o perdido tu posición SOLO por el movimiento de la divisa del activo frente a tu divisa base (€), separado del rendimiento propio del activo. Los dos se suman para dar el P&L total en euros.'],
+  stop: ['Stop (Stop Loss)', 'Precio al que sales de la posición para limitar la pérdida si la tesis falla. Lo defines tú al dar de alta o editar el activo; no se calcula automáticamente.'],
+  'gross mg': ['Márgenes', 'Margen bruto (ventas − coste de ventas), operativo (tras gastos del negocio) y neto (beneficio final ÷ ingresos). Márgenes altos y estables = poder de fijación de precios.'],
 };
 function glossaryHit(q) {
-  // Coincidencia por término (el más largo primero para no cortar)
+  // Coincidencia por término (el más largo primero para no cortar).
+  // Los términos muy cortos (≤3, ej. "pe", "per", "eps") solo cuentan si
+  // aparecen como palabra suelta, para no disparar dentro de otra palabra
+  // (ej. "per" dentro de "operativo"); los términos más largos usan
+  // coincidencia por subcadena, como siempre.
   const keys = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);
+  const hits = (n) => !!n && (n.length <= 3
+    ? new RegExp(`(^|[^a-z0-9])${n}([^a-z0-9]|$)`).test(q)
+    : q.includes(n));
   for (const k of keys) {
-    if (q.includes(norm(k)) || q.includes(norm(GLOSSARY[k][0]))) {
+    if (hits(norm(k)) || hits(norm(GLOSSARY[k][0]))) {
       const [title, body] = GLOSSARY[k];
       return { text: `📘 ${title}\n\n${body}` };
     }
