@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api.js';
 import PostCard from './PostCard.jsx';
 
 // Perfil público de un usuario — ruta /comunidad/u/:handle.
 export default function Profile({ currentUser, canInteract, onBack, onTicker, onAuthor, requireInteract, toast }) {
+  const { t } = useTranslation();
   const { handle } = useParams();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -26,7 +28,7 @@ export default function Profile({ currentUser, canInteract, onBack, onTicker, on
   const loadMore = async () => {
     if (!cursor) return;
     try { const r = await api.userPosts(handle, cursor); setPosts(prev => [...prev, ...r.posts]); setCursor(r.nextCursor); }
-    catch (e) { toast?.('⚠ ' + e.message); }
+    catch (e) { toast?.(t('toast.error', { message: e.message })); }
   };
 
   const toggleFollow = async () => {
@@ -36,14 +38,14 @@ export default function Profile({ currentUser, canInteract, onBack, onTicker, on
     try {
       const r = profile.followedByMe ? await api.unfollow(handle) : await api.follow(handle);
       setProfile(p => ({ ...p, followedByMe: r.followedByMe, followerCount: r.followerCount }));
-    } catch (e) { toast?.('⚠ ' + e.message); }
+    } catch (e) { toast?.(t('toast.error', { message: e.message })); }
     finally { setFollowBusy(false); }
   };
 
   const removePost = async (post) => {
-    if (!window.confirm('¿Eliminar esta publicación?')) return;
-    try { await api.deletePost(post.id); setPosts(prev => prev.filter(p => p.id !== post.id)); toast?.('🗑 Eliminada'); }
-    catch (e) { toast?.('⚠ ' + e.message); }
+    if (!window.confirm(t('tickerPage.confirmDelete'))) return;
+    try { await api.deletePost(post.id); setPosts(prev => prev.filter(p => p.id !== post.id)); toast?.(t('profilePage.deletedToast')); }
+    catch (e) { toast?.(t('toast.error', { message: e.message })); }
   };
 
   const Stat = ({ n, l }) => (
@@ -56,8 +58,8 @@ export default function Profile({ currentUser, canInteract, onBack, onTicker, on
   if (notFound) {
     return (
       <div className="section active">
-        <button className="btn btn-outline" onClick={onBack} style={{ marginBottom: '14px' }}>← Volver</button>
-        <div className="empty-state"><div className="empty-icon">🚫</div><div className="empty-text">No existe el usuario @{handle}.</div></div>
+        <button className="btn btn-outline" onClick={onBack} style={{ marginBottom: '14px' }}>{t('tickerPage.back')}</button>
+        <div className="empty-state"><div className="empty-icon">🚫</div><div className="empty-text">{t('profilePage.notFound', { handle })}</div></div>
       </div>
     );
   }
@@ -66,10 +68,10 @@ export default function Profile({ currentUser, canInteract, onBack, onTicker, on
 
   return (
     <div className="section active">
-      <button className="btn btn-outline" onClick={onBack} style={{ marginBottom: '14px' }}>← Volver</button>
+      <button className="btn btn-outline" onClick={onBack} style={{ marginBottom: '14px' }}>{t('tickerPage.back')}</button>
 
       {loading || !profile ? (
-        <div className="empty-state"><div className="empty-icon">⏳</div><div className="empty-text">Cargando perfil…</div></div>
+        <div className="empty-state"><div className="empty-icon">⏳</div><div className="empty-text">{t('profilePage.loadingProfile')}</div></div>
       ) : (
         <>
           <div className="learn-card">
@@ -81,21 +83,21 @@ export default function Profile({ currentUser, canInteract, onBack, onTicker, on
               </div>
               {!isMe && (
                 <button className={profile.followedByMe ? 'btn btn-outline' : 'btn btn-gold'} onClick={toggleFollow} disabled={followBusy} style={{ flex: 'none' }}>
-                  {profile.followedByMe ? '✓ Siguiendo' : '+ Seguir'}
+                  {profile.followedByMe ? t('profilePage.following') : t('profilePage.follow')}
                 </button>
               )}
             </div>
             {profile.bio && <div style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '12px', lineHeight: 1.5 }}>{profile.bio}</div>}
             <div style={{ display: 'flex', gap: '28px', marginTop: '16px' }}>
-              <Stat n={profile.postCount} l="Posts" />
-              <Stat n={profile.followerCount} l="Seguidores" />
-              <Stat n={profile.followingCount} l="Siguiendo" />
+              <Stat n={profile.postCount} l={t('profilePage.stats.posts')} />
+              <Stat n={profile.followerCount} l={t('profilePage.stats.followers')} />
+              <Stat n={profile.followingCount} l={t('profilePage.stats.following')} />
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '18px' }}>
             {posts.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">🗣</div><div className="empty-text">Sin publicaciones todavía.</div></div>
+              <div className="empty-state"><div className="empty-icon">🗣</div><div className="empty-text">{t('profilePage.noPosts')}</div></div>
             ) : (
               <>
                 {posts.map(p => (
@@ -103,7 +105,7 @@ export default function Profile({ currentUser, canInteract, onBack, onTicker, on
                     onDelete={removePost} onTicker={onTicker} onHandle={onAuthor} onAuthor={onAuthor}
                     requireInteract={requireInteract} toast={toast} />
                 ))}
-                {cursor && <button className="btn btn-outline" onClick={loadMore} style={{ alignSelf: 'center' }}>Cargar más</button>}
+                {cursor && <button className="btn btn-outline" onClick={loadMore} style={{ alignSelf: 'center' }}>{t('tickerPage.loadMore')}</button>}
               </>
             )}
           </div>

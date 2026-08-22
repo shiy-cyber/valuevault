@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api.js';
 
 const NUM_FIELDS = ['price','current','pe','fpe','pb','peg','evebitda','ps','eps','epsd','epsny','epsg','roe','roa','gm','om','nm','de','cr','qr','dy','pr','beta','w52h','w52l','shares','target','stop'];
-const STRATS = [['value','Value'],['growth','Growth'],['dividend','Dividend'],['momentum','Momentum'],['garp','GARP'],['hidden','Gema Oculta']];
-const TIMES = [['short','Corto Plazo'],['medium','Medio Plazo'],['long','Largo Plazo']];
-const RISKS = [['low','Bajo'],['medium','Medio'],['high','Alto']];
+const STRATS = ['value','growth','dividend','momentum','garp','hidden'];
+const TIMES = ['short','medium','long'];
+const RISKS = ['low','medium','high'];
 const CCYS = ['USD','EUR','GBP','JPY','HKD','CHF','CAD','AUD','CNY'];
-const ENGINES = [['','—'],['momentum','A · Momentum / Moda'],['value','B · Valor real'],['hidden','C · Gema oculta']];
+const ENGINES = ['momentum','value','hidden'];
 
 const empty = () => ({
   ticker:'', name:'', sector:'', market:'', mcap:'', thesis:'', description:'',
@@ -26,6 +27,7 @@ const F = ({ label, id, form, set, type = 'number', placeholder = 'Auto', style 
 );
 
 export default function AssetModal({ open, editing, presetType = 'portfolio', onClose, onSave, toast }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState(empty());
   const [status, setStatus] = useState({ text: '', color: 'var(--muted)' });
   const [busy, setBusy] = useState(false);
@@ -64,9 +66,9 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
 
   async function lookup() {
     const ticker = (form.ticker || '').trim().toUpperCase();
-    if (!ticker) { toast('Introduce un ticker primero'); return; }
+    if (!ticker) { toast(t('assetModal.errors.needTicker')); return; }
     setBusy(true);
-    setStatus({ text: 'Consultando Alpha Vantage…', color: 'var(--muted)' });
+    setStatus({ text: t('assetModal.status.looking'), color: 'var(--muted)' });
     try {
       const d = await api.lookup(ticker);
       setForm(prev => {
@@ -80,9 +82,9 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
         });
         return next;
       });
-      setStatus({ text: `✓ ${d.name || ticker} · $${d.current} ${d.changePercent || ''} · ${d.market || ''}`, color: 'var(--green)' });
+      setStatus({ text: t('assetModal.status.found', { name: d.name || ticker, price: d.current, change: d.changePercent || '', market: d.market || '' }), color: 'var(--green)' });
     } catch (e) {
-      setStatus({ text: '⚠ ' + e.message, color: 'var(--red)' });
+      setStatus({ text: t('toast.error', { message: e.message }), color: 'var(--red)' });
     } finally {
       setBusy(false);
     }
@@ -90,7 +92,7 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
 
   function save() {
     const ticker = (form.ticker || '').trim().toUpperCase();
-    if (!ticker || !form.name.trim()) { toast('Introduce ticker y nombre'); return; }
+    if (!ticker || !form.name.trim()) { toast(t('assetModal.errors.needTickerName')); return; }
     const payload = { ...form, ticker,
       strategies: form.strategies.length ? form.strategies : ['value'],
       time: form.time.length ? form.time : ['long'],
@@ -103,14 +105,14 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
   return (
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal">
-        <div className="modal-title">{editing ? `Editar — ${editing.ticker}` : 'Registrar Nuevo Activo'}</div>
+        <div className="modal-title">{editing ? t('assetModal.title.edit', { ticker: editing.ticker }) : t('assetModal.title.new')}</div>
         <div className="form-grid">
           <div className="form-group full" style={{ position:'relative' }}>
-            <label>Ticker / Símbolo</label>
+            <label>{t('assetModal.tickerLabel')}</label>
             <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-              <input type="text" value={form.ticker} placeholder="ej. AAPL o «apple»" style={{ textTransform:'uppercase', flex:1 }}
+              <input type="text" value={form.ticker} placeholder={t('assetModal.tickerPlaceholder')} style={{ textTransform:'uppercase', flex:1 }}
                 autoComplete="off" onChange={e => onTickerChange(e.target.value)} />
-              <button type="button" className="btn btn-gold" disabled={busy} onClick={lookup} style={{ whiteSpace:'nowrap', padding:'8px 14px', fontSize:'12px' }}>{busy ? '⏳…' : '🔍 Buscar'}</button>
+              <button type="button" className="btn btn-gold" disabled={busy} onClick={lookup} style={{ whiteSpace:'nowrap', padding:'8px 14px', fontSize:'12px' }}>{busy ? t('common.busy') : t('assetModal.search')}</button>
             </div>
             {matches.length > 0 && (
               <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:30, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'8px', marginTop:'3px', maxHeight:'240px', overflowY:'auto', boxShadow:'0 8px 24px rgba(0,0,0,0.35)' }}>
@@ -127,100 +129,100 @@ export default function AssetModal({ open, editing, presetType = 'portfolio', on
             <div style={{ fontSize:'11px', fontFamily:"'DM Mono',monospace", marginTop:'4px', minHeight:'15px', color: status.color }}>{status.text}</div>
           </div>
 
-          <F label="Nombre Empresa" id="name" form={form} set={set} type="text" placeholder="Auto · editable" />
-          <F label="Sector" id="sector" form={form} set={set} type="text" placeholder="Auto · editable" />
-          <F label="Precio Entrada" id="price" form={form} set={set} placeholder="Tu precio de compra" />
-          <F label="Precio Actual" id="current" form={form} set={set} placeholder="Auto · editable" />
-          <F label="Mercado" id="market" form={form} set={set} type="text" placeholder="Auto · editable" />
+          <F label={t('assetModal.fields.name')} id="name" form={form} set={set} type="text" placeholder={t('assetModal.autoEditable')} />
+          <F label={t('assetModal.fields.sector')} id="sector" form={form} set={set} type="text" placeholder={t('assetModal.autoEditable')} />
+          <F label={t('assetModal.fields.priceEntry')} id="price" form={form} set={set} placeholder={t('assetModal.fields.priceEntryPlaceholder')} />
+          <F label={t('assetModal.fields.priceCurrent')} id="current" form={form} set={set} placeholder={t('assetModal.autoEditable')} />
+          <F label={t('assetModal.fields.market')} id="market" form={form} set={set} type="text" placeholder={t('assetModal.autoEditable')} />
 
-          <F label="Nº Acciones / Tamaño" id="shares" form={form} set={set} placeholder="Tu posición" />
+          <F label={t('assetModal.fields.shares')} id="shares" form={form} set={set} placeholder={t('assetModal.fields.sharesPlaceholder')} />
           <div className="form-group">
-            <label>Divisa</label>
+            <label>{t('assetModal.fields.currency')}</label>
             <select value={form.currency || 'USD'} onChange={e => set('currency', e.target.value)}>
               {CCYS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
-          <F label="P/E Ratio" id="pe" form={form} set={set} />
-          <F label="Forward P/E" id="fpe" form={form} set={set} />
-          <F label="P/B Ratio" id="pb" form={form} set={set} />
-          <F label="PEG Ratio" id="peg" form={form} set={set} />
-          <F label="EV/EBITDA" id="evebitda" form={form} set={set} />
-          <F label="Price/Sales" id="ps" form={form} set={set} />
+          <F label={t('assetModal.fields.pe')} id="pe" form={form} set={set} />
+          <F label={t('assetModal.fields.fpe')} id="fpe" form={form} set={set} />
+          <F label={t('assetModal.fields.pb')} id="pb" form={form} set={set} />
+          <F label={t('assetModal.fields.peg')} id="peg" form={form} set={set} />
+          <F label={t('assetModal.fields.evebitda')} id="evebitda" form={form} set={set} />
+          <F label={t('assetModal.fields.ps')} id="ps" form={form} set={set} />
 
-          <F label="EPS" id="eps" form={form} set={set} />
-          <F label="EPS Diluted" id="epsd" form={form} set={set} />
-          <F label="EPS Next Year" id="epsny" form={form} set={set} />
-          <F label="EPS Growth 5Y (%)" id="epsg" form={form} set={set} />
+          <F label={t('assetModal.fields.eps')} id="eps" form={form} set={set} />
+          <F label={t('assetModal.fields.epsd')} id="epsd" form={form} set={set} />
+          <F label={t('assetModal.fields.epsny')} id="epsny" form={form} set={set} />
+          <F label={t('assetModal.fields.epsg')} id="epsg" form={form} set={set} />
 
-          <F label="ROE (%)" id="roe" form={form} set={set} />
-          <F label="ROA (%)" id="roa" form={form} set={set} />
-          <F label="Gross Margin (%)" id="gm" form={form} set={set} />
-          <F label="Margen Operativo (%)" id="om" form={form} set={set} />
-          <F label="Margen Neto (%)" id="nm" form={form} set={set} />
+          <F label={t('assetModal.fields.roe')} id="roe" form={form} set={set} />
+          <F label={t('assetModal.fields.roa')} id="roa" form={form} set={set} />
+          <F label={t('assetModal.fields.gm')} id="gm" form={form} set={set} />
+          <F label={t('assetModal.fields.om')} id="om" form={form} set={set} />
+          <F label={t('assetModal.fields.nm')} id="nm" form={form} set={set} />
 
-          <F label="Deuda/Equity" id="de" form={form} set={set} />
-          <F label="Current Ratio" id="cr" form={form} set={set} />
-          <F label="Quick Ratio" id="qr" form={form} set={set} />
+          <F label={t('assetModal.fields.de')} id="de" form={form} set={set} />
+          <F label={t('assetModal.fields.cr')} id="cr" form={form} set={set} />
+          <F label={t('assetModal.fields.qr')} id="qr" form={form} set={set} />
 
-          <F label="Dividend Yield (%)" id="dy" form={form} set={set} />
-          <F label="Payout Ratio (%)" id="pr" form={form} set={set} />
+          <F label={t('assetModal.fields.dy')} id="dy" form={form} set={set} />
+          <F label={t('assetModal.fields.pr')} id="pr" form={form} set={set} />
 
-          <F label="Beta" id="beta" form={form} set={set} />
-          <F label="52W High" id="w52h" form={form} set={set} />
-          <F label="52W Low" id="w52l" form={form} set={set} />
-          <F label="Market Cap" id="mcap" form={form} set={set} type="text" />
+          <F label={t('assetModal.fields.beta')} id="beta" form={form} set={set} />
+          <F label={t('assetModal.fields.w52h')} id="w52h" form={form} set={set} />
+          <F label={t('assetModal.fields.w52l')} id="w52l" form={form} set={set} />
+          <F label={t('assetModal.fields.mcap')} id="mcap" form={form} set={set} type="text" />
 
-          <div className="form-group full"><label>Tipo de lista</label>
+          <div className="form-group full"><label>{t('assetModal.listType')}</label>
             <div className="checkbox-group">
-              <label className={`check-item${form.type === 'portfolio' ? ' selected' : ''}`} onClick={() => set('type', 'portfolio')}>◆ En cartera</label>
-              <label className={`check-item${form.type === 'watchlist' ? ' selected' : ''}`} onClick={() => set('type', 'watchlist')}>★ Watchlist (seguimiento)</label>
+              <label className={`check-item${form.type === 'portfolio' ? ' selected' : ''}`} onClick={() => set('type', 'portfolio')}>{t('assetModal.typePortfolio')}</label>
+              <label className={`check-item${form.type === 'watchlist' ? ' selected' : ''}`} onClick={() => set('type', 'watchlist')}>{t('assetModal.typeWatchlist')}</label>
             </div>
           </div>
-          <div className="form-group full"><label>Estrategias</label>
+          <div className="form-group full"><label>{t('assetModal.strategies')}</label>
             <div className="checkbox-group">
-              {STRATS.map(([v, l]) => (
-                <label key={v} className={`check-item${form.strategies.includes(v) ? ' selected' : ''}`} onClick={() => toggle('strategies', v)}>{l}</label>
+              {STRATS.map(v => (
+                <label key={v} className={`check-item${form.strategies.includes(v) ? ' selected' : ''}`} onClick={() => toggle('strategies', v)}>{t('assetModal.strats.' + v)}</label>
               ))}
             </div>
           </div>
-          <div className="form-group full"><label>Horizonte de Inversión</label>
+          <div className="form-group full"><label>{t('assetModal.horizon')}</label>
             <div className="checkbox-group">
-              {TIMES.map(([v, l]) => (
-                <label key={v} className={`check-item${form.time.includes(v) ? ' selected' : ''}`} onClick={() => toggle('time', v)}>{l}</label>
+              {TIMES.map(v => (
+                <label key={v} className={`check-item${form.time.includes(v) ? ' selected' : ''}`} onClick={() => toggle('time', v)}>{t('assetModal.times.' + v)}</label>
               ))}
             </div>
           </div>
-          <div className="form-group full"><label>Nivel de Riesgo</label>
+          <div className="form-group full"><label>{t('assetModal.riskLevel')}</label>
             <div className="checkbox-group">
-              {RISKS.map(([v, l]) => (
-                <label key={v} className={`check-item${form.risk === v ? ' selected' : ''}`} onClick={() => set('risk', v)}>{l}</label>
+              {RISKS.map(v => (
+                <label key={v} className={`check-item${form.risk === v ? ' selected' : ''}`} onClick={() => set('risk', v)}>{t('assetModal.risks.' + v)}</label>
               ))}
             </div>
           </div>
-          <div className="form-group full"><label>Motor de Alfa (¿por qué subirá?)</label>
+          <div className="form-group full"><label>{t('assetModal.alphaEngine')}</label>
             <div className="checkbox-group">
-              {ENGINES.filter(([v]) => v).map(([v, l]) => (
-                <label key={v} className={`check-item${form.engine === v ? ' selected' : ''}`} onClick={() => set('engine', form.engine === v ? '' : v)}>{l}</label>
+              {ENGINES.map(v => (
+                <label key={v} className={`check-item${form.engine === v ? ' selected' : ''}`} onClick={() => set('engine', form.engine === v ? '' : v)}>{t('assetRow.engine.' + v)}</label>
               ))}
             </div>
           </div>
-          <F label="Precio Objetivo" id="target" form={form} set={set} placeholder="Tu valoración" />
-          <F label="Stop / Invalidación" id="stop" form={form} set={set} placeholder="Nivel que rompe la tesis" />
-          <F label="Catalizador" id="catalyst" form={form} set={set} type="text" placeholder="Evento que la activa" />
-          <F label="Fecha Catalizador" id="catalystDate" form={form} set={set} type="date" placeholder="" />
+          <F label={t('assetModal.fields.target')} id="target" form={form} set={set} placeholder={t('assetModal.fields.targetPlaceholder')} />
+          <F label={t('assetModal.fields.stop')} id="stop" form={form} set={set} placeholder={t('assetModal.fields.stopPlaceholder')} />
+          <F label={t('assetModal.fields.catalyst')} id="catalyst" form={form} set={set} type="text" placeholder={t('assetModal.fields.catalystPlaceholder')} />
+          <F label={t('assetModal.fields.catalystDate')} id="catalystDate" form={form} set={set} type="date" placeholder="" />
 
-          <div className="form-group full"><label>Sobre la Empresa (perfil de negocio)</label>
-            <textarea value={form.description} placeholder="Breve introducción: a qué se dedica la empresa, su negocio principal y mercado. Se autocompleta al pulsar 🔍 Buscar." onChange={e => set('description', e.target.value)} />
+          <div className="form-group full"><label>{t('assetModal.about')}</label>
+            <textarea value={form.description} placeholder={t('assetModal.aboutPlaceholder')} onChange={e => set('description', e.target.value)} />
           </div>
 
-          <div className="form-group full"><label>Tesis de Inversión / Fundamentos de Valor</label>
-            <textarea value={form.thesis} placeholder="Ventajas competitivas, catalizadores, métricas clave, margen de seguridad…" onChange={e => set('thesis', e.target.value)} />
+          <div className="form-group full"><label>{t('assetModal.thesis')}</label>
+            <textarea value={form.thesis} placeholder={t('assetModal.thesisPlaceholder')} onChange={e => set('thesis', e.target.value)} />
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-outline" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-gold" onClick={save}>Guardar Activo</button>
+          <button className="btn btn-outline" onClick={onClose}>{t('assetModal.cancel')}</button>
+          <button className="btn btn-gold" onClick={save}>{t('assetModal.save')}</button>
         </div>
       </div>
     </div>

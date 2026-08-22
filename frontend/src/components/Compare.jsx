@@ -1,33 +1,36 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fmt, changePct } from '../lib/format.js';
 
 // dir: 'hi' = más alto mejor · 'lo' = más bajo mejor · null = informativo (sin resaltar)
+// label se resuelve via i18next en el componente: comparePage.rows.<key>
 const ROWS = [
-  { key:'current', label:'Precio actual', suffix:'', dir:null, fmt:v => '$' + fmt(v) },
-  { key:'_chg', label:'Cambio % entrada', suffix:'%', dir:'hi', get:a => a.price > 0 ? changePct(a) : null },
-  { key:'pe', label:'P/E', suffix:'x', dir:'lo' },
-  { key:'fpe', label:'Forward P/E', suffix:'x', dir:'lo' },
-  { key:'pb', label:'P/B', suffix:'x', dir:'lo' },
-  { key:'peg', label:'PEG', suffix:'', dir:'lo' },
-  { key:'evebitda', label:'EV/EBITDA', suffix:'x', dir:'lo' },
-  { key:'ps', label:'P/Sales', suffix:'x', dir:'lo' },
-  { key:'eps', label:'EPS', suffix:'$', dir:'hi' },
-  { key:'epsg', label:'EPS Growth 5Y', suffix:'%', dir:'hi' },
-  { key:'roe', label:'ROE', suffix:'%', dir:'hi' },
-  { key:'roa', label:'ROA', suffix:'%', dir:'hi' },
-  { key:'gm', label:'Gross Margin', suffix:'%', dir:'hi' },
-  { key:'om', label:'Margen Operativo', suffix:'%', dir:'hi' },
-  { key:'nm', label:'Margen Neto', suffix:'%', dir:'hi' },
-  { key:'de', label:'Deuda/Equity', suffix:'', dir:'lo' },
-  { key:'cr', label:'Current Ratio', suffix:'', dir:'hi' },
-  { key:'qr', label:'Quick Ratio', suffix:'', dir:'hi' },
-  { key:'dy', label:'Dividend Yield', suffix:'%', dir:'hi' },
-  { key:'pr', label:'Payout Ratio', suffix:'%', dir:null },
-  { key:'beta', label:'Beta', suffix:'', dir:'lo' },
-  { key:'mcap', label:'Market Cap', suffix:'', dir:null, fmt:v => v || '—' },
+  { key:'current', suffix:'', dir:null, fmt:v => '$' + fmt(v) },
+  { key:'chg', suffix:'%', dir:'hi', get:a => a.price > 0 ? changePct(a) : null },
+  { key:'pe', suffix:'x', dir:'lo' },
+  { key:'fpe', suffix:'x', dir:'lo' },
+  { key:'pb', suffix:'x', dir:'lo' },
+  { key:'peg', suffix:'', dir:'lo' },
+  { key:'evebitda', suffix:'x', dir:'lo' },
+  { key:'ps', suffix:'x', dir:'lo' },
+  { key:'eps', suffix:'$', dir:'hi' },
+  { key:'epsg', suffix:'%', dir:'hi' },
+  { key:'roe', suffix:'%', dir:'hi' },
+  { key:'roa', suffix:'%', dir:'hi' },
+  { key:'gm', suffix:'%', dir:'hi' },
+  { key:'om', suffix:'%', dir:'hi' },
+  { key:'nm', suffix:'%', dir:'hi' },
+  { key:'de', suffix:'', dir:'lo' },
+  { key:'cr', suffix:'', dir:'hi' },
+  { key:'qr', suffix:'', dir:'hi' },
+  { key:'dy', suffix:'%', dir:'hi' },
+  { key:'pr', suffix:'%', dir:null },
+  { key:'beta', suffix:'', dir:'lo' },
+  { key:'mcap', suffix:'', dir:null, fmt:v => v || '—' },
 ];
 
 export default function Compare({ assets }) {
+  const { t } = useTranslation();
   const [sel, setSel] = useState([]);
   const chosen = assets.filter(a => sel.includes(a.id));
 
@@ -48,8 +51,8 @@ export default function Compare({ assets }) {
   return (
     <div className="section active">
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
-        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'18px' }}>Comparador de Activos</div>
-        <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:"'DM Mono',monospace", marginTop:'3px', marginBottom:'14px' }}>Selecciona 2 o 3 activos para enfrentarlos métrica a métrica</div>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'18px' }}>{t('comparePage.title')}</div>
+        <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:"'DM Mono',monospace", marginTop:'3px', marginBottom:'14px' }}>{t('comparePage.subtitle')}</div>
         <div style={{ display:'flex', gap:'7px', flexWrap:'wrap' }}>
           {assets.map(a => (
             <button key={a.id} className={`filter-chip${sel.includes(a.id) ? ' active' : ''}`}
@@ -63,13 +66,13 @@ export default function Compare({ assets }) {
       </div>
 
       {chosen.length < 2
-        ? <div className="empty-state"><div className="empty-icon">⇄</div><div className="empty-text">Elige al menos 2 activos para compararlos</div></div>
+        ? <div className="empty-state"><div className="empty-icon">⇄</div><div className="empty-text">{t('comparePage.chooseTwo')}</div></div>
         : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th style={{ textAlign:'left' }}>Métrica</th>
+                  <th style={{ textAlign:'left' }}>{t('comparePage.metric')}</th>
                   {chosen.map(a => (
                     <th key={a.id} style={{ textAlign:'right' }}>
                       <div style={{ color:'var(--gold)', fontSize:'13px' }}>{a.ticker}</div>
@@ -83,7 +86,7 @@ export default function Compare({ assets }) {
                   const { best, worst } = winners(row);
                   return (
                     <tr key={row.key}>
-                      <td className="td-name" style={{ color:'var(--muted)' }}>{row.label}</td>
+                      <td className="td-name" style={{ color:'var(--muted)' }}>{t('comparePage.rows.' + row.key)}</td>
                       {chosen.map((a, i) => {
                         const raw = cellValue(a, row);
                         const display = row.fmt ? row.fmt(raw) : fmt(raw, row.suffix);

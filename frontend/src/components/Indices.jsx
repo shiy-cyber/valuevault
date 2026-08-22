@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const PERIODS = [['1m','1 Mes'],['3m','3 Meses'],['6m','6 Meses'],['ytd','YTD'],['1y','1 Año'],['3y','3 Años'],['5y','5 Años'],['10y','10 Años'],['20y','20 Años']];
-const REGIONS = ['USA', 'Europa', 'Asia'];
+const PERIOD_KEYS = ['1m','3m','6m','ytd','1y','3y','5y','10y','20y'];
+// El backend devuelve `region` en español (para filtrar); la etiqueta se
+// resuelve via i18next: indicesPage.regions.<key>
+const REGIONS = [['USA', 'usa'], ['Europa', 'europe'], ['Asia', 'asia']];
 // Periodos intra-mes (puntos diarios) → etiqueta "12 May"; el resto → "May '25".
 const INTRADAY = new Set(['1m', '3m', '6m', 'ytd']);
 
@@ -16,14 +18,16 @@ const lastVal = (s, p) => {
 };
 const fmtPct = (v) => v != null ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}%` : '—';
 
-const fmtLabel = (ts, period) => {
-  const d = new Date(ts);
-  const mes = MESES[d.getMonth()];
-  if (INTRADAY.has(period)) return `${d.getDate()} ${mes}`;
-  return `${mes} '${String(d.getFullYear()).slice(2)}`;
-};
-
 export default function Indices({ theme, toast }) {
+  const { t } = useTranslation();
+  const months = t('macroPage.months', { returnObjects: true });
+  const PERIODS = PERIOD_KEYS.map(k => [k, t('trendsPage.periods.' + k)]);
+  const fmtLabel = (ts, period) => {
+    const d = new Date(ts);
+    const mes = months[d.getMonth()];
+    if (INTRADAY.has(period)) return `${d.getDate()} ${mes}`;
+    return `${mes} '${String(d.getFullYear()).slice(2)}`;
+  };
   const [indices, setIndices] = useState([]);
   const [period, setPeriod] = useState('1m');
   const [active, setActive] = useState(new Set());
@@ -41,15 +45,15 @@ export default function Indices({ theme, toast }) {
       setIndices(data);
       setActive(prev => prev.size ? prev : new Set(data.map(s => s.name)));
       setUpdatedAt(new Date());
-      if (data.some(s => s.live === false)) toast?.('⚠ Algún índice usa datos de respaldo');
-      else if (fresh) toast?.('↻ Índices actualizados');
+      if (data.some(s => s.live === false)) toast?.(t('indicesPage.someFallback'));
+      else if (fresh) toast?.(t('indicesPage.indicesUpdated'));
     } catch (e) {
-      toast?.('⚠ No se pudieron cargar los índices: ' + e.message);
+      toast?.(t('indicesPage.couldNotLoadIndices', { message: e.message }));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => { load(false); }, [load]);
 
@@ -89,26 +93,26 @@ export default function Indices({ theme, toast }) {
     },
   };
 
-  const byRegion = useMemo(() => REGIONS.map(r => ({
-    region: r,
+  const byRegion = useMemo(() => REGIONS.map(([r, key]) => ({
+    region: r, regionLabel: t('indicesPage.regions.' + key),
     items: [...indices.filter(s => s.region === r)].sort((a, b) => (lastVal(b, period) ?? -Infinity) - (lastVal(a, period) ?? -Infinity)),
-  })).filter(g => g.items.length), [indices, period]);
+  })).filter(g => g.items.length), [indices, period, t]);
 
-  const signal = (v) => v > 5 ? '🔥 Fuerte alza' : v > 2 ? '📈 Alcista' : v > 0 ? '➡️ Neutro+' : v > -2 ? '➡️ Neutro-' : v > -5 ? '📉 Bajista' : '❄️ Fuerte baja';
+  const signal = (v) => v > 5 ? t('trendsPage.signal.strongUp') : v > 2 ? t('trendsPage.signal.bullish') : v > 0 ? t('trendsPage.signal.neutralPos') : v > -2 ? t('trendsPage.signal.neutralNeg') : v > -5 ? t('trendsPage.signal.bearish') : t('trendsPage.signal.strongDown');
 
   return (
     <div className="section active">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px', flexWrap:'wrap', gap:'10px' }}>
         <div>
-          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>Índices Bursátiles Principales</div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>{t('indicesPage.title')}</div>
           <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>
-            Variación diaria y rendimiento acumulado · {loading ? 'cargando…' : 'datos Yahoo Finance en vivo'}
+            {t('indicesPage.subtitle')} · {loading ? t('marketPulse.loading') : t('trendsPage.liveData')}
           </div>
         </div>
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'10px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
             {updatedAt && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>↻ {updatedAt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</span>}
-            <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? '⏳ Actualizando…' : '↻ Actualizar'}</button>
+            <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? t('macroPage.updating') : t('macroPage.update')}</button>
           </div>
           <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', justifyContent:'flex-end' }}>
             {PERIODS.map(([k, l]) => (
@@ -121,7 +125,7 @@ export default function Indices({ theme, toast }) {
       {/* CARDS POR REGIÓN */}
       {byRegion.map(group => (
         <div key={group.region} style={{ marginBottom:'18px' }}>
-          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'10px' }}>{group.region}</div>
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'10px' }}>{group.regionLabel}</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:'10px' }}>
             {group.items.map(s => {
               const v = lastVal(s, period); const pos = v != null && v >= 0;
@@ -154,11 +158,11 @@ export default function Indices({ theme, toast }) {
 
       {/* LINE — RENDIMIENTO ACUMULADO */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'6px' }}>Rendimiento Acumulado Comparado</div>
-        <div style={{ fontSize:'11px', color:'var(--muted)', marginBottom:'14px' }}>Rendimiento % acumulado en el periodo — selecciona índices ({active.size}/{indices.length})</div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'6px' }}>{t('indicesPage.cumulativeTitle')}</div>
+        <div style={{ fontSize:'11px', color:'var(--muted)', marginBottom:'14px' }}>{t('indicesPage.cumulativeSubtitle', { active: active.size, total: indices.length })}</div>
         <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'16px', alignItems:'center' }}>
-          <button onClick={selectAll} disabled={allOn} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: allOn ? 'default' : 'pointer', border:'1px solid var(--gold)', background:'transparent', color:'var(--gold)', opacity: allOn ? 0.4 : 1, transition:'all .15s' }}>✓ Todos</button>
-          <button onClick={clearAll} disabled={active.size === 0} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: active.size === 0 ? 'default' : 'pointer', border:'1px solid var(--muted)', background:'transparent', color:'var(--muted)', opacity: active.size === 0 ? 0.4 : 1, transition:'all .15s' }}>✗ Ninguno</button>
+          <button onClick={selectAll} disabled={allOn} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: allOn ? 'default' : 'pointer', border:'1px solid var(--gold)', background:'transparent', color:'var(--gold)', opacity: allOn ? 0.4 : 1, transition:'all .15s' }}>{t('trendsPage.selectAll')}</button>
+          <button onClick={clearAll} disabled={active.size === 0} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: active.size === 0 ? 'default' : 'pointer', border:'1px solid var(--muted)', background:'transparent', color:'var(--muted)', opacity: active.size === 0 ? 0.4 : 1, transition:'all .15s' }}>{t('trendsPage.selectNone')}</button>
           <span style={{ width:'1px', alignSelf:'stretch', background:'var(--border)', margin:'0 4px' }} />
           {indices.map(s => {
             const on = active.has(s.name);
@@ -175,12 +179,12 @@ export default function Indices({ theme, toast }) {
 
       {/* TABLE */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', overflow:'hidden' }}>
-        <div style={{ padding:'16px 18px', borderBottom:'1px solid var(--border)', fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase' }}>Detalle por Índice</div>
+        <div style={{ padding:'16px 18px', borderBottom:'1px solid var(--border)', fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase' }}>{t('indicesPage.tableTitle')}</div>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead>
               <tr style={{ background:'var(--surface2)' }}>
-                {['Índice','Región','Último','Día %',`${PERIODS.find(p => p[0] === period)[1]} %`,'Señal','Ver'].map((th, i) => (
+                {[t('indicesPage.colIndex'), t('indicesPage.colRegion'), t('indicesPage.colLast'), t('indicesPage.colDayPct'), `${PERIODS.find(p => p[0] === period)[1]} %`, t('trendsPage.colSignal'), t('trendsPage.colView')].map((th, i) => (
                   <th key={i} style={{ padding:'10px 14px', fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', textTransform:'uppercase', letterSpacing:'1px', textAlign: i >= 2 && i <= 4 ? 'right' : (i >= 5 ? 'center' : 'left') }}>{th}</th>
                 ))}
               </tr>
@@ -192,7 +196,7 @@ export default function Indices({ theme, toast }) {
                 return (
                   <tr key={s.symbol} style={{ background: i % 2 === 0 ? '' : 'var(--surface2)' }}>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px' }}><span style={{ marginRight:'6px' }}>{s.icon}</span><span style={{ color:'var(--text)' }}>{s.name}</span></td>
-                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'11px', color:'var(--muted)' }}>{s.region}</td>
+                    <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'11px', color:'var(--muted)' }}>{t('indicesPage.regions.' + (REGIONS.find(([r]) => r === s.region)?.[1] || ''))}</td>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', color:'var(--text)' }}>{s.price != null ? s.price.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', fontWeight:600, color: dpos ? 'var(--green)' : 'var(--red)' }}>{fmtPct(s.changePercent)}</td>
                     <td style={{ padding:'12px 14px', fontFamily:"'DM Mono',monospace", fontSize:'13px', textAlign:'right', fontWeight:600, color: pos ? 'var(--green)' : 'var(--red)' }}>{fmtPct(v)}</td>
@@ -207,7 +211,7 @@ export default function Indices({ theme, toast }) {
       </div>
 
       <div style={{ marginTop:'14px', padding:'12px 16px', background:'var(--surface2)', borderRadius:'8px', borderLeft:'3px solid var(--gold)', fontSize:'11px', color:'var(--muted)', lineHeight:1.7 }}>
-        ⚡ Cotizaciones en tiempo real de los principales índices mundiales vía Yahoo Finance. La variación diaria compara el último cierre con el anterior; el rendimiento acumulado parte del inicio del periodo seleccionado.
+        {t('indicesPage.footer')}
       </div>
     </div>
   );

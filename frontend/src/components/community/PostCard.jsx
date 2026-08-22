@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { timeAgo } from '../../lib/format.js';
 import { api } from '../../lib/api.js';
 import RichText from './RichText.jsx';
@@ -8,6 +9,7 @@ import CommentsPanel from './CommentsPanel.jsx';
 const toIso = (s) => (s ? String(s).replace(' ', 'T') + 'Z' : null);
 
 export default function PostCard({ post, currentUserId, canInteract, onDelete, onTicker, onHandle, onAuthor, requireInteract, toast }) {
+  const { t } = useTranslation();
   const a = post.author || {};
   const mine = currentUserId && a.id === currentUserId;
   const [liked, setLiked] = useState(!!post.likedByMe);
@@ -27,7 +29,7 @@ export default function PostCard({ post, currentUserId, canInteract, onDelete, o
       setLikeCount(r.likeCount); setLiked(r.likedByMe);
     } catch (e) {
       setLiked(!next); setLikeCount(c => c + (next ? -1 : 1)); // revertir
-      toast?.('⚠ ' + e.message);
+      toast?.(t('toast.error', { message: e.message }));
     } finally { setLikeBusy(false); }
   };
 
@@ -43,13 +45,13 @@ export default function PostCard({ post, currentUserId, canInteract, onDelete, o
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <div style={{ fontSize: '24px', lineHeight: 1 }}>{a.avatar || '📈'}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>{a.displayName || 'Anónimo'}</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>{a.displayName || t('postCard.anonymous')}</div>
           <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>
             <span onClick={a.handle && onAuthor ? () => onAuthor(a.handle) : undefined} style={{ color: 'var(--gold)', cursor: a.handle && onAuthor ? 'pointer' : 'default' }}>@{a.handle || '—'}</span>
-            <span> · {timeAgo(toIso(post.createdAt)) || ''}</span>
+            <span> · {timeAgo(toIso(post.createdAt), t) || ''}</span>
           </div>
         </div>
-        {mine && <button className="card-btn" title="Eliminar" onClick={() => onDelete?.(post)} style={{ flex: 'none' }}>🗑</button>}
+        {mine && <button className="card-btn" title={t('postCard.deleteTitle')} onClick={() => onDelete?.(post)} style={{ flex: 'none' }}>🗑</button>}
       </div>
 
       <div style={{ fontSize: '13.5px', color: 'var(--text)', marginTop: '10px', lineHeight: 1.55 }}>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bar, Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 import StatCard from './shared/StatCard.jsx';
@@ -6,6 +7,7 @@ import StatCard from './shared/StatCard.jsx';
 const bn = (v) => v == null ? '—' : (Math.abs(v) >= 1e9 ? (v / 1e9).toFixed(2) + ' bn' : (v / 1e6).toFixed(0) + ' M');
 
 export default function Gamma({ theme, toast }) {
+  const { t } = useTranslation();
   const [symbol, setSymbol] = useState('SPY');
   const [input, setInput] = useState('SPY');
   const [date, setDate] = useState(null);       // unix de la expiración elegida
@@ -16,9 +18,9 @@ export default function Gamma({ theme, toast }) {
   const load = useCallback(async (sym, d) => {
     setLoading(true);
     try { setData(await api.gamma(sym, d)); }
-    catch (e) { toast?.('⚠ ' + (e.message || 'No se pudo cargar ' + sym)); setData(null); }
+    catch (e) { toast?.(t('toast.error', { message: e.message || t('volProfilePage.couldNotLoadSym', { sym }) })); setData(null); }
     finally { setLoading(false); }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => { load(symbol, date); }, [symbol, date, load]);
   const analyze = () => { const s = input.trim().toUpperCase(); if (s) { setDate(null); setSymbol(s); } };
@@ -54,9 +56,9 @@ export default function Gamma({ theme, toast }) {
     plugins: {
       legend: { display: false },
       tooltip: { ...tipBox, callbacks: {
-        title: (it) => 'Strike ' + it[0].label + (isWall(+it[0].label) ? (+it[0].label === data.callWall ? '  · CALL WALL' : '  · PUT WALL') : ''),
+        title: (it) => t('gammaPage.strikeLabel', { strike: it[0].label }) + (isWall(+it[0].label) ? (+it[0].label === data.callWall ? t('gammaPage.callWallSuffix') : t('gammaPage.putWallSuffix')) : ''),
         label: (c) => `GEX ${c.parsed.x >= 0 ? '+' : ''}${c.parsed.x} M$ /1%`,
-        afterLabel: (c) => { const s = byStrike[c.dataIndex]; return `OI call ${s.callOI} · put ${s.putOI}`; },
+        afterLabel: (c) => { const s = byStrike[c.dataIndex]; return t('gammaPage.oiLine', { call: s.callOI, put: s.putOI }); },
       } },
     },
     scales: {
@@ -82,7 +84,7 @@ export default function Gamma({ theme, toast }) {
     plugins: {
       legend: { display: false },
       tooltip: { ...tipBox, callbacks: {
-        title: (it) => 'Precio $' + it[0].parsed.x.toFixed(2),
+        title: (it) => t('gammaPage.priceLabel', { price: it[0].parsed.x.toFixed(2) }),
         label: (c) => `GEX ${c.parsed.y >= 0 ? '+' : ''}${c.parsed.y} bn$ /1%`,
       } },
     },
@@ -160,14 +162,14 @@ export default function Gamma({ theme, toast }) {
   const stat = (label, value, sub, color) => <StatCard label={label} value={value} sub={sub} color={color} />;
 
   const regimePos = data?.regime === 'positive';
-  const flipVsSpot = data && data.gammaFlip != null ? (data.spot >= data.gammaFlip ? 'por encima' : 'por debajo') : null;
+  const flipVsSpot = data && data.gammaFlip != null ? (data.spot >= data.gammaFlip ? t('gammaPage.above') : t('gammaPage.below')) : null;
 
   return (
     <div className="section active">
       <div style={{ ...cardBase, borderLeft: '4px solid var(--gold)', marginBottom: '18px' }}>
-        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '16px', marginBottom: '6px' }}>Exposición a Gamma · GEX <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '9px', color: 'var(--gold)', border: '1px solid rgba(201,168,76,.3)', padding: '1px 7px', borderRadius: '10px', verticalAlign: 'middle' }}>OPCIONES</span></div>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '16px', marginBottom: '6px' }}>{t('gammaPage.title')} <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '9px', color: 'var(--gold)', border: '1px solid rgba(201,168,76,.3)', padding: '1px 7px', borderRadius: '10px', verticalAlign: 'middle' }}>{t('guide.tags.opciones').toUpperCase()}</span></div>
         <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7 }}>
-          Gamma de los <b>dealers</b> a partir del open interest e IV de la cadena de opciones. <b>GEX &gt; 0</b> = dealers en gamma larga → tienden a <b>amortiguar</b> el movimiento (menor volatilidad). <b>GEX &lt; 0</b> = gamma corta → <b>amplifican</b> el movimiento. El <b>gamma flip</b> es el precio donde la gamma total cruza cero; por encima suele dominar la estabilidad, por debajo la inestabilidad. <b>Call/Put wall</b> = strikes de mayor gamma (resistencia/soporte).
+          {t('gammaPage.subtitlePrefix')} <b>{t('gammaPage.dealersBold')}</b> {t('gammaPage.subtitle2')} <b>GEX &gt; 0</b> {t('gammaPage.subtitle3')} <b>{t('gammaPage.dampenBold')}</b> {t('gammaPage.subtitle4')} <b>GEX &lt; 0</b> {t('gammaPage.subtitle5')} <b>{t('gammaPage.amplifyBold')}</b> {t('gammaPage.subtitle6')} <b>{t('gammaPage.gammaFlipBold')}</b> {t('gammaPage.subtitle7')} <b>{t('gammaPage.callPutWallBold')}</b> {t('gammaPage.subtitle8')}
         </div>
       </div>
 
@@ -175,15 +177,15 @@ export default function Gamma({ theme, toast }) {
       <div style={{ ...cardBase, marginBottom: '18px' }}>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ flex: 1, minWidth: '160px' }}>
-            <label style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>Ticker (subyacente con opciones)</label>
+            <label style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>{t('gammaPage.tickerLabel')}</label>
             <input value={input} onChange={e => setInput(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && analyze()} placeholder="SPY, QQQ, NVDA…" style={{ width: '100%', marginTop: '4px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '7px', padding: '8px 10px', color: 'var(--text)', fontFamily: "'DM Mono',monospace", fontSize: '15px' }} />
           </div>
-          <button className="btn btn-gold" onClick={analyze} disabled={loading}>{loading ? '⏳' : 'Analizar'}</button>
+          <button className="btn btn-gold" onClick={analyze} disabled={loading}>{loading ? '⏳' : t('volProfilePage.analyze')}</button>
           {data && data.expirations?.length > 0 && (
             <div style={{ minWidth: '150px' }}>
-              <label style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>Vencimiento</label>
+              <label style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>{t('gammaPage.expiration')}</label>
               <select value={date ?? data.expirationDate} onChange={e => { const v = e.target.value; setDate(v === 'all' ? 'all' : Number(v)); }} style={{ width: '100%', marginTop: '4px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '7px', padding: '8px 10px', color: 'var(--text)', fontFamily: "'DM Mono',monospace", fontSize: '13px' }}>
-                <option value="all">Agregado (Todos los Vencimientos)</option>
+                <option value="all">{t('gammaPage.aggregatedAll')}</option>
                 {data.expirations.map(e => <option key={e.date} value={e.date}>{e.label}</option>)}
               </select>
             </div>
@@ -194,17 +196,17 @@ export default function Gamma({ theme, toast }) {
       {data && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,150px),1fr))', gap: '10px', marginBottom: '18px' }}>
-            {stat('Precio', '$' + data.spot, `${data.symbol} · ${data.aggregated ? data.nExpirations + ' venc. agregados' : data.daysToExpiry + 'd a venc.'}`)}
-            {stat('GEX Neto', (data.netGEX >= 0 ? '+' : '−') + '$' + bn(Math.abs(data.netGEX)), regimePos ? 'gamma larga (estabiliza)' : 'gamma corta (amplifica)', regimePos ? posColor : negColor)}
-            {stat('Gamma Flip', data.gammaFlip != null ? '$' + data.gammaFlip : '—', flipVsSpot ? `precio ${flipVsSpot}` : 'sin cruce', 'var(--gold)')}
-            {stat('Call Wall', data.callWall != null ? '$' + data.callWall : '—', 'resistencia', negColor)}
-            {stat('Put Wall', data.putWall != null ? '$' + data.putWall : '—', 'soporte', posColor)}
-            {stat('Put/Call OI', data.putCallOI != null ? String(data.putCallOI) : '—', 'ratio open interest')}
+            {stat(t('volProfilePage.priceLabel'), '$' + data.spot, `${data.symbol} · ${data.aggregated ? t('gammaPage.nExpirationsAgg', { n: data.nExpirations }) : t('gammaPage.daysToExpiry', { d: data.daysToExpiry })}`)}
+            {stat(t('gammaPage.netGex'), (data.netGEX >= 0 ? '+' : '−') + '$' + bn(Math.abs(data.netGEX)), regimePos ? t('gammaPage.longGamma') : t('gammaPage.shortGamma'), regimePos ? posColor : negColor)}
+            {stat(t('gammaPage.gammaFlip'), data.gammaFlip != null ? '$' + data.gammaFlip : '—', flipVsSpot ? t('gammaPage.priceAt', { pos: flipVsSpot }) : t('gammaPage.noCross'), 'var(--gold)')}
+            {stat(t('gammaPage.callWall'), data.callWall != null ? '$' + data.callWall : '—', t('smcPage.resistance'), negColor)}
+            {stat(t('gammaPage.putWall'), data.putWall != null ? '$' + data.putWall : '—', t('smcPage.support'), posColor)}
+            {stat(t('gammaPage.putCallOi'), data.putCallOI != null ? String(data.putCallOI) : '—', t('gammaPage.oiRatio'))}
           </div>
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
             <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <span>Perfil de gamma por strike · {data.aggregated ? `${data.nExpirations} venc. agregados` : `venc. ${data.expiry}`} <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted)' }}>(top {byStrike.length} por gamma)</span></span>
+              <span>{t('gammaPage.strikeProfileTitle')} · {data.aggregated ? t('gammaPage.nExpirationsAgg', { n: data.nExpirations }) : t('gammaPage.expiryLabel', { expiry: data.expiry })} <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--muted)' }}>{t('gammaPage.topByGamma', { n: byStrike.length })}</span></span>
               <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: posColor }}>■</span> + · <span style={{ color: negColor }}>■</span> − · <span style={{ color: flipColor }}>▭</span> wall · <span style={{ color: spotColor }}>┄</span> spot · <span style={{ color: flipColor }}>┄</span> flip</span>
             </div>
             <div style={{ position: 'relative', height: '360px' }}>{!loading && barData && <Bar data={barData} options={barOpts} plugins={[barRefs]} />}</div>
@@ -212,19 +214,19 @@ export default function Gamma({ theme, toast }) {
 
           <div style={{ ...cardBase, marginBottom: '18px' }}>
             <div style={{ ...cap, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <span>Curva de gamma · cruza cero en el flip</span>
-              <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: spotColor }}>┊</span> spot · <span style={{ color: flipColor }}>┊</span> flip · <span style={{ color: posColor }}>■</span> larga / <span style={{ color: negColor }}>■</span> corta</span>
+              <span>{t('gammaPage.curveTitle')}</span>
+              <span style={{ textTransform: 'none', letterSpacing: 0 }}><span style={{ color: spotColor }}>┊</span> spot · <span style={{ color: flipColor }}>┊</span> flip · <span style={{ color: posColor }}>■</span> {t('gammaPage.longShort.long')} / <span style={{ color: negColor }}>■</span> {t('gammaPage.longShort.short')}</span>
             </div>
             <div style={{ position: 'relative', height: '300px' }}>{!loading && lineData && <Line data={lineData} options={lineOpts} plugins={[refLines]} />}</div>
           </div>
         </>
       )}
 
-      {loading && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", fontSize: '12px', padding: '40px' }}>⏳ Calculando gamma de {symbol}…</div>}
-      {!loading && !data && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontSize: '12px', padding: '40px' }}>No hay cadena de opciones para <b>{symbol}</b>. Prueba con un subyacente líquido de EE. UU. (SPY, QQQ, AAPL, NVDA…).</div>}
+      {loading && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", fontSize: '12px', padding: '40px' }}>{t('gammaPage.calculating', { symbol })}</div>}
+      {!loading && !data && <div style={{ ...cardBase, textAlign: 'center', color: 'var(--muted)', fontSize: '12px', padding: '40px' }}>{t('gammaPage.noChainPrefix')} <b>{symbol}</b>. {t('gammaPage.noChainSuffix')}</div>}
 
       <div style={{ marginTop: '16px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
-        ⚡ Gamma Black-Scholes sobre OI e IV de Yahoo, convención de dealer largo de calls / corto de puts (SqueezeMetrics). GEX en $ por cada 1% de movimiento del subyacente. Es una estimación —el posicionamiento real de los dealers no es público— y {data?.aggregated ? `agrega los ${data.nExpirations} vencimientos más cercanos (muro de contención global del libro)` : 'cubre la cadena de un solo vencimiento'}. Herramienta de análisis, no asesoramiento.
+        {t('gammaPage.footerPrefix')} {data?.aggregated ? t('gammaPage.footerAggregated', { n: data.nExpirations }) : t('gammaPage.footerSingle')}. {t('gammaPage.footerSuffix')}
       </div>
     </div>
   );

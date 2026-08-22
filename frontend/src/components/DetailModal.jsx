@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { TOPIC_SHORT } from '../lib/format.js';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api.js';
+
+const TOPIC_KEYS = ['value','growth','analysis','macro','psychology','strategy'];
 
 // Recorta el perfil a una introducción breve: hasta ~700 caracteres (la intro
 // IA en español ya viene acotada a ~110 palabras; este límite solo recorta el
@@ -15,6 +17,7 @@ function brief(text, max = 700) {
 }
 
 export default function DetailModal({ asset, notes, onClose, onAddNote }) {
+  const { t } = useTranslation();
   // Hooks SIEMPRE antes del guard (reglas de React). `desc` es la descripción
   // mostrada; se sincroniza con el activo abierto y se actualiza al generar IA.
   const [desc, setDesc] = useState(asset?.description || '');
@@ -48,30 +51,30 @@ export default function DetailModal({ asset, notes, onClose, onAddNote }) {
           <div className="modal-title" style={{ marginBottom:'6px' }}>{asset.ticker} — {asset.name}</div>
           <div style={{ color:'var(--muted)', fontSize:'11px', fontFamily:"'DM Mono',monospace", marginBottom:'18px' }}>{asset.sector} · {asset.market}</div>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'7px' }}>
-            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1px', textTransform:'uppercase' }}>Sobre la Empresa</div>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1px', textTransform:'uppercase' }}>{t('assetRow.companyIntro.title')}</div>
             <button className="btn btn-outline" disabled={busy} onClick={() => generate(!!about)} style={{ fontSize:'10px', padding:'3px 9px' }}>
-              {busy ? '⏳…' : (about ? '🔄 Regenerar 🇪🇸' : '🇪🇸 Generar en español (IA)')}
+              {busy ? t('common.busy') : (about ? t('assetRow.companyIntro.regenerate') : t('assetRow.companyIntro.generate'))}
             </button>
           </div>
           {err && <div style={{ fontSize:'11px', color:'var(--red)', marginBottom:'8px' }}>{err}</div>}
           {about
             ? <div style={{ fontSize:'13px', lineHeight:1.7, color:'var(--text)', marginBottom:'16px', padding:'13px', background:'var(--surface2)', borderRadius:'8px' }}>{about}</div>
-            : <div style={{ fontSize:'12px', color:'var(--muted)', marginBottom:'16px', padding:'13px', background:'var(--surface2)', borderRadius:'8px' }}>Sin descripción. Pulsa «Generar en español» para una intro breve de la empresa.</div>}
-          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1px', textTransform:'uppercase', marginBottom:'7px' }}>Tesis de Inversión</div>
-          <div style={{ fontSize:'13px', lineHeight:1.7, color:'var(--text)', marginBottom:'16px', padding:'13px', background:'var(--surface2)', borderRadius:'8px' }}>{asset.thesis || 'Sin tesis.'}</div>
+            : <div style={{ fontSize:'12px', color:'var(--muted)', marginBottom:'16px', padding:'13px', background:'var(--surface2)', borderRadius:'8px' }}>{t('assetRow.companyIntro.empty')}</div>}
+          <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1px', textTransform:'uppercase', marginBottom:'7px' }}>{t('assetRow.sections.thesis')}</div>
+          <div style={{ fontSize:'13px', lineHeight:1.7, color:'var(--text)', marginBottom:'16px', padding:'13px', background:'var(--surface2)', borderRadius:'8px' }}>{asset.thesis || t('detailModal.noThesis')}</div>
           <div className="notes-panel">
-            <div className="notes-panel-title">📝 Notas vinculadas ({linked.length})</div>
+            <div className="notes-panel-title">{t('detailModal.linkedNotes', { count: linked.length })}</div>
             {linked.length ? linked.map(n => (
               <div className="asset-note-item" key={n.id}>
                 <strong>{n.title}</strong>{n.content}
-                <div className="asset-note-date">{TOPIC_SHORT[n.topic] || n.topic} · {n.date}{n.source ? ' · ' + n.source : ''}</div>
+                <div className="asset-note-date">{TOPIC_KEYS.includes(n.topic) ? t('detailModal.topicsShort.' + n.topic) : n.topic} · {n.date}{n.source ? ' · ' + n.source : ''}</div>
               </div>
-            )) : <div style={{ color:'var(--muted)', fontSize:'12px', padding:'6px 0' }}>Sin notas vinculadas aún.</div>}
+            )) : <div style={{ color:'var(--muted)', fontSize:'12px', padding:'6px 0' }}>{t('detailModal.noLinkedNotes')}</div>}
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-outline" onClick={onClose}>Cerrar</button>
-          <button className="btn btn-gold" onClick={() => onAddNote(asset.id)}>+ Añadir Nota</button>
+          <button className="btn btn-outline" onClick={onClose}>{t('detailModal.close')}</button>
+          <button className="btn btn-gold" onClick={() => onAddNote(asset.id)}>{t('detailModal.addNote')}</button>
         </div>
       </div>
     </div>

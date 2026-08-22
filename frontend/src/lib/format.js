@@ -10,7 +10,8 @@ export function fmtM(v) {
   return v;
 }
 export function getRiskW(r) { return r === 'low' ? 28 : r === 'medium' ? 58 : 88; }
-export function riskLabel(r) { return r === 'low' ? 'Bajo' : r === 'medium' ? 'Medio' : 'Alto'; }
+// t: función de traducción (useTranslation) — reutiliza assetModal.risks.*
+export function riskLabel(r, t) { return r === 'low' ? t('assetModal.risks.low') : r === 'medium' ? t('assetModal.risks.medium') : t('assetModal.risks.high'); }
 export function riskColor(r) { return r === 'low' ? 'var(--green)' : r === 'medium' ? 'var(--orange)' : 'var(--red)'; }
 
 export function metricColor(key, val) {
@@ -199,30 +200,27 @@ export function compositeScore(a) {
   return { value, quality, momentum, total };
 }
 
-// "hace 3 min" a partir de un ISO timestamp
-export function timeAgo(iso) {
+// "hace 3 min" a partir de un ISO timestamp — t: función de traducción (useTranslation)
+export function timeAgo(iso, t) {
   if (!iso) return null;
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'hace segundos';
-  if (m < 60) return `hace ${m} min`;
+  if (m < 1) return t('format.justNow');
+  if (m < 60) return t('format.minAgo', { m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `hace ${h} h`;
-  return `hace ${Math.floor(h / 24)} d`;
+  if (h < 24) return t('format.hAgo', { h });
+  return t('format.dAgo', { d: Math.floor(h / 24) });
 }
 
-// Tags de estrategia + horizonte
-const STRAT_MAP = { value:['tag-value','Value'], growth:['tag-growth','Growth'], dividend:['tag-dividend','Dividend'], momentum:['tag-momentum','Momentum'], garp:['tag-garp','GARP'], hidden:['tag-hidden','Gema'] };
-const TIME_MAP = { short:['tag-sp','Corto'], medium:['tag-mp','Medio'], long:['tag-lp','Largo'] };
-export function tagList(strategies = [], time = []) {
+// Tags de estrategia + horizonte — t: función de traducción (useTranslation)
+const STRAT_CLS = { value:'tag-value', growth:'tag-growth', dividend:'tag-dividend', momentum:'tag-momentum', garp:'tag-garp', hidden:'tag-hidden' };
+const TIME_CLS = { short:'tag-sp', medium:'tag-mp', long:'tag-lp' };
+export function tagList(strategies = [], time = [], t) {
   const out = [];
-  strategies.forEach(s => { if (STRAT_MAP[s]) out.push({ cls: STRAT_MAP[s][0], label: STRAT_MAP[s][1] }); });
-  time.forEach(t => { if (TIME_MAP[t]) out.push({ cls: TIME_MAP[t][0], label: TIME_MAP[t][1] }); });
+  strategies.forEach(s => { if (STRAT_CLS[s]) out.push({ cls: STRAT_CLS[s], label: t('format.tagStrat.' + s) }); });
+  time.forEach(tm => { if (TIME_CLS[tm]) out.push({ cls: TIME_CLS[tm], label: t('format.tagTime.' + tm) }); });
   return out;
 }
-
-export const TOPIC_MAP = { value:'Value Investing', growth:'Growth', analysis:'Análisis', macro:'Macro', psychology:'Psicología', strategy:'Estrategia' };
-export const TOPIC_SHORT = { value:'Value', growth:'Growth', analysis:'Análisis', macro:'Macro', psychology:'Psicología', strategy:'Estrategia' };
 
 export function insiderLinks(ticker) {
   return [

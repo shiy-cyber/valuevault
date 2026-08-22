@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import AssetRow from './AssetRow.jsx';
 
-const STRATS = [['value','Value'],['growth','Growth'],['dividend','Dividend'],['garp','GARP'],['momentum','Momentum'],['hidden','Gemas Ocultas']];
-const TIMES = [['short','Corto Plazo'],['medium','Medio Plazo'],['long','Largo Plazo']];
-const RISKS = [['low','Riesgo Bajo'],['medium','Riesgo Medio'],['high','Riesgo Alto']];
+const STRAT_KEYS = ['value','growth','dividend','garp','momentum','hidden'];
+const TIME_KEYS = ['short','medium','long'];
+const RISK_KEYS = ['low','medium','high'];
 
 function Dropdown({ title, items, list, set, open, onOpen }) {
   const ref = useRef(null);
@@ -33,6 +34,7 @@ function Dropdown({ title, items, list, set, open, onOpen }) {
 }
 
 export default function Assets({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
+  const { t } = useTranslation();
   const [strats, setStrats] = useState([]);
   const [times, setTimes] = useState([]);
   const [risks, setRisks] = useState([]);
@@ -41,6 +43,9 @@ export default function Assets({ assets, notes, theme, fxRates, onNotes, onEdit,
 
   const clearAll = () => { setStrats([]); setTimes([]); setRisks([]); };
   const hasFilters = strats.length || times.length || risks.length;
+  const STRATS = STRAT_KEYS.map(k => [k, t('assetsPage.strats.' + k)]);
+  const TIMES = TIME_KEYS.map(k => [k, t('assetsPage.times.' + k)]);
+  const RISKS = RISK_KEYS.map(k => [k, t('assetsPage.risks.' + k)]);
 
   const filtered = assets.filter(a => {
     // Dentro de cada categoría: O (cualquiera de los marcados). Entre categorías: Y.
@@ -53,17 +58,17 @@ export default function Assets({ assets, notes, theme, fxRates, onNotes, onEdit,
   return (
     <div className="section active">
       <div className="filter-dds">
-        <Dropdown title="Tipo" items={STRATS} list={strats} set={setStrats} open={open === 'Tipo'} onOpen={setOpen} />
-        <Dropdown title="Plazo" items={TIMES} list={times} set={setTimes} open={open === 'Plazo'} onOpen={setOpen} />
-        <Dropdown title="Riesgo" items={RISKS} list={risks} set={setRisks} open={open === 'Riesgo'} onOpen={setOpen} />
+        <Dropdown title={t('assetsPage.filters.type')} items={STRATS} list={strats} set={setStrats} open={open === t('assetsPage.filters.type')} onOpen={setOpen} />
+        <Dropdown title={t('assetsPage.filters.term')} items={TIMES} list={times} set={setTimes} open={open === t('assetsPage.filters.term')} onOpen={setOpen} />
+        <Dropdown title={t('assetsPage.filters.risk')} items={RISKS} list={risks} set={setRisks} open={open === t('assetsPage.filters.risk')} onOpen={setOpen} />
         {hasFilters ? (
-          <button className="filter-chip" style={{ borderStyle:'dashed' }} onClick={clearAll}>✕ Limpiar</button>
+          <button className="filter-chip" style={{ borderStyle:'dashed' }} onClick={clearAll}>{t('assetsPage.filters.clear')}</button>
         ) : null}
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginTop:'16px' }}>
         {filtered.length
           ? filtered.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} />)
-          : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">No hay activos con estos filtros</div></div>}
+          : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">{t('assetsPage.emptyFiltered')}</div></div>}
       </div>
     </div>
   );

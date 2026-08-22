@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api.js';
 import { portfolioWeights, portfolioVol, avgCorrelation, corrColor } from '../lib/format.js';
 
 const volColor = (v) => v == null ? 'var(--muted)' : v >= 35 ? 'var(--red)' : v >= 20 ? 'var(--orange)' : 'var(--green)';
 const ddColor = (d) => d == null ? 'var(--muted)' : d <= -40 ? 'var(--red)' : d <= -20 ? 'var(--orange)' : 'var(--green)';
 
-function diversification(avg) {
+function diversification(avg, t) {
   if (avg == null) return { label: '—', color: 'var(--muted)' };
-  if (avg < 0.3) return { label: 'Buena', color: 'var(--green)' };
-  if (avg < 0.6) return { label: 'Media', color: 'var(--orange)' };
-  return { label: 'Pobre (activos se mueven juntos)', color: 'var(--red)' };
+  if (avg < 0.3) return { label: t('riskPanel.diversification.good'), color: 'var(--green)' };
+  if (avg < 0.6) return { label: t('riskPanel.diversification.medium'), color: 'var(--orange)' };
+  return { label: t('riskPanel.diversification.poor'), color: 'var(--red)' };
 }
 
 // Riesgo cuantitativo de la cartera: volatilidad anualizada, máximo drawdown
 // y matriz de correlación. Datos reales de Yahoo (histórico 1 año).
 export default function RiskPanel({ assets, fxRates }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
 
@@ -40,41 +42,41 @@ export default function RiskPanel({ assets, fxRates }) {
   const { weights, byValue } = portfolioWeights(assets, fxRates);
   const pVol = data ? portfolioVol(weights, vols, corr) : null;
   const avgCorr = data ? avgCorrelation(corr) : null;
-  const div = diversification(avgCorr);
+  const div = diversification(avgCorr, t);
   const syms = data?.matrix?.symbols || [];
 
   return (
     <div style={{ marginBottom: '22px' }}>
       <div className="section-header" style={{ marginBottom: '12px' }}>
-        <div className="section-title">Riesgo de Cartera <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>· medido (Yahoo, 1 año)</span></div>
+        <div className="section-title">{t('riskPanel.title')} <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>{t('riskPanel.subtitle')}</span></div>
       </div>
 
-      {err ? <div style={{ color: 'var(--muted)', fontSize: '12px' }}>No se pudo calcular el riesgo: {err}</div>
-        : !data ? <div style={{ color: 'var(--muted)', fontSize: '12px' }}>Calculando volatilidad y correlaciones…</div>
+      {err ? <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{t('riskPanel.errorPrefix', { error: err })}</div>
+        : !data ? <div style={{ color: 'var(--muted)', fontSize: '12px' }}>{t('riskPanel.calculating')}</div>
         : (
           <>
             <div className="kpi-grid" style={{ marginBottom: '16px' }}>
               <div className="kpi-card">
-                <div className="kpi-label">Volatilidad Cartera</div>
+                <div className="kpi-label">{t('riskPanel.portfolioVol')}</div>
                 <div className="kpi-value" style={{ color: volColor(pVol) }}>{pVol == null ? '—' : pVol + '%'}</div>
-                <div className="kpi-sub">anualizada{byValue ? ' · ponderada €' : ' · igual peso'}</div>
+                <div className="kpi-sub">{t('riskPanel.annualized')}{byValue ? t('riskPanel.weighted') : t('riskPanel.equalWeight')}</div>
               </div>
               <div className="kpi-card">
-                <div className="kpi-label">Correlación Media</div>
+                <div className="kpi-label">{t('riskPanel.avgCorrelation')}</div>
                 <div className="kpi-value" style={{ color: div.color }}>{avgCorr == null ? '—' : avgCorr}</div>
-                <div className="kpi-sub">diversificación: <span style={{ color: div.color }}>{div.label}</span></div>
+                <div className="kpi-sub">{t('riskPanel.diversificationLabel')} <span style={{ color: div.color }}>{div.label}</span></div>
               </div>
             </div>
 
-            <div className="mv-section-label">Por Activo</div>
+            <div className="mv-section-label">{t('riskPanel.byAsset')}</div>
             <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "'DM Mono',monospace" }}>
                 <thead>
                   <tr style={{ color: 'var(--muted)', textAlign: 'right' }}>
-                    <th style={{ textAlign: 'left', padding: '6px 8px' }}>Activo</th>
-                    <th style={{ padding: '6px 8px' }}>Volatilidad</th>
-                    <th style={{ padding: '6px 8px' }}>Máx. Drawdown</th>
-                    <th style={{ padding: '6px 8px' }}>Peso</th>
+                    <th style={{ textAlign: 'left', padding: '6px 8px' }}>{t('riskPanel.colAsset')}</th>
+                    <th style={{ padding: '6px 8px' }}>{t('riskPanel.colVolatility')}</th>
+                    <th style={{ padding: '6px 8px' }}>{t('riskPanel.colMaxDrawdown')}</th>
+                    <th style={{ padding: '6px 8px' }}>{t('riskPanel.colWeight')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -95,7 +97,7 @@ export default function RiskPanel({ assets, fxRates }) {
 
             {syms.length >= 2 && (
               <>
-                <div className="mv-section-label">Matriz de Correlación</div>
+                <div className="mv-section-label">{t('riskPanel.correlationMatrix')}</div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ borderCollapse: 'collapse', fontSize: '11px', fontFamily: "'DM Mono',monospace" }}>
                     <thead>
@@ -122,7 +124,7 @@ export default function RiskPanel({ assets, fxRates }) {
                   </table>
                 </div>
                 <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '8px' }}>
-                  1 = se mueven idéntico · 0 = independientes · negativo = se compensan. Correlaciones altas (rojo) = menos diversificación real.
+                  {t('riskPanel.correlationNote')}
                 </div>
               </>
             )}

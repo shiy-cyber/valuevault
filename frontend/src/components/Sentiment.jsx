@@ -1,26 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Line } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 import SparkChart from './shared/SparkChart.jsx';
 
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-
-// Escala 0-100 → color y etiqueta de zona (miedo ↔ codicia)
+// Escala 0-100 → color (etiqueta de zona resuelta via i18next: marketPulse.zones)
 const scoreColor = (v) => v == null ? 'var(--muted)' : v < 25 ? '#e74c3c' : v < 45 ? '#e67e22' : v < 55 ? '#c9a84c' : v < 75 ? '#2ecc71' : '#16a085';
-const scoreZone  = (v) => v == null ? '—' : v < 25 ? 'Miedo extremo' : v < 45 ? 'Miedo' : v < 55 ? 'Neutral' : v < 75 ? 'Codicia' : 'Codicia extrema';
-// Traducción de los ratings textuales que devuelve CNN
-const RATING_ES = { 'extreme fear':'Miedo extremo', 'fear':'Miedo', 'neutral':'Neutral', 'greed':'Codicia', 'extreme greed':'Codicia extrema' };
-const ratingEs = (r) => RATING_ES[String(r || '').toLowerCase()] || (r || '—');
-const CLASS_ES = { 'Extreme Fear':'Miedo extremo', 'Fear':'Miedo', 'Neutral':'Neutral', 'Greed':'Codicia', 'Extreme Greed':'Codicia extrema' };
+const RATING_KEY = { 'extreme fear':'extremeFear', 'fear':'fear', 'neutral':'neutral', 'greed':'greed', 'extreme greed':'extremeGreed' };
+const CLASS_KEY = { 'Extreme Fear':'extremeFear', 'Fear':'fear', 'Neutral':'neutral', 'Greed':'greed', 'Extreme Greed':'extremeGreed' };
 
 // Valoración del mercado (CAPE / P/E): alto = caro. Yield: alto = barato.
 const capeColor = (v) => v == null ? 'var(--muted)' : v < 20 ? '#16a085' : v < 28 ? '#2ecc71' : v < 35 ? '#c9a84c' : v < 40 ? '#e67e22' : '#e74c3c';
-const capeZone  = (v) => v == null ? '—' : v < 20 ? 'Barato' : v < 28 ? 'Razonable' : v < 35 ? 'Algo caro' : v < 40 ? 'Caro' : 'Muy caro';
 const peColor   = (v) => v == null ? 'var(--muted)' : v < 15 ? '#16a085' : v < 20 ? '#2ecc71' : v < 25 ? '#c9a84c' : v < 30 ? '#e67e22' : '#e74c3c';
-const peZone    = (v) => v == null ? '—' : v < 15 ? 'Barato' : v < 20 ? 'Razonable' : v < 25 ? 'Algo caro' : v < 30 ? 'Caro' : 'Muy caro';
 const dyColor   = (v) => v == null ? 'var(--muted)' : v >= 3 ? '#2ecc71' : v >= 2 ? '#c9a84c' : v >= 1.5 ? '#e67e22' : '#e74c3c';
-
-const fmtDay = (ts) => { const d = new Date(ts); return `${d.getDate()} ${MESES[d.getMonth()]}`; };
 
 // ─── Medidor semicircular tipo aguja (0-100) ────────────────
 function Gauge({ value }) {
@@ -54,6 +46,15 @@ function Spark({ points, color }) {
 }
 
 export default function Sentiment({ theme, toast }) {
+  const { t } = useTranslation();
+  const months = t('macroPage.months', { returnObjects: true });
+  const fmtDay = (ts) => { const d = new Date(ts); return `${d.getDate()} ${months[d.getMonth()]}`; };
+  const scoreZone = (v) => v == null ? '—' : v < 25 ? t('marketPulse.zones.extremeFear') : v < 45 ? t('marketPulse.zones.fear') : v < 55 ? t('marketPulse.zones.neutral') : v < 75 ? t('marketPulse.zones.greed') : t('marketPulse.zones.extremeGreed');
+  const ratingEs = (r) => { const k = RATING_KEY[String(r || '').toLowerCase()]; return k ? t('marketPulse.zones.' + k) : (r || '—'); };
+  const classLabel = (c) => { const k = CLASS_KEY[c]; return k ? t('marketPulse.zones.' + k) : c; };
+  const valuationZone = (v, cheapAt, okAt, someAt, expAt) => v == null ? '—' : v < cheapAt ? t('sentimentPage.cheap') : v < okAt ? t('sentimentPage.reasonable') : v < someAt ? t('sentimentPage.somewhatExpensive') : v < expAt ? t('sentimentPage.expensive') : t('sentimentPage.veryExpensive');
+  const capeZone = (v) => valuationZone(v, 20, 28, 35, 40);
+  const peZone = (v) => valuationZone(v, 15, 20, 25, 30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,12 +68,12 @@ export default function Sentiment({ theme, toast }) {
       setData(d);
       setUpdatedAt(new Date());
       const fails = Object.entries(d.errors || {}).filter(([, v]) => v).map(([k]) => k);
-      if (fails.length) toast?.('⚠ Fuente no disponible: ' + fails.join(', '));
-      else if (fresh) toast?.('↻ Sentimiento actualizado');
+      if (fails.length) toast?.(t('sentimentPage.sourceUnavailable', { sources: fails.join(', ') }));
+      else if (fresh) toast?.(t('sentimentPage.sentimentUpdated'));
     } catch (e) {
-      toast?.('⚠ No se pudo cargar el sentimiento: ' + e.message);
+      toast?.(t('sentimentPage.couldNotLoad', { message: e.message }));
     } finally { setLoading(false); setRefreshing(false); }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => { load(false); }, [load]);
 
@@ -82,7 +83,7 @@ export default function Sentiment({ theme, toast }) {
   const cnn = data?.cnn, crypto = data?.crypto, vix = data?.vix, val = data?.valuation;
 
   // VIX: zona interpretativa
-  const vixZone = (x) => x == null ? '—' : x < 13 ? 'Complacencia' : x < 20 ? 'Calma' : x < 30 ? 'Cautela' : x < 40 ? 'Miedo' : 'Pánico';
+  const vixZone = (x) => x == null ? '—' : x < 13 ? t('marketPulse.vixZones.complacency') : x < 20 ? t('marketPulse.vixZones.calm') : x < 30 ? t('marketPulse.vixZones.caution') : x < 40 ? t('marketPulse.vixZones.fear') : t('marketPulse.vixZones.panic');
   const vixColor = (x) => x == null ? 'var(--muted)' : x < 13 ? '#16a085' : x < 20 ? '#2ecc71' : x < 30 ? '#c9a84c' : x < 40 ? '#e67e22' : '#e74c3c';
 
   // Histórico CNN (línea principal)
@@ -104,8 +105,8 @@ export default function Sentiment({ theme, toast }) {
   };
 
   const prevRows = cnn ? [
-    ['Cierre anterior', cnn.prev.close], ['Hace 1 semana', cnn.prev.week],
-    ['Hace 1 mes', cnn.prev.month], ['Hace 1 año', cnn.prev.year],
+    [t('sentimentPage.prevClose'), cnn.prev.close], [t('sentimentPage.oneWeekAgo'), cnn.prev.week],
+    [t('sentimentPage.oneMonthAgo'), cnn.prev.month], [t('sentimentPage.oneYearAgo'), cnn.prev.year],
   ] : [];
 
   const cardBase = { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'18px' };
@@ -116,14 +117,14 @@ export default function Sentiment({ theme, toast }) {
       {/* Cabecera */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px', flexWrap:'wrap', gap:'10px' }}>
         <div>
-          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>Sentimiento de Mercado</div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>{t('nav.sentiment')}</div>
           <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>
-            Miedo y codicia + valoración · {loading ? 'cargando…' : 'CNN · alternative.me · Yahoo · multpl'}
+            {t('sentimentPage.subtitle')} · {loading ? t('marketPulse.loading') : 'CNN · alternative.me · Yahoo · multpl'}
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
           {updatedAt && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>↻ {updatedAt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</span>}
-          <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? '⏳ Actualizando…' : '↻ Actualizar'}</button>
+          <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? t('macroPage.updating') : t('macroPage.update')}</button>
         </div>
       </div>
 
@@ -136,7 +137,7 @@ export default function Sentiment({ theme, toast }) {
             <>
               <Gauge value={cnn.score} />
               <div style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:'20px', color: scoreColor(cnn.score), marginTop:'2px' }}>{scoreZone(cnn.score)}</div>
-              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', marginTop:'2px' }}>según CNN: {ratingEs(cnn.rating)}</div>
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', marginTop:'2px' }}>{t('sentimentPage.accordingToCnn', { rating: ratingEs(cnn.rating) })}</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginTop:'16px', width:'100%' }}>
                 {prevRows.map(([l, val]) => (
                   <div key={l} style={{ background:'var(--surface2)', borderRadius:'8px', padding:'8px 10px', textAlign:'left' }}>
@@ -146,12 +147,12 @@ export default function Sentiment({ theme, toast }) {
                 ))}
               </div>
             </>
-          ) : <div style={{ color:'var(--muted)', fontSize:'12px', padding:'30px 0' }}>{loading ? 'cargando…' : 'CNN no disponible ahora mismo'}</div>}
+          ) : <div style={{ color:'var(--muted)', fontSize:'12px', padding:'30px 0' }}>{loading ? t('marketPulse.loading') : t('sentimentPage.cnnUnavailable')}</div>}
         </div>
 
         {/* VIX */}
         <div style={cardBase}>
-          <div style={capTitle}>VIX · Volatilidad</div>
+          <div style={capTitle}>VIX · {t('sentimentPage.volatility')}</div>
           {vix ? (
             <>
               <div style={{ display:'flex', alignItems:'baseline', gap:'8px' }}>
@@ -160,9 +161,9 @@ export default function Sentiment({ theme, toast }) {
               </div>
               <div style={{ display:'inline-block', marginTop:'6px', fontFamily:"'DM Mono',monospace", fontSize:'10px', padding:'2px 8px', borderRadius:'10px', background: vixColor(vix.value) + '22', color: vixColor(vix.value) }}>{vixZone(vix.value)}</div>
               <Spark points={(vix.history || []).map(h => h.close)} color={vixColor(vix.value)} isDark={isDark} />
-              <div style={{ fontSize:'10px', color:'var(--muted)', lineHeight:1.6, marginTop:'8px' }}>Sube cuando hay miedo, baja en calma. &gt;30 = nerviosismo.</div>
+              <div style={{ fontSize:'10px', color:'var(--muted)', lineHeight:1.6, marginTop:'8px' }}>{t('sentimentPage.vixNote')}</div>
             </>
-          ) : <div style={{ color:'var(--muted)', fontSize:'12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
+          ) : <div style={{ color:'var(--muted)', fontSize:'12px' }}>{loading ? t('marketPulse.loading') : t('macroPage.notAvailable')}</div>}
         </div>
 
         {/* Crypto */}
@@ -171,18 +172,18 @@ export default function Sentiment({ theme, toast }) {
           {crypto ? (
             <>
               <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'30px', fontWeight:700, color: scoreColor(crypto.value) }}>{crypto.value ?? '—'}</div>
-              <div style={{ display:'inline-block', marginTop:'6px', fontFamily:"'DM Mono',monospace", fontSize:'10px', padding:'2px 8px', borderRadius:'10px', background: scoreColor(crypto.value) + '22', color: scoreColor(crypto.value) }}>{CLASS_ES[crypto.classification] || crypto.classification}</div>
+              <div style={{ display:'inline-block', marginTop:'6px', fontFamily:"'DM Mono',monospace", fontSize:'10px', padding:'2px 8px', borderRadius:'10px', background: scoreColor(crypto.value) + '22', color: scoreColor(crypto.value) }}>{classLabel(crypto.classification)}</div>
               <Spark points={(crypto.history || []).map(h => h.value)} color={scoreColor(crypto.value)} isDark={isDark} />
-              <div style={{ fontSize:'10px', color:'var(--muted)', lineHeight:1.6, marginTop:'8px' }}>Sentimiento del mercado cripto · últimos 30 días.</div>
+              <div style={{ fontSize:'10px', color:'var(--muted)', lineHeight:1.6, marginTop:'8px' }}>{t('sentimentPage.cryptoNote')}</div>
             </>
-          ) : <div style={{ color:'var(--muted)', fontSize:'12px' }}>{loading ? 'cargando…' : 'no disponible'}</div>}
+          ) : <div style={{ color:'var(--muted)', fontSize:'12px' }}>{loading ? t('marketPulse.loading') : t('macroPage.notAvailable')}</div>}
         </div>
       </div>
 
       {/* Valoración del S&P 500: Shiller CAPE + P/E + Dividend Yield */}
       <div style={{ ...cardBase, marginBottom:'18px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', flexWrap:'wrap', gap:'6px' }}>
-          <div style={capTitle}>Valoración del S&amp;P 500 · ¿mercado caro o barato?</div>
+          <div style={capTitle}>{t('sentimentPage.valuationTitle')}</div>
           {val?.asOf && <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'9px', color:'var(--muted)' }}>{val.asOf}</div>}
         </div>
         {val ? (
@@ -192,31 +193,31 @@ export default function Sentiment({ theme, toast }) {
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)' }}>Shiller CAPE (PE10)</div>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'26px', fontWeight:700, color: capeColor(val.cape) }}>{val.cape ?? '—'}</div>
                 <div style={{ display:'inline-block', fontFamily:"'DM Mono',monospace", fontSize:'9px', padding:'2px 8px', borderRadius:'10px', background: capeColor(val.cape)+'22', color: capeColor(val.cape) }}>{capeZone(val.cape)}</div>
-                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'6px' }}>media histórica ~17</div>
+                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'6px' }}>{t('sentimentPage.histAvg17')}</div>
               </div>
               <div style={{ background:'var(--surface2)', borderRadius:'10px', padding:'12px 14px' }}>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)' }}>P/E S&amp;P 500 (12m)</div>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'26px', fontWeight:700, color: peColor(val.pe) }}>{val.pe ?? '—'}</div>
                 <div style={{ display:'inline-block', fontFamily:"'DM Mono',monospace", fontSize:'9px', padding:'2px 8px', borderRadius:'10px', background: peColor(val.pe)+'22', color: peColor(val.pe) }}>{peZone(val.pe)}</div>
-                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'6px' }}>media histórica ~16</div>
+                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'6px' }}>{t('sentimentPage.histAvg16')}</div>
               </div>
               <div style={{ background:'var(--surface2)', borderRadius:'10px', padding:'12px 14px' }}>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)' }}>Dividend Yield</div>
                 <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'26px', fontWeight:700, color: dyColor(val.divYield) }}>{val.divYield != null ? val.divYield + '%' : '—'}</div>
-                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'10px' }}>media histórica ~1,8% · bajo = caro</div>
+                <div style={{ fontSize:'9px', color:'var(--muted)', marginTop:'10px' }}>{t('sentimentPage.histAvgYield')}</div>
               </div>
             </div>
             <div style={{ fontSize:'10px', color:'var(--muted)', lineHeight:1.6, marginTop:'10px' }}>
-              El <b>CAPE de Shiller</b> compara el precio con 10 años de beneficios ajustados por inflación: suaviza el ciclo y mide si el mercado está caro frente a su historia (media ~17). Un CAPE alto se asocia a <b>menores retornos a 10 años vista</b>, aunque es mal indicador de <em>timing</em>. Úsalo como contexto, no como señal de compra/venta.
+              {t('sentimentPage.capeExplainPrefix')} <b>{t('sentimentPage.shillerCapeBold')}</b> {t('sentimentPage.capeExplainMid')} <b>{t('sentimentPage.lowerReturnsBold')}</b> {t('sentimentPage.capeExplainSuffix')}
             </div>
           </>
-        ) : <div style={{ color:'var(--muted)', fontSize:'12px' }}>{loading ? 'cargando…' : 'valoración no disponible'}</div>}
+        ) : <div style={{ color:'var(--muted)', fontSize:'12px' }}>{loading ? t('marketPulse.loading') : t('sentimentPage.valuationUnavailable')}</div>}
       </div>
 
       {/* Componentes del índice CNN */}
       {cnn && (
         <div style={{ ...cardBase, marginBottom:'18px' }}>
-          <div style={capTitle}>Componentes del índice — qué mueve el sentimiento</div>
+          <div style={capTitle}>{t('sentimentPage.componentsTitle')}</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:'10px' }}>
             {cnn.components.map(c => (
               <div key={c.key} style={{ background:'var(--surface2)', borderRadius:'10px', padding:'12px 14px' }}>
@@ -240,14 +241,14 @@ export default function Sentiment({ theme, toast }) {
       {/* Histórico CNN */}
       {cnn && hist.length > 1 && (
         <div style={{ ...cardBase, marginBottom:'18px' }}>
-          <div style={capTitle}>Evolución del Fear &amp; Greed — último año</div>
+          <div style={capTitle}>{t('sentimentPage.evolutionTitle')}</div>
           <div style={{ position:'relative', height:'260px' }}>{!loading && <Line data={histData} options={histOpts} />}</div>
         </div>
       )}
 
       {/* Nota + fuentes */}
       <div style={{ padding:'12px 16px', background:'var(--surface2)', borderRadius:'8px', borderLeft:'3px solid var(--gold)', fontSize:'11px', color:'var(--muted)', lineHeight:1.7 }}>
-        🧭 El sentimiento es un indicador <em>contrarian</em>: el miedo extremo suele coincidir con suelos de mercado y la codicia extrema con techos. Fuentes:
+        {t('sentimentPage.footerPrefix')} <em>{t('sentimentPage.contrarianItalic')}</em>: {t('sentimentPage.footerSuffix')}
         <a href="https://edition.cnn.com/markets/fear-and-greed" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> CNN Fear &amp; Greed</a> ·
         <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> Crypto F&amp;G</a> ·
         <a href="https://www.cboe.com/tradable_products/vix/" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> CBOE VIX</a> ·

@@ -1,10 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { answer, WELCOME } from '../lib/assistantBrain.js';
 
 // Asistente interno de ValueVault — widget de chat flotante, basado en reglas
 // (sin IA externa, sin API, sin coste). Responde sobre la app, definiciones y
 // los datos de la cartera del usuario, todo en el navegador.
+// Nota: el contenido dinámico (WELCOME, answer()) viene de assistantBrain.js
+// y queda fuera del alcance de la traducción — solo el chrome del widget
+// (botón, cabecera, input) se traduce aquí.
 export default function Assistant({ assets, notes, fxRates, go }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([{ role: 'bot', ...WELCOME }]);
@@ -31,7 +36,7 @@ export default function Assistant({ assets, notes, fxRates, go }) {
       <button
         className="vv-assistant-fab"
         onClick={() => { setOpen(o => !o); setTimeout(() => inputRef.current?.focus(), 50); }}
-        title="Asistente de ValueVault"
+        title={t('assistant.title')}
         style={{
           position: 'fixed', bottom: '20px', right: '20px', zIndex: 1200,
           width: '56px', height: '56px', borderRadius: '50%', cursor: 'pointer',
@@ -62,8 +67,8 @@ export default function Assistant({ assets, notes, fxRates, go }) {
         }}>
           {/* Cabecera */}
           <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>🤖 Asistente ValueVault</div>
-            <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Local · sin coste · no envía datos fuera</div>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>{t('assistant.headerTitle')}</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{t('assistant.tagline')}</div>
           </div>
 
           {/* Mensajes */}
@@ -101,7 +106,7 @@ export default function Assistant({ assets, notes, fxRates, go }) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') send(input); }}
-              placeholder="Pregúntame algo…"
+              placeholder={t('assistant.placeholder')}
               style={{ flex: 1, fontSize: '12.5px', padding: '8px 11px', borderRadius: '10px',
                 background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none' }}
             />

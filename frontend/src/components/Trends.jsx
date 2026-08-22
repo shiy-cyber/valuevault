@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Line, Bar } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const PERIODS = [['1m','1 Mes'],['3m','3 Meses'],['6m','6 Meses'],['ytd','YTD'],['1y','1 Año'],['3y','3 Años'],['5y','5 Años'],['10y','10 Años']];
+const PERIOD_KEYS = ['1m','3m','6m','ytd','1y','3y','5y','10y'];
 // Periodos intra-mes (puntos diarios) → etiqueta "12 May"; el resto → "May '25".
 const INTRADAY = new Set(['1m', '3m', '6m', 'ytd']);
 
@@ -15,14 +15,16 @@ const lastVal = (s, p) => {
 };
 const fmtPct = (v, digits = 2) => v != null ? `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%` : '—';
 
-const fmtLabel = (ts, period) => {
-  const d = new Date(ts);
-  const mes = MESES[d.getMonth()];
-  if (INTRADAY.has(period)) return `${d.getDate()} ${mes}`;
-  return `${mes} '${String(d.getFullYear()).slice(2)}`;
-};
-
 export default function Trends({ theme, toast }) {
+  const { t } = useTranslation();
+  const months = t('macroPage.months', { returnObjects: true });
+  const PERIODS = PERIOD_KEYS.map(k => [k, t('trendsPage.periods.' + k)]);
+  const fmtLabel = (ts, period) => {
+    const d = new Date(ts);
+    const mes = months[d.getMonth()];
+    if (INTRADAY.has(period)) return `${d.getDate()} ${mes}`;
+    return `${mes} '${String(d.getFullYear()).slice(2)}`;
+  };
   const [sectors, setSectors] = useState([]);
   const [period, setPeriod] = useState('1m');
   const [active, setActive] = useState(new Set());
@@ -39,12 +41,12 @@ export default function Trends({ theme, toast }) {
       setSectors(data);
       setActive(prev => prev.size ? prev : new Set(data.map(s => s.name)));
       setUpdatedAt(new Date());
-      if (data.some(s => s.live === false)) toast?.('⚠ Algunos sectores usan datos de respaldo');
-      else if (fresh) toast?.('↻ Sectores actualizados');
+      if (data.some(s => s.live === false)) toast?.(t('trendsPage.someFallback'));
+      else if (fresh) toast?.(t('trendsPage.sectorsUpdated'));
     } catch (e) {
-      toast?.('⚠ No se pudieron cargar los sectores: ' + e.message);
+      toast?.(t('trendsPage.couldNotLoadSectors', { message: e.message }));
     } finally { setLoading(false); setRefreshing(false); }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => { load(false); }, [load]);
 
@@ -105,7 +107,7 @@ export default function Trends({ theme, toast }) {
     },
   };
 
-  const signal = (v) => v > 5 ? '🔥 Fuerte alza' : v > 2 ? '📈 Alcista' : v > 0 ? '➡️ Neutro+' : v > -2 ? '➡️ Neutro-' : v > -5 ? '📉 Bajista' : '❄️ Fuerte baja';
+  const signal = (v) => v > 5 ? t('trendsPage.signal.strongUp') : v > 2 ? t('trendsPage.signal.bullish') : v > 0 ? t('trendsPage.signal.neutralPos') : v > -2 ? t('trendsPage.signal.neutralNeg') : v > -5 ? t('trendsPage.signal.bearish') : t('trendsPage.signal.strongDown');
 
   const thStyle = { padding:'10px 14px', fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', textTransform:'uppercase', letterSpacing:'1px' };
 
@@ -113,15 +115,15 @@ export default function Trends({ theme, toast }) {
     <div className="section active">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px', flexWrap:'wrap', gap:'10px' }}>
         <div>
-          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>Tendencias por Sector</div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>{t('trendsPage.title')}</div>
           <div style={{ fontSize:'11px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>
-            Rendimiento relativo de los principales sectores · {loading ? 'cargando…' : 'datos Yahoo Finance en vivo'}
+            {t('trendsPage.subtitle')} · {loading ? t('marketPulse.loading') : t('trendsPage.liveData')}
           </div>
         </div>
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'10px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
             {updatedAt && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>↻ {updatedAt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</span>}
-            <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? '⏳ Actualizando…' : '↻ Actualizar'}</button>
+            <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? t('macroPage.updating') : t('macroPage.update')}</button>
           </div>
           <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', justifyContent:'flex-end' }}>
             {PERIODS.map(([k, l]) => (
@@ -133,7 +135,7 @@ export default function Trends({ theme, toast }) {
 
       {/* HEATMAP */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'14px' }}>Mapa de Calor — Rendimiento Sectorial</div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'14px' }}>{t('trendsPage.heatmapTitle')}</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:'8px' }}>
           {sorted.map(s => {
             const v = lastVal(s, period); const pos = v != null && v >= 0; const intensity = v != null ? Math.min(Math.abs(v) / 20, 1) : 0;
@@ -154,11 +156,11 @@ export default function Trends({ theme, toast }) {
 
       {/* LINE */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'6px' }}>Tendencia Acumulada por Sector</div>
-        <div style={{ fontSize:'11px', color:'var(--muted)', marginBottom:'14px' }}>Rendimiento % acumulado — selecciona sectores ({active.size}/{sectors.length})</div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'6px' }}>{t('trendsPage.cumulativeTitle')}</div>
+        <div style={{ fontSize:'11px', color:'var(--muted)', marginBottom:'14px' }}>{t('trendsPage.cumulativeSubtitle', { active: active.size, total: sectors.length })}</div>
         <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'16px', alignItems:'center' }}>
-          <button onClick={selectAll} disabled={allOn} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: allOn ? 'default' : 'pointer', border:'1px solid var(--gold)', background:'transparent', color:'var(--gold)', opacity: allOn ? 0.4 : 1, transition:'all .15s' }}>✓ Todos</button>
-          <button onClick={clearAll} disabled={active.size === 0} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: active.size === 0 ? 'default' : 'pointer', border:'1px solid var(--muted)', background:'transparent', color:'var(--muted)', opacity: active.size === 0 ? 0.4 : 1, transition:'all .15s' }}>✗ Ninguno</button>
+          <button onClick={selectAll} disabled={allOn} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: allOn ? 'default' : 'pointer', border:'1px solid var(--gold)', background:'transparent', color:'var(--gold)', opacity: allOn ? 0.4 : 1, transition:'all .15s' }}>{t('trendsPage.selectAll')}</button>
+          <button onClick={clearAll} disabled={active.size === 0} style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor: active.size === 0 ? 'default' : 'pointer', border:'1px solid var(--muted)', background:'transparent', color:'var(--muted)', opacity: active.size === 0 ? 0.4 : 1, transition:'all .15s' }}>{t('trendsPage.selectNone')}</button>
           <span style={{ width:'1px', alignSelf:'stretch', background:'var(--border)', margin:'0 4px' }} />
           {sectors.map(s => {
             const on = active.has(s.name);
@@ -175,22 +177,22 @@ export default function Trends({ theme, toast }) {
 
       {/* BAR */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
-        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'14px' }}>Comparativa Sectorial — Rendimiento %</div>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'14px' }}>{t('trendsPage.barTitle')}</div>
         <div style={{ position:'relative', height:'260px' }}>{!loading && <Bar data={barData} options={barOpts} />}</div>
       </div>
 
       {/* TABLE */}
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', overflow:'hidden' }}>
-        <div style={{ padding:'16px 18px', borderBottom:'1px solid var(--border)', fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase' }}>Detalle por Sector — ETF de Referencia</div>
+        <div style={{ padding:'16px 18px', borderBottom:'1px solid var(--border)', fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase' }}>{t('trendsPage.tableTitle')}</div>
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead>
               <tr style={{ background:'var(--surface2)' }}>
-                <th style={{ ...thStyle, textAlign:'left' }}>Sector</th>
+                <th style={{ ...thStyle, textAlign:'left' }}>{t('trendsPage.colSector')}</th>
                 <th style={{ ...thStyle, textAlign:'left' }}>ETF</th>
-                <th style={{ ...thStyle, textAlign:'right' }}>Rend. %</th>
-                <th style={{ ...thStyle, textAlign:'right' }}>Señal</th>
-                <th style={{ ...thStyle, textAlign:'center' }}>Ver</th>
+                <th style={{ ...thStyle, textAlign:'right' }}>{t('trendsPage.colReturn')}</th>
+                <th style={{ ...thStyle, textAlign:'right' }}>{t('trendsPage.colSignal')}</th>
+                <th style={{ ...thStyle, textAlign:'center' }}>{t('trendsPage.colView')}</th>
               </tr>
             </thead>
             <tbody>
@@ -212,7 +214,7 @@ export default function Trends({ theme, toast }) {
       </div>
 
       <div style={{ marginTop:'14px', padding:'12px 16px', background:'var(--surface2)', borderRadius:'8px', borderLeft:'3px solid var(--gold)', fontSize:'11px', color:'var(--muted)', lineHeight:1.7 }}>
-        ⚡ Datos en tiempo real de los ETFs sectoriales SPDR vía Yahoo Finance. Consulta también
+        {t('trendsPage.footer')}
         <a href="https://finviz.com/map.ashx?t=sec" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> Finviz Sector Map</a> ·
         <a href="https://www.tradingview.com/markets/stocks-usa/sectorandindustry-sector/" target="_blank" rel="noreferrer" style={{ color:'var(--gold)', textDecoration:'none' }}> TradingView Sectors</a>
       </div>

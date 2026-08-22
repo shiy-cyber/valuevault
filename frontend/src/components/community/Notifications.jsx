@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api.js';
 import { timeAgo } from '../../lib/format.js';
 
 const toIso = (s) => (s ? String(s).replace(' ', 'T') + 'Z' : null);
 
-const VERB = {
-  like: 'le dio me gusta a tu publicación',
-  comment: 'comentó tu publicación',
-  follow: 'te empezó a seguir',
-  mention: 'te mencionó',
-};
+const VERB_KEYS = { like: 'like', comment: 'comment', follow: 'follow', mention: 'mention' };
 
 // Panel de notificaciones. Al abrir, carga y marca todas como leídas.
 export default function Notifications({ open, onClose, onProfile, onRead, toast }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +22,7 @@ export default function Notifications({ open, onClose, onProfile, onRead, toast 
         return api.markRead();          // marcar todas leídas al abrir
       })
       .then(() => onRead?.())            // resetea el badge en App
-      .catch(e => toast?.('⚠ ' + e.message))
+      .catch(e => toast?.(t('toast.error', { message: e.message })))
       .finally(() => setLoading(false));
   }, [open, onRead, toast]);
 
@@ -35,16 +32,16 @@ export default function Notifications({ open, onClose, onProfile, onRead, toast 
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '70px 16px 16px' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', width: '100%', maxWidth: '420px', maxHeight: '70vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.4)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--surface)' }}>
-          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '17px', fontWeight: 700 }}>🔔 Notificaciones</div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '17px', fontWeight: 700 }}>{t('notifications.title')}</div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '20px', cursor: 'pointer' }}>×</button>
         </div>
 
         {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>Cargando…</div>
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>{t('common.loadingPlain')}</div>
         ) : items.length === 0 ? (
           <div style={{ padding: '36px 24px', textAlign: 'center', color: 'var(--muted)' }}>
             <div style={{ fontSize: '30px', marginBottom: '8px' }}>🔕</div>
-            <div style={{ fontSize: '13px' }}>No tienes notificaciones todavía.</div>
+            <div style={{ fontSize: '13px' }}>{t('notifications.empty')}</div>
           </div>
         ) : (
           items.map(n => {
@@ -55,10 +52,10 @@ export default function Notifications({ open, onClose, onProfile, onRead, toast 
                 <div style={{ fontSize: '22px', lineHeight: 1 }}>{a.avatar || '📈'}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.5 }}>
-                    <b>{a.displayName || 'Alguien'}</b> <span style={{ color: 'var(--muted)' }}>{VERB[n.type] || 'interactuó contigo'}</span>
+                    <b>{a.displayName || t('notifications.someone')}</b> <span style={{ color: 'var(--muted)' }}>{VERB_KEYS[n.type] ? t('notifications.verb.' + VERB_KEYS[n.type]) : t('notifications.verb.default')}</span>
                   </div>
                   {n.postSnippet && <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '3px', fontStyle: 'italic' }}>“{n.postSnippet}”</div>}
-                  <div style={{ fontSize: '10.5px', color: 'var(--muted)', marginTop: '3px', fontFamily: "'DM Mono',monospace" }}>{timeAgo(toIso(n.createdAt)) || ''}</div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--muted)', marginTop: '3px', fontFamily: "'DM Mono',monospace" }}>{timeAgo(toIso(n.createdAt), t) || ''}</div>
                 </div>
               </div>
             );

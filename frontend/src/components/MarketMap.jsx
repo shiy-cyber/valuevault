@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Chart } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
 
@@ -21,6 +22,7 @@ function nodeStock(ctx) {
 }
 
 export default function MarketMap({ theme, toast }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -60,12 +62,12 @@ export default function MarketMap({ theme, toast }) {
       const d = await api.marketMap(fresh);
       setData(d);
       setUpdatedAt(new Date());
-      if (d.some(x => x.live === false)) toast?.('⚠ Algunos valores usan datos de respaldo');
-      else if (fresh) toast?.('↻ Mapa actualizado');
+      if (d.some(x => x.live === false)) toast?.(t('marketMapPage.someFallback'));
+      else if (fresh) toast?.(t('marketMapPage.mapUpdated'));
     } catch (e) {
-      toast?.('⚠ No se pudo cargar el mapa: ' + e.message);
+      toast?.(t('marketMapPage.couldNotLoad', { message: e.message }));
     } finally { setLoading(false); setRefreshing(false); }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => { load(false); }, [load]);
 
@@ -152,22 +154,22 @@ export default function MarketMap({ theme, toast }) {
     <div className="section active">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '16px', marginBottom: '3px' }}>Mapa de Mercado</div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '16px', marginBottom: '3px' }}>{t('nav.marketmap')}</div>
           <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>
-            Tamaño = capitalización · color = variación del día · {loading ? 'cargando…' : 'datos Yahoo Finance'}
+            {t('marketMapPage.subtitle')} · {loading ? t('marketPulse.loading') : t('marketMapPage.yahooData')}
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
           {updatedAt && <span style={{ fontSize:'10px', color:'var(--muted)', fontFamily:"'DM Mono',monospace" }}>↻ {updatedAt.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })}</span>}
-          <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? '⏳ Actualizando…' : '↻ Actualizar'}</button>
-          <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" className="insider-link" style={{ fontSize: '11px' }}>Finviz Map completo ↗</a>
+          <button className="btn btn-outline" onClick={() => load(true)} disabled={refreshing || loading}>{refreshing ? t('macroPage.updating') : t('macroPage.update')}</button>
+          <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" className="insider-link" style={{ fontSize: '11px' }}>{t('marketMapPage.fullFinvizMap')}</a>
         </div>
       </div>
 
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px' }}>
         <div ref={wrapRef} style={{ position: 'relative', height: '560px' }}>
           {loading
-            ? <div style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', paddingTop: '240px' }}>Cargando mapa de mercado…</div>
+            ? <div style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', paddingTop: '240px' }}>{t('marketMapPage.loadingMap')}</div>
             : chartData && <Chart ref={chartRef} type="treemap" data={chartData} options={options} />}
         </div>
 
@@ -180,7 +182,7 @@ export default function MarketMap({ theme, toast }) {
       </div>
 
       <div style={{ marginTop: '14px', padding: '12px 16px', background: 'var(--surface2)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.7 }}>
-        🗺 Cesta de ~44 grandes valores agrupados por sector. Cada rectángulo es proporcional a su capitalización y se colorea por la variación del día (verde sube, rojo baja). Pasa el ratón por un valor para ver el detalle y haz <strong>doble clic para abrir su ficha</strong>. Para el mapa completo del mercado, abre <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Finviz</a>.
+        {t('marketMapPage.footerPrefix')} <strong>{t('marketMapPage.doubleClickBold')}</strong>. {t('marketMapPage.footerMid')} <a href="https://finviz.com/map.ashx" target="_blank" rel="noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none' }}>Finviz</a>.
       </div>
     </div>
   );

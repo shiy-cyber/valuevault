@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { TOPIC_MAP } from '../lib/format.js';
+import { useTranslation } from 'react-i18next';
 
-const TOPICS = [['all','Todos'],['value','Value Investing'],['growth','Growth'],['analysis','Análisis'],['macro','Macro'],['psychology','Psicología'],['strategy','Estrategia']];
+const TOPIC_KEYS = ['all','value','growth','analysis','macro','psychology','strategy'];
 
 export default function Learning({ notes, assets, onAdd, embed }) {
+  const { t } = useTranslation();
   const [topic, setTopic] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -19,13 +20,13 @@ export default function Learning({ notes, assets, onAdd, embed }) {
       <div style={{ display:'flex', gap:'8px', marginBottom:'14px', alignItems:'center', flexWrap:'wrap' }}>
         <div className="search-bar" style={{ flex:1, minWidth:'220px', marginBottom:0 }}>
           <span className="search-icon">⌕</span>
-          <input type="text" placeholder="Buscar notas, conceptos, activos…" value={search} onChange={e => setSearch(e.target.value)} />
+          <input type="text" placeholder={t('learningPage.searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <button className="btn btn-gold" onClick={() => onAdd(null)}>+ Añadir Nota</button>
+        <button className="btn btn-gold" onClick={() => onAdd(null)}>{t('detailModal.addNote')}</button>
       </div>
       <div className="filters-bar">
-        {TOPICS.map(([k, l]) => (
-          <button key={k} className={`filter-chip${topic === k ? ' active' : ''}`} onClick={() => setTopic(k)}>{l}</button>
+        {TOPIC_KEYS.map(k => (
+          <button key={k} className={`filter-chip${topic === k ? ' active' : ''}`} onClick={() => setTopic(k)}>{k === 'all' ? t('learningPage.allTopics') : t('learnModal.topics.' + k)}</button>
         ))}
       </div>
       <div className="learning-grid">
@@ -33,7 +34,7 @@ export default function Learning({ notes, assets, onAdd, embed }) {
           const la = n.assetId ? assets.find(a => a.id === n.assetId) : null;
           return (
             <div className="learn-card" key={n.id}>
-              <div className="learn-topic">{TOPIC_MAP[n.topic] || n.topic}</div>
+              <div className="learn-topic">{TOPIC_KEYS.includes(n.topic) ? t('learnModal.topics.' + n.topic) : n.topic}</div>
               <div className="learn-title">{n.title}</div>
               <div className="learn-excerpt">{n.content}</div>
               {la && <div className="learn-asset-link">🔗 {la.ticker} — {la.name}</div>}
@@ -43,7 +44,7 @@ export default function Learning({ notes, assets, onAdd, embed }) {
               </div>
             </div>
           );
-        }) : <div className="empty-state"><div className="empty-icon">◉</div><div className="empty-text">No hay notas con estos criterios</div></div>}
+        }) : <div className="empty-state"><div className="empty-icon">◉</div><div className="empty-text">{t('learningPage.empty')}</div></div>}
       </div>
     </div>
   );

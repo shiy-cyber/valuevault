@@ -1,27 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api.js';
 import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo, compositeScore, positionMetrics, fmtBase, fmtUsdCompact } from '../lib/format.js';
 
-const ENGINE_LABEL = { momentum: 'A · Momentum', value: 'B · Valor', hidden: 'C · Gema oculta' };
 const scoreColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 45 ? 'var(--orange)' : 'var(--red)';
-// Recomendación de consenso → etiqueta + color
-const REC_MAP = {
-  strong_buy: ['Compra fuerte', 'var(--green)'], buy: ['Compra', 'var(--green)'],
-  hold: ['Mantener', 'var(--orange)'], underperform: ['Infraponderar', 'var(--red)'],
-  sell: ['Venta', 'var(--red)'], strong_sell: ['Venta fuerte', 'var(--red)'],
+// Color por recomendación de consenso (la etiqueta se resuelve via i18next: assetRow.rec.<key>)
+const REC_COLOR = {
+  strong_buy: 'var(--green)', buy: 'var(--green)',
+  hold: 'var(--orange)', underperform: 'var(--red)',
+  sell: 'var(--red)', strong_sell: 'var(--red)',
 };
 
 // Badge de procedencia + antigüedad del dato. Color por antigüedad (verde <1h,
 // ámbar <24h, gris más viejo) o rojo si es copia de caché (fuente caída/cuota).
 function Fresh({ source, at, stale }) {
-  const ago = timeAgo(at);
+  const { t } = useTranslation();
+  const ago = timeAgo(at, t);
   if (!ago && !stale) return null;
   const ageMs = at ? Date.now() - new Date(at).getTime() : Infinity;
   const col = stale ? 'var(--red)' : ageMs < 3600e3 ? 'var(--green)' : ageMs < 86400e3 ? 'var(--gold)' : 'var(--muted)';
-  const txt = stale ? `${source} · caché${ago ? ' · ' + ago : ''}` : `${source} · ${ago}`;
+  const txt = stale ? `${source} · ${t('assetRow.fresh.cache')}${ago ? ' · ' + ago : ''}` : `${source} · ${ago}`;
   return (
-    <span title={stale ? 'Dato servido de caché (fuente caída o cuota agotada)' : `Última actualización ${ago}`}
+    <span title={stale ? t('assetRow.fresh.cacheTooltip') : t('assetRow.fresh.updatedTooltip', { ago })}
       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontFamily: "'DM Mono',monospace", padding: '1px 8px', borderRadius: '10px', background: col + '22', color: col, whiteSpace: 'nowrap' }}>
       ● {txt}
     </span>
@@ -59,6 +60,7 @@ const RANGES = [['1mo','1M'],['6mo','6M'],['1y','1A'],['5y','5A']];
 
 // Gráfico histórico de precio (carga perezosa)
 function PriceHistory({ ticker, theme }) {
+  const { t } = useTranslation();
   const [range, setRange] = useState('6mo');
   const [points, setPoints] = useState(null);
   const [err, setErr] = useState(null);
@@ -94,7 +96,7 @@ function PriceHistory({ ticker, theme }) {
   return (
     <div style={{ marginBottom: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-        <div className="mv-section-label" style={{ margin: 0 }}>Evolución de Precio</div>
+        <div className="mv-section-label" style={{ margin: 0 }}>{t('assetRow.priceHistory.title')}</div>
         <div style={{ display: 'flex', gap: '4px' }}>
           {RANGES.map(([k, l]) => (
             <button key={k} className={`filter-chip${range === k ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setRange(k)}>{l}</button>
@@ -102,8 +104,8 @@ function PriceHistory({ ticker, theme }) {
         </div>
       </div>
       <div style={{ position: 'relative', height: '160px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px' }}>
-        {err ? <div style={{ color: 'var(--muted)', fontSize: '11px', textAlign: 'center', paddingTop: '60px' }}>Sin histórico disponible</div>
-          : !points ? <div style={{ color: 'var(--muted)', fontSize: '11px', textAlign: 'center', paddingTop: '60px' }}>Cargando…</div>
+        {err ? <div style={{ color: 'var(--muted)', fontSize: '11px', textAlign: 'center', paddingTop: '60px' }}>{t('assetRow.priceHistory.noData')}</div>
+          : !points ? <div style={{ color: 'var(--muted)', fontSize: '11px', textAlign: 'center', paddingTop: '60px' }}>{t('common.loadingPlain')}</div>
           : <Line data={data} options={opts} />}
       </div>
     </div>
@@ -162,6 +164,7 @@ const VALUATION_METRICS = [
 const VALUATION_YEAR_RANGES = [[3, '3A'], [5, '5A'], [10, '10A']];
 
 function ValuationHistoryChart({ history, theme }) {
+  const { t } = useTranslation();
   const isDark = theme === 'dark';
   const [selected, setSelected] = useState(() => new Set(['pe']));
   const [years, setYears] = useState(5);
@@ -208,7 +211,7 @@ function ValuationHistoryChart({ history, theme }) {
   return (
     <div style={{ marginTop: '4px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
-        <div className="mv-section-label" style={{ margin: 0 }}>Evolución de Valoración</div>
+        <div className="mv-section-label" style={{ margin: 0 }}>{t('assetRow.valuationHistory.title')}</div>
         <div style={{ display: 'flex', gap: '4px' }}>
           {VALUATION_YEAR_RANGES.map(([n, l]) => (
             <button key={n} className={`filter-chip${years === n ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setYears(n)}>{l}</button>
@@ -232,6 +235,7 @@ function ValuationHistoryChart({ history, theme }) {
 // reutiliza SIN coste hasta que haya un informe más reciente (latestFiscalYear
 // avanza al refrescar «📊 Fundamentales»). No hay regenerar de pago repetido.
 function CapexNarrative({ assetId, cached, latestFiscalYear }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(cached || null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -252,22 +256,22 @@ function CapexNarrative({ assetId, cached, latestFiscalYear }) {
     <div style={{ marginTop: '8px', marginBottom: '12px' }}>
       {!data && (
         <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
-          {busy ? '⏳ Analizando…' : '🏭 ¿En qué invierte? (IA)'}
+          {busy ? t('assetRow.capexNarrative.analyzing') : t('assetRow.capexNarrative.cta')}
         </button>
       )}
       {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '6px' }}>{err}</div>}
       {data && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
-            <span title="Guardado en memoria: no se vuelve a cobrar hasta el próximo informe anual" style={{ fontSize: '9px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: needsUpdate ? 'var(--orange)' : 'var(--green)' }}>
-              {needsUpdate ? '🧠 memoria (informe nuevo disponible)' : '🧠 en memoria · sin coste'}
+            <span title={t('assetRow.capexNarrative.memoryTooltip')} style={{ fontSize: '9px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: needsUpdate ? 'var(--orange)' : 'var(--green)' }}>
+              {needsUpdate ? t('assetRow.capexNarrative.memoryNew') : t('assetRow.capexNarrative.memoryCached')}
             </span>
           </div>
           <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7, padding: '12px', background: 'var(--surface)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', whiteSpace: 'pre-wrap' }}>
             {data.narrative}
           </div>
           {data.grounded === false && (
-            <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Generado sin acceso al informe anual — orientativo.</div>
+            <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>{t('assetRow.capexNarrative.ungrounded')}</div>
           )}
           {Array.isArray(data.sources) && data.sources.length > 0 && (
             <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginTop: '6px' }}>
@@ -277,13 +281,13 @@ function CapexNarrative({ assetId, cached, latestFiscalYear }) {
           <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             {needsUpdate ? (
               <>
-                <span>📅 En memoria del ejercicio FY{fy || '—'} · hay un informe más reciente (FY{latestFiscalYear})</span>
+                <span>{t('assetRow.capexNarrative.outdated', { fy: fy || '—', latest: latestFiscalYear })}</span>
                 <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '10px', padding: '3px 9px' }}>
-                  {busy ? '⏳…' : `🆕 Actualizar a FY${latestFiscalYear}`}
+                  {busy ? t('common.busy') : t('assetRow.capexNarrative.updateTo', { fy: latestFiscalYear })}
                 </button>
               </>
             ) : (
-              <span>📅 {fy ? `Informe FY${fy} · ` : ''}guardado en memoria · sin coste hasta el próximo informe anual</span>
+              <span>{fy ? t('assetRow.capexNarrative.cachedFy', { fy }) : t('assetRow.capexNarrative.cachedNoFy')}</span>
             )}
           </div>
         </div>
@@ -305,6 +309,7 @@ function aboutBrief(text, max = 700) {
 }
 
 function CompanyIntro({ a }) {
+  const { t } = useTranslation();
   const [desc, setDesc] = useState(a.description || '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -325,15 +330,15 @@ function CompanyIntro({ a }) {
   return (
     <div style={{ marginBottom: '12px' }}>
       <div className="mv-section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Sobre la Empresa</span>
+        <span>{t('assetRow.companyIntro.title')}</span>
         <button className="btn btn-outline" disabled={busy} onClick={() => generate(!!about)} style={{ fontSize: '10px', padding: '3px 9px' }}>
-          {busy ? '⏳…' : (about ? '🔄 Regenerar 🇪🇸' : '🇪🇸 Generar en español (IA)')}
+          {busy ? t('common.busy') : (about ? t('assetRow.companyIntro.regenerate') : t('assetRow.companyIntro.generate'))}
         </button>
       </div>
       {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '4px' }}>{err}</div>}
       {about
         ? <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.7, padding: '12px', background: 'var(--surface)', borderRadius: '8px', borderLeft: '3px solid var(--gold)', marginTop: '6px' }}>{about}</div>
-        : <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>Sin descripción. Pulsa «Generar en español» para una intro breve de la empresa (IA).</div>}
+        : <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>{t('assetRow.companyIntro.empty')}</div>}
     </div>
   );
 }
@@ -342,6 +347,7 @@ function CompanyIntro({ a }) {
 // demanda: botón que carga al pulsar (cacheado en backend 6h). El color va por
 // score [-1,1]: ≥0.15 alcista (verde) · ≤-0.15 bajista (rojo) · medio neutral.
 function NewsSentiment({ assetId }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -357,18 +363,18 @@ function NewsSentiment({ assetId }) {
     <div style={{ marginTop: '8px', marginBottom: '12px' }}>
       {!data && (
         <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
-          {busy ? '⏳ Cargando…' : '📰 Noticias & sentimiento'}
+          {busy ? t('common.loading') : t('assetRow.news.cta')}
         </button>
       )}
       {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '6px' }}>{err}</div>}
       {data && (
         <div>
           <div className="mv-section-label">
-            Noticias & Sentimiento
+            {t('assetRow.news.title')}
             <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: sc(data.avg) }}>
               {data.label || '—'}{data.avg != null ? ` (${data.avg > 0 ? '+' : ''}${data.avg})` : ''}
             </span>
-            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? t('common.busy') : '↻'}</button>
             <span style={{ marginLeft: '8px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -380,7 +386,7 @@ function NewsSentiment({ assetId }) {
               </a>
             ))}
           </div>
-          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Datos en caché (cuota AV agotada).</div>}
+          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>{t('assetRow.staleCacheNote')}</div>}
         </div>
       )}
     </div>
@@ -390,6 +396,7 @@ function NewsSentiment({ assetId }) {
 // Transacciones de insiders POR ACCIÓN (Alpha Vantage). Bajo demanda: botón
 // que carga al pulsar (cacheado en backend). Compra = verde · venta = rojo.
 function InsiderTx({ assetId }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -404,29 +411,29 @@ function InsiderTx({ assetId }) {
     <div style={{ marginBottom: '8px' }}>
       {!data && (
         <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
-          {busy ? '⏳ Cargando…' : '👔 Transacciones de insiders'}
+          {busy ? t('common.loading') : t('assetRow.insiders.cta')}
         </button>
       )}
       {err && <div style={{ fontSize: '11px', color: 'var(--red)', marginTop: '6px' }}>{err}</div>}
       {data && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--green)' }}>{data.buys} compras</span>
-            <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--red)' }}>{data.sells} ventas</span>
-            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+            <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--green)' }}>{t('assetRow.insiders.buys', { count: data.buys })}</span>
+            <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: 'var(--red)' }}>{t('assetRow.insiders.sells', { count: data.sells })}</span>
+            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '10px', padding: '2px 8px' }}>{busy ? t('common.busy') : '↻'}</button>
             <span style={{ marginLeft: '4px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            {data.tx.map((t, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', padding: '5px 8px', background: 'var(--surface)', borderRadius: '6px', borderLeft: `3px solid ${t.buy ? 'var(--green)' : 'var(--red)'}` }}>
-                <span style={{ color: t.buy ? 'var(--green)' : 'var(--red)', fontWeight: 600, width: '50px' }}>{t.buy ? 'Compra' : 'Venta'}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.who || '—'}{t.title ? ` · ${t.title}` : ''}</span>
-                <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{t.shares != null ? t.shares.toLocaleString('es-ES') : '—'}{t.value != null ? ` · $${t.value.toLocaleString('es-ES')}` : ''}</span>
-                <span style={{ color: 'var(--muted)', fontSize: '10px', whiteSpace: 'nowrap' }}>{t.date}</span>
+            {data.tx.map((tx, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', padding: '5px 8px', background: 'var(--surface)', borderRadius: '6px', borderLeft: `3px solid ${tx.buy ? 'var(--green)' : 'var(--red)'}` }}>
+                <span style={{ color: tx.buy ? 'var(--green)' : 'var(--red)', fontWeight: 600, width: '50px' }}>{tx.buy ? t('assetRow.insiders.buyLabel') : t('assetRow.insiders.sellLabel')}</span>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.who || '—'}{tx.title ? ` · ${tx.title}` : ''}</span>
+                <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{tx.shares != null ? tx.shares.toLocaleString('es-ES') : '—'}{tx.value != null ? ` · $${tx.value.toLocaleString('es-ES')}` : ''}</span>
+                <span style={{ color: 'var(--muted)', fontSize: '10px', whiteSpace: 'nowrap' }}>{tx.date}</span>
               </div>
             ))}
           </div>
-          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Datos en caché (cuota AV agotada).</div>}
+          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>{t('assetRow.staleCacheNote')}</div>}
         </div>
       )}
     </div>
@@ -436,6 +443,7 @@ function InsiderTx({ assetId }) {
 // Histórico de dividendos + racha de crecimiento (Alpha Vantage). Bajo demanda:
 // botón que carga al pulsar. Año a verde si sube vs el anterior, rojo si baja.
 function Dividends({ assetId }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -450,17 +458,17 @@ function Dividends({ assetId }) {
     <div style={{ marginBottom: '12px' }}>
       {!data && (
         <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
-          {busy ? '⏳ Cargando…' : '💰 Dividendos (histórico)'}
+          {busy ? t('common.loading') : t('assetRow.dividends.cta')}
         </button>
       )}
       {err && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '6px' }}>{err}</div>}
       {data && (
         <div>
           <div className="mv-section-label">
-            Dividendos
-            {data.streak > 0 && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: data.streak >= 5 ? 'var(--green)' : 'var(--gold)' }}>{data.streak} años subiendo</span>}
-            {data.annual != null && <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--muted)' }}>{data.annualYear}: ${data.annual}/acción</span>}
-            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? '⏳…' : '↻'}</button>
+            {t('assetRow.dividends.title')}
+            {data.streak > 0 && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 8px', borderRadius: '10px', color: '#fff', background: data.streak >= 5 ? 'var(--green)' : 'var(--gold)' }}>{t('assetRow.dividends.streak', { count: data.streak })}</span>}
+            {data.annual != null && <span style={{ marginLeft: '6px', fontSize: '10px', color: 'var(--muted)' }}>{t('assetRow.dividends.annual', { year: data.annualYear, amount: data.annual })}</span>}
+            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? t('common.busy') : '↻'}</button>
             <span style={{ marginLeft: '8px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
@@ -471,8 +479,8 @@ function Dividends({ assetId }) {
               </div>
             ))}
           </div>
-          {data.history.some(h => h.partial) && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>* año en curso (parcial)</div>}
-          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>⚠️ Datos en caché (cuota AV agotada).</div>}
+          {data.history.some(h => h.partial) && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{t('assetRow.dividends.partialNote')}</div>}
+          {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>{t('assetRow.staleCacheNote')}</div>}
         </div>
       )}
     </div>
@@ -481,16 +489,18 @@ function Dividends({ assetId }) {
 
 // Fila expandible de activo (usada en Dashboard, Mis Activos y Watchlist)
 export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [busyData, setBusyData] = useState(false);
   const [busyQual, setBusyQual] = useState(false);
   const chg = changePct(a).toFixed(2);
   const isPos = chg >= 0;
-  const live = timeAgo(a.priceUpdatedAt);
+  const live = timeAgo(a.priceUpdatedAt, t);
   const sc = compositeScore(a);
   const pos = positionMetrics(a, fxRates || {});
   const spread = (a.roic != null && a.wacc != null) ? +(a.roic - a.wacc).toFixed(1) : null;
-  const rec = REC_MAP[a.recommendation] || null;
+  const recColor = REC_COLOR[a.recommendation] || null;
+  const recLabel = a.recommendation ? t('assetRow.rec.' + a.recommendation) : null;
   const upside = (a.targetMean > 0 && a.current > 0) ? +((a.targetMean / a.current - 1) * 100).toFixed(1) : null;
   // Precio vs MA200: >0 por encima de la media (tendencia alcista de fondo).
   const vsMa200 = (a.current > 0 && a.ma200 > 0) ? +((a.current / a.ma200 - 1) * 100).toFixed(1) : null;
@@ -512,20 +522,20 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
         <div className="arow-left">
           <div className="arow-arrow" style={{ transform: open ? 'rotate(90deg)' : 'none', color: open ? 'var(--gold)' : 'var(--muted)' }}>▶</div>
           <div>
-            <div className="arow-ticker">{a.ticker}{a.type === 'watchlist' && <span title="En seguimiento" style={{ color: 'var(--gold)', fontSize: '11px', marginLeft: '5px' }}>★</span>}</div>
+            <div className="arow-ticker">{a.ticker}{a.type === 'watchlist' && <span title={t('assetRow.watchlistBadge')} style={{ color: 'var(--gold)', fontSize: '11px', marginLeft: '5px' }}>★</span>}</div>
             <div className="arow-name">{a.name}</div>
           </div>
         </div>
         <div className="arow-mid">
-          <div className="arow-price">${fmt(a.current)}{live && <span title={`Precio actualizado ${live}`} style={{ color: 'var(--green)', fontSize: '8px', marginLeft: '4px', verticalAlign: 'middle' }}>●</span>}</div>
+          <div className="arow-price">${fmt(a.current)}{live && <span title={t('assetRow.priceUpdatedTooltip', { time: live })} style={{ color: 'var(--green)', fontSize: '8px', marginLeft: '4px', verticalAlign: 'middle' }}>●</span>}</div>
           <div className="arow-chg" style={{ color: isPos ? 'var(--green)' : 'var(--red)' }}>{isPos ? '+' : ''}{chg}%</div>
         </div>
         <div className="arow-tags">
-          {tagList(a.strategies, a.time).map((t, i) => <span key={i} className={`tag ${t.cls}`}>{t.label}</span>)}
+          {tagList(a.strategies, a.time, t).map((tg, i) => <span key={i} className={`tag ${tg.cls}`}>{tg.label}</span>)}
         </div>
         <div className="arow-risk">
           <div className="arow-risk-bar"><div style={{ height:'100%', borderRadius:'2px', width:`${getRiskW(a.risk)}%`, background: riskColor(a.risk) }} /></div>
-          <div className="arow-risk-label">{riskLabel(a.risk)}</div>
+          <div className="arow-risk-label">{riskLabel(a.risk, t)}</div>
         </div>
         <div className="arow-actions" onClick={(e) => e.stopPropagation()}>
           <button className="card-btn notes-btn" style={{ padding:'5px 9px', fontSize:'10px' }} onClick={() => onNotes(a.id)}>📝{noteCount > 0 ? ' ' + noteCount : ''}</button>
@@ -540,12 +550,12 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px' }}>
               {onRefreshQuality && (
                 <button className="btn btn-outline" disabled={busyQual} onClick={doQuality} style={{ fontSize: '11px', padding: '6px 12px' }}>
-                  {busyQual ? '⏳ Calculando…' : '📊 Fundamentales'}
+                  {busyQual ? t('assetRow.actions.calculating') : t('assetRow.actions.fundamentals')}
                 </button>
               )}
               {onRefreshData && (
                 <button className="btn btn-outline" disabled={busyData} onClick={doRefresh} style={{ fontSize: '11px', padding: '6px 12px' }}>
-                  {busyData ? '⏳ Actualizando…' : '🔄 Actualizar datos de mercado'}
+                  {busyData ? t('assetRow.actions.updating') : t('assetRow.actions.updateMarketData')}
                 </button>
               )}
             </div>
@@ -554,9 +564,9 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
 
           {(a.priceUpdatedAt || a.fundamentalsAt) && (
             <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>FUENTES:</span>
-              {a.priceUpdatedAt && <Fresh source="Yahoo (precio)" at={a.priceUpdatedAt} />}
-              {a.fundamentalsAt && <Fresh source="AV (fundamentales)" at={a.fundamentalsAt} />}
+              <span style={{ fontSize: '9px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>{t('assetRow.sourcesLabel')}</span>
+              {a.priceUpdatedAt && <Fresh source={t('assetRow.sources.yahooPrice')} at={a.priceUpdatedAt} />}
+              {a.fundamentalsAt && <Fresh source={t('assetRow.sources.avFundamentals')} at={a.fundamentalsAt} />}
             </div>
           )}
 
@@ -564,30 +574,30 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
 
           <NewsSentiment assetId={a.id} />
 
-          <div className="mv-section-label">Score Compuesto <span style={{ color: scoreColor(sc.total) }}>· {sc.total ?? '—'}/100</span></div>
+          <div className="mv-section-label">{t('assetRow.sections.compositeScore')} <span style={{ color: scoreColor(sc.total) }}>· {sc.total ?? '—'}/100</span></div>
           <div className="mv-grid">
-            <ScoreBar label="Valor" score={sc.value} />
-            <ScoreBar label="Calidad" score={sc.quality} />
-            <ScoreBar label={a.epsRev != null ? 'Momentum' : 'Momentum*'} score={sc.momentum} />
+            <ScoreBar label={t('assetRow.pillars.value')} score={sc.value} />
+            <ScoreBar label={t('assetRow.pillars.quality')} score={sc.quality} />
+            <ScoreBar label={a.epsRev != null ? t('assetRow.pillars.momentum') : t('assetRow.pillars.momentumProxy')} score={sc.momentum} />
           </div>
           {a.epsRev == null && (
-            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>*Momentum = proxy (rango 52s + crecimiento EPS). Pulsa «📊 Fundamentales» para añadir revisiones de analistas.</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>{t('assetRow.momentumProxyNote')}</div>
           )}
 
-          <div className="mv-section-label">Posición & Proceso</div>
+          <div className="mv-section-label">{t('assetRow.sections.position')}</div>
           <div className="mv-grid">
-            <div className="mv-item"><div className="mv-label">Tamaño</div><div className="mv-val">{a.shares > 0 ? `${fmt(a.shares)} ${a.currency || ''}` : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">Valor (EUR)</div><div className="mv-val">{pos.sized ? fmtBase(pos.valueBase) : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">P&L (EUR)</div><div className="mv-val" style={{ color: pos.sized && pos.pnlBase >= 0 ? 'var(--green)' : pos.sized ? 'var(--red)' : 'var(--muted)' }}>{pos.sized ? fmtBase(pos.pnlBase) : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">Ret. divisa</div><div className="mv-val">{pos.curRet != null ? `${pos.curRet >= 0 ? '+' : ''}${(pos.curRet * 100).toFixed(1)}%` : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">Motor α</div><div className="mv-val">{ENGINE_LABEL[a.engine] || '—'}</div></div>
-            <MV label="Objetivo" val={a.target} suffix={a.currency ? ' ' + a.currency : ''} />
-            <MV label="Stop" val={a.stop} suffix={a.currency ? ' ' + a.currency : ''} />
-            <div className="mv-item"><div className="mv-label">Catalizador</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.catalyst ? a.catalyst + (a.catalystDate ? ` (${a.catalystDate})` : '') : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">Próx. resultados</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.nextEarnings || '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.size')}</div><div className="mv-val">{a.shares > 0 ? `${fmt(a.shares)} ${a.currency || ''}` : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.valueEur')}</div><div className="mv-val">{pos.sized ? fmtBase(pos.valueBase) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.pnlEur')}</div><div className="mv-val" style={{ color: pos.sized && pos.pnlBase >= 0 ? 'var(--green)' : pos.sized ? 'var(--red)' : 'var(--muted)' }}>{pos.sized ? fmtBase(pos.pnlBase) : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.fxReturn')}</div><div className="mv-val">{pos.curRet != null ? `${pos.curRet >= 0 ? '+' : ''}${(pos.curRet * 100).toFixed(1)}%` : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.alphaEngine')}</div><div className="mv-val">{a.engine ? t('assetRow.engine.' + a.engine) : '—'}</div></div>
+            <MV label={t('assetRow.fields.target')} val={a.target} suffix={a.currency ? ' ' + a.currency : ''} />
+            <MV label={t('assetRow.fields.stop')} val={a.stop} suffix={a.currency ? ' ' + a.currency : ''} />
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.catalyst')}</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.catalyst ? a.catalyst + (a.catalystDate ? ` (${a.catalystDate})` : '') : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.nextEarnings')}</div><div className="mv-val" style={{ fontSize: '11px' }}>{a.nextEarnings || '—'}</div></div>
           </div>
 
-          <div className="mv-section-label">Valoración</div>
+          <div className="mv-section-label">{t('assetRow.sections.valuation')}</div>
           <div className="mv-grid">
             <MV label="P/E" val={a.pe} suffix="x" /><MV label="Fwd P/E" val={a.fpe} suffix="x" /><MV label="P/B" val={a.pb} suffix="x" />
             <MV label="PEG" val={a.peg} /><MV label="EV/EBITDA" val={a.evebitda} suffix="x" /><MV label="P/Sales" val={a.ps} suffix="x" />
@@ -595,29 +605,29 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           <div style={{ marginBottom: '12px' }}>
             <ValuationHistoryChart history={a.valuationHistory} theme={theme} />
             {(!a.valuationHistory || a.valuationHistory.length < 2) && (
-              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>Pulsa «📊 Fundamentales» para calcular la evolución histórica (P/E, P/B, EV/EBITDA, ROE…).</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{t('assetRow.hints.valuationHistory')}</div>
             )}
           </div>
 
-          <div className="mv-section-label">EPS & Revisiones</div>
+          <div className="mv-section-label">{t('assetRow.sections.epsRevisions')}</div>
           <div className="mv-grid">
             <MV label="EPS" val={a.eps} suffix="$" /><MV label="EPS Diluted" val={a.epsd} suffix="$" /><MV label="EPS Next Y" val={a.epsny} suffix="$" />
             <MV label="EPS Gr.5Y" val={a.epsg} suffix="%" good={10} warn={5} />
-            <div className="mv-item"><div className="mv-label">Rev. EPS 30d</div><div className="mv-val" style={{ color: a.epsRev == null ? 'var(--muted)' : a.epsRev > 0 ? 'var(--green)' : a.epsRev < 0 ? 'var(--red)' : 'var(--text)' }}>{a.epsRev == null ? '—' : (a.epsRev > 0 ? '+' : '') + a.epsRev + '%'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.epsRev30d')}</div><div className="mv-val" style={{ color: a.epsRev == null ? 'var(--muted)' : a.epsRev > 0 ? 'var(--green)' : a.epsRev < 0 ? 'var(--red)' : 'var(--text)' }}>{a.epsRev == null ? '—' : (a.epsRev > 0 ? '+' : '') + a.epsRev + '%'}</div></div>
           </div>
 
           {Array.isArray(a.earningsSurprises?.history) && a.earningsSurprises.history.length > 0 && (
             <>
               <div className="mv-section-label">
-                Sorpresas de Resultados (EPS)
+                {t('assetRow.sections.earningsSurprises')}
                 <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff',
                   background: a.earningsSurprises.beats >= Math.ceil(a.earningsSurprises.total / 2) ? 'var(--green)' : 'var(--red)' }}>
-                  Batió {a.earningsSurprises.beats}/{a.earningsSurprises.total}
+                  {t('assetRow.earningsBeat', { beats: a.earningsSurprises.beats, total: a.earningsSurprises.total })}
                 </span>
               </div>
               <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginBottom: '12px' }}>
                 {a.earningsSurprises.history.map((q, i) => (
-                  <div key={i} title={`Reportado ${q.reportedEPS ?? '—'} vs estimado ${q.estimatedEPS ?? '—'}`}
+                  <div key={i} title={t('assetRow.earningsTooltip', { reported: q.reportedEPS ?? '—', estimated: q.estimatedEPS ?? '—' })}
                     style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '8px', background: 'var(--surface)', borderLeft: `3px solid ${q.beat ? 'var(--green)' : 'var(--red)'}` }}>
                     <div style={{ color: 'var(--muted)' }}>{q.date}</div>
                     <div style={{ color: 'var(--text)' }}>{q.surprisePct == null ? '—' : (q.surprisePct >= 0 ? '+' : '') + q.surprisePct + '%'}</div>
@@ -628,31 +638,31 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           )}
 
           <div className="mv-section-label">
-            Consenso de Analistas
-            {rec && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff', background: rec[1] }}>{rec[0]}</span>}
+            {t('assetRow.sections.analystConsensus')}
+            {recLabel && <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff', background: recColor }}>{recLabel}</span>}
           </div>
           <div className="mv-grid">
-            <div className="mv-item"><div className="mv-label">Precio Objetivo</div><div className="mv-val">{a.targetMean > 0 ? fmt(a.targetMean) + (a.currency ? ' ' + a.currency : '') : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">Potencial</div><div className="mv-val" style={{ color: upside == null ? 'var(--muted)' : upside >= 0 ? 'var(--green)' : 'var(--red)' }}>{upside == null ? '—' : (upside >= 0 ? '+' : '') + upside + '%'}</div></div>
-            <div className="mv-item"><div className="mv-label">Recomendación</div><div className="mv-val" style={{ color: rec ? rec[1] : 'var(--muted)' }}>{rec ? rec[0] : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">Nº Analistas</div><div className="mv-val">{a.numAnalysts > 0 ? a.numAnalysts : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.targetPrice')}</div><div className="mv-val">{a.targetMean > 0 ? fmt(a.targetMean) + (a.currency ? ' ' + a.currency : '') : '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.upside')}</div><div className="mv-val" style={{ color: upside == null ? 'var(--muted)' : upside >= 0 ? 'var(--green)' : 'var(--red)' }}>{upside == null ? '—' : (upside >= 0 ? '+' : '') + upside + '%'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.recommendation')}</div><div className="mv-val" style={{ color: recLabel ? recColor : 'var(--muted)' }}>{recLabel || '—'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.numAnalysts')}</div><div className="mv-val">{a.numAnalysts > 0 ? a.numAnalysts : '—'}</div></div>
           </div>
           {a.targetMean == null && (
-            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 Fundamentales» para traer el consenso de analistas.</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>{t('assetRow.hints.analystConsensus')}</div>
           )}
 
-          <div className="mv-section-label">Calidad del Negocio</div>
+          <div className="mv-section-label">{t('assetRow.sections.businessQuality')}</div>
           <div className="mv-grid">
             <MV label="ROE" val={a.roe} suffix="%" good={15} warn={8} /><MV label="ROA" val={a.roa} suffix="%" good={10} warn={5} /><MV label="Gross Mg." val={a.gm} suffix="%" good={40} warn={20} />
-            <MV label="Mg.Operativo" val={a.om} suffix="%" good={20} warn={10} /><MV label="Mg.Neto" val={a.nm} suffix="%" good={15} warn={8} />
+            <MV label={t('assetRow.fields.opMargin')} val={a.om} suffix="%" good={20} warn={10} /><MV label={t('assetRow.fields.netMargin')} val={a.nm} suffix="%" good={15} warn={8} />
           </div>
 
           <div className="mv-section-label">
-            Calidad del Capital
+            {t('assetRow.sections.capitalQuality')}
             {spread != null && (
               <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff',
                 background: spread > 0 ? 'var(--green)' : 'var(--red)' }}>
-                {spread > 0 ? `✓ crea valor (+${spread})` : `✗ destruye valor (${spread})`}
+                {spread > 0 ? t('assetRow.createsValue', { spread }) : t('assetRow.destroysValue', { spread })}
               </span>
             )}
           </div>
@@ -663,63 +673,63 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <MV label="FCF Yield" val={a.fcfy} suffix="%" good={5} warn={3} />
           </div>
           {a.roic == null && (
-            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 ROIC / FCF» para calcularlo (Alpha Vantage).</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>{t('assetRow.hints.roic')}</div>
           )}
 
           <div className="mv-section-label">
-            Gastos de Capital (CapEx)
+            {t('assetRow.sections.capex')}
             {a.capexProfile && (
               <span style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 7px', borderRadius: '10px', color: '#fff', background: 'var(--gold)' }}>{a.capexProfile}</span>
             )}
           </div>
           <div className="mv-grid">
-            <div className="mv-item"><div className="mv-label">CapEx anual</div><div className="mv-val">{fmtUsdCompact(a.capex)}</div></div>
-            <MV label="CapEx / Ingresos" val={a.capexToRevenue} suffix="%" />
-            <MV label="CapEx / Caja oper." val={a.capexToOCF} suffix="%" />
-            <MV label="CapEx / Amortización" val={a.capexToDA} suffix="x" />
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.annualCapex')}</div><div className="mv-val">{fmtUsdCompact(a.capex)}</div></div>
+            <MV label={t('assetRow.fields.capexToRevenue')} val={a.capexToRevenue} suffix="%" />
+            <MV label={t('assetRow.fields.capexToOCF')} val={a.capexToOCF} suffix="%" />
+            <MV label={t('assetRow.fields.capexToDA')} val={a.capexToDA} suffix="x" />
           </div>
           <CapexChart history={a.capexHistory} theme={theme} />
           {a.capex == null && (
-            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '6px 0 0' }}>Pulsa «📊 Fundamentales» para calcular los gastos de capital.</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '6px 0 0' }}>{t('assetRow.hints.capex')}</div>
           )}
           <CapexNarrative assetId={a.id} cached={a.capexNarrative} latestFiscalYear={a.capexHistory?.[0]?.year} />
 
-          <div className="mv-section-label">Tendencia & Retribución al Accionista</div>
+          <div className="mv-section-label">{t('assetRow.sections.trendShareholder')}</div>
           <div className="mv-grid">
             <div className="mv-item"><div className="mv-label">MA50</div><div className="mv-val">{a.ma50 != null ? fmt(a.ma50) : '—'}</div></div>
             <div className="mv-item"><div className="mv-label">MA200</div><div className="mv-val">{a.ma200 != null ? fmt(a.ma200) : '—'}</div></div>
-            <div className="mv-item"><div className="mv-label">Precio vs MA200</div><div className="mv-val" style={{ color: vsMa200 == null ? 'var(--muted)' : vsMa200 >= 0 ? 'var(--green)' : 'var(--red)' }}>{vsMa200 == null ? '—' : (vsMa200 >= 0 ? '+' : '') + vsMa200 + '%'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.priceVsMa200')}</div><div className="mv-val" style={{ color: vsMa200 == null ? 'var(--muted)' : vsMa200 >= 0 ? 'var(--green)' : 'var(--red)' }}>{vsMa200 == null ? '—' : (vsMa200 >= 0 ? '+' : '') + vsMa200 + '%'}</div></div>
             <MV label="Shareholder Yield" val={a.shYield} suffix="%" good={4} warn={1} />
-            <div className="mv-item"><div className="mv-label">Acciones 5a (dilución)</div><div className="mv-val" style={{ color: a.sharesChg == null ? 'var(--muted)' : a.sharesChg <= 0 ? 'var(--green)' : 'var(--red)' }}>{a.sharesChg == null ? '—' : (a.sharesChg > 0 ? '+' : '') + a.sharesChg + '%'}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.sharesDilution')}</div><div className="mv-val" style={{ color: a.sharesChg == null ? 'var(--muted)' : a.sharesChg <= 0 ? 'var(--green)' : 'var(--red)' }}>{a.sharesChg == null ? '—' : (a.sharesChg > 0 ? '+' : '') + a.sharesChg + '%'}</div></div>
           </div>
           {a.ma200 == null && a.shYield == null && a.sharesChg == null && (
-            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>Pulsa «📊 Fundamentales» para traer tendencia (MA50/200), shareholder yield y dilución (Alpha Vantage).</div>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>{t('assetRow.hints.trend')}</div>
           )}
 
           <Dividends assetId={a.id} />
 
-          <div className="mv-section-label">Solidez Financiera</div>
+          <div className="mv-section-label">{t('assetRow.sections.financialStrength')}</div>
           <div className="mv-grid">
-            <MV label="Deuda/Equity" val={a.de} /><MV label="Current Ratio" val={a.cr} good={1.5} warn={1} /><MV label="Quick Ratio" val={a.qr} good={1} warn={0.7} />
+            <MV label={t('assetRow.fields.debtEquity')} val={a.de} /><MV label="Current Ratio" val={a.cr} good={1.5} warn={1} /><MV label="Quick Ratio" val={a.qr} good={1} warn={0.7} />
           </div>
 
-          <div className="mv-section-label">Dividendo</div>
+          <div className="mv-section-label">{t('assetRow.sections.dividend')}</div>
           <div className="mv-grid">
             <MV label="Div. Yield" val={a.dy} suffix="%" good={3} warn={1} /><MV label="Payout Ratio" val={a.pr} suffix="%" />
           </div>
 
-          <div className="mv-section-label">Mercado</div>
+          <div className="mv-section-label">{t('assetRow.sections.market')}</div>
           <div className="mv-grid">
             <MV label="Beta" val={a.beta} /><MV label="52W High" val={a.w52h} suffix="$" /><MV label="52W Low" val={a.w52l} suffix="$" />
             <div className="mv-item"><div className="mv-label">Mkt Cap</div><div className="mv-val">{a.mcap || '—'}</div></div>
           </div>
 
-          <div className="mv-section-label">Tesis de Inversión</div>
+          <div className="mv-section-label">{t('assetRow.sections.thesis')}</div>
           <div style={{ fontSize:'12px', color:'var(--muted)', lineHeight:1.7, padding:'12px', background:'var(--surface)', borderRadius:'8px', borderLeft:'3px solid var(--gold)', marginBottom:'12px' }}>
-            {a.thesis || 'Sin tesis registrada.'}
+            {a.thesis || t('assetRow.noThesis')}
           </div>
 
-          <div className="mv-section-label">Insiders & Institucionales</div>
+          <div className="mv-section-label">{t('assetRow.sections.insidersInstitutional')}</div>
           <InsiderTx assetId={a.id} />
           <div style={{ display:'flex', gap:'7px', flexWrap:'wrap' }}>
             {insiderLinks(a.ticker).map((l, i) => <a key={i} className="insider-link" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>)}

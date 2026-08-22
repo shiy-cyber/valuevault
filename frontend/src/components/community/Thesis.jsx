@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api.js';
 import { timeAgo } from '../../lib/format.js';
 
@@ -9,6 +10,7 @@ const MAX_MB = 4;
 // Sección Tesis de Inversión — PDFs subidos por usuarios registrados,
 // con vista pública. Coherente con el patrón de Comunidad (login/alias gate).
 export default function Thesis({ user, needsAlias, onEditAlias, onLogin, onTicker, toast }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ export default function Thesis({ user, needsAlias, onEditAlias, onLogin, onTicke
   const load = useCallback(() => {
     setLoading(true);
     api.listTheses().then(r => { setItems(r.theses); setCursor(r.nextCursor); })
-      .catch(e => toast?.('⚠ ' + e.message))
+      .catch(e => toast?.(t('toast.error', { message: e.message })))
       .finally(() => setLoading(false));
   }, [toast]);
 
@@ -35,14 +37,14 @@ export default function Thesis({ user, needsAlias, onEditAlias, onLogin, onTicke
       const r = await api.listTheses(cursor);
       setItems(prev => [...prev, ...r.theses]);
       setCursor(r.nextCursor);
-    } catch (e) { toast?.('⚠ ' + e.message); }
+    } catch (e) { toast?.(t('toast.error', { message: e.message })); }
     finally { setLoadingMore(false); }
   };
 
   const onPickFile = (e) => {
     const f = e.target.files?.[0] || null;
     if (f && f.size > MAX_MB * 1024 * 1024) {
-      toast?.(`⚠ El PDF supera ${MAX_MB} MB`);
+      toast?.(t('thesisPage.fileTooLarge', { mb: MAX_MB }));
       e.target.value = '';
       setFile(null);
       return;
@@ -59,97 +61,97 @@ export default function Thesis({ user, needsAlias, onEditAlias, onLogin, onTicke
       setTitle(''); setTicker(''); setSummary(''); setFile(null);
       const el = document.getElementById('thesisFileInput');
       if (el) el.value = '';
-      toast?.('✓ Tesis publicada');
-    } catch (e) { toast?.('⚠ ' + e.message); }
+      toast?.(t('thesisPage.publishedToast'));
+    } catch (e) { toast?.(t('toast.error', { message: e.message })); }
     finally { setUploading(false); }
   };
 
-  const remove = async (t) => {
-    if (!window.confirm('¿Eliminar esta tesis?')) return;
+  const remove = async (thesis) => {
+    if (!window.confirm(t('thesisPage.confirmDelete'))) return;
     try {
-      await api.deleteThesis(t.id);
-      setItems(prev => prev.filter(x => x.id !== t.id));
-      toast?.('🗑 Tesis eliminada');
-    } catch (e) { toast?.('⚠ ' + e.message); }
+      await api.deleteThesis(thesis.id);
+      setItems(prev => prev.filter(x => x.id !== thesis.id));
+      toast?.(t('thesisPage.deletedToast'));
+    } catch (e) { toast?.(t('toast.error', { message: e.message })); }
   };
 
   return (
     <div className="section active">
       {!user ? (
         <div className="learn-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>Consulta las tesis de la comunidad. Para publicar la tuya, inicia sesión.</div>
-          <button className="btn btn-gold" onClick={onLogin}>Iniciar sesión</button>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>{t('thesisPage.loginPrompt')}</div>
+          <button className="btn btn-gold" onClick={onLogin}>{t('auth.titles.login')}</button>
         </div>
       ) : needsAlias ? (
         <div className="learn-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>Elige tu alias público para poder publicar una tesis.</div>
-          <button className="btn btn-gold" onClick={onEditAlias}>Crear mi alias</button>
+          <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '10px' }}>{t('thesisPage.aliasPrompt')}</div>
+          <button className="btn btn-gold" onClick={onEditAlias}>{t('thesisPage.createAlias')}</button>
         </div>
       ) : (
         <div className="learn-card">
-          <div className="label" style={{ marginBottom: '8px' }}>Subir tesis (PDF, máx. {MAX_MB} MB)</div>
-          <input type="text" placeholder="Título de la tesis" value={title} onChange={e => setTitle(e.target.value)}
+          <div className="label" style={{ marginBottom: '8px' }}>{t('thesisPage.uploadLabel', { mb: MAX_MB })}</div>
+          <input type="text" placeholder={t('thesisPage.titlePlaceholder')} value={title} onChange={e => setTitle(e.target.value)}
             maxLength={140} style={{ width: '100%', marginBottom: '8px' }} />
           <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-            <input type="text" placeholder="Ticker (opcional)" value={ticker} onChange={e => setTicker(e.target.value)}
+            <input type="text" placeholder={t('thesisPage.tickerPlaceholder')} value={ticker} onChange={e => setTicker(e.target.value)}
               maxLength={12} style={{ width: '140px' }} />
             <input id="thesisFileInput" type="file" accept="application/pdf,.pdf" onChange={onPickFile} style={{ flex: 1 }} />
           </div>
-          <textarea placeholder="Resumen breve (opcional)" value={summary} onChange={e => setSummary(e.target.value)}
+          <textarea placeholder={t('thesisPage.summaryPlaceholder')} value={summary} onChange={e => setSummary(e.target.value)}
             maxLength={500} rows={2} style={{ width: '100%', marginBottom: '8px', resize: 'vertical' }} />
           <button className="btn btn-gold" disabled={!title.trim() || !file || uploading} onClick={upload}>
-            {uploading ? 'Subiendo…' : '📄 Publicar tesis'}
+            {uploading ? t('thesisPage.uploading') : t('thesisPage.publish')}
           </button>
         </div>
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '12px', marginTop: '20px' }}>Cargando…</div>
+        <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '12px', marginTop: '20px' }}>{t('common.loadingPlain')}</div>
       ) : items.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '12px', marginTop: '20px' }}>Aún no hay tesis publicadas.</div>
+        <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '12px', marginTop: '20px' }}>{t('thesisPage.empty')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
-          {items.map(t => {
-            const a = t.author || {};
+          {items.map(th => {
+            const a = th.author || {};
             const mine = user && a.id === user.id;
             return (
-              <div key={t.id} className="learn-card">
+              <div key={th.id} className="learn-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ fontSize: '24px', lineHeight: 1 }}>{a.avatar || '📄'}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>{a.displayName || 'Anónimo'}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>{a.displayName || t('postCard.anonymous')}</div>
                     <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace" }}>
-                      @{a.handle || '—'} · {timeAgo(toIso(t.createdAt)) || ''}
+                      @{a.handle || '—'} · {timeAgo(toIso(th.createdAt), t) || ''}
                     </div>
                   </div>
-                  {mine && <button className="card-btn" title="Eliminar" onClick={() => remove(t)} style={{ flex: 'none' }}>🗑</button>}
+                  {mine && <button className="card-btn" title={t('postCard.deleteTitle')} onClick={() => remove(th)} style={{ flex: 'none' }}>🗑</button>}
                 </div>
 
                 <div style={{ marginTop: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>{t.title}</span>
-                    {t.ticker && (
-                      <span onClick={onTicker ? () => onTicker(t.ticker) : undefined}
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>{th.title}</span>
+                    {th.ticker && (
+                      <span onClick={onTicker ? () => onTicker(th.ticker) : undefined}
                         style={{ fontSize: '11px', fontFamily: "'DM Mono',monospace", color: 'var(--gold)', cursor: onTicker ? 'pointer' : 'default', border: '1px solid var(--border)', borderRadius: '999px', padding: '1px 8px' }}>
-                        ${t.ticker}
+                        ${th.ticker}
                       </span>
                     )}
                   </div>
-                  {t.summary && <div style={{ fontSize: '12.5px', color: 'var(--text)', marginTop: '6px', lineHeight: 1.55 }}>{t.summary}</div>}
+                  {th.summary && <div style={{ fontSize: '12.5px', color: 'var(--text)', marginTop: '6px', lineHeight: 1.55 }}>{th.summary}</div>}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-                  <a href={api.thesisPdfUrl(t.id)} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ fontSize: '11px', padding: '6px 12px' }}>
-                    📄 Ver PDF
+                  <a href={api.thesisPdfUrl(th.id)} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ fontSize: '11px', padding: '6px 12px' }}>
+                    {t('thesisPage.viewPdf')}
                   </a>
-                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{t.fileName} · {fmtBytes(t.fileSize)}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{th.fileName} · {fmtBytes(th.fileSize)}</span>
                 </div>
               </div>
             );
           })}
           {cursor && (
             <button className="btn btn-outline" onClick={loadMore} disabled={loadingMore} style={{ alignSelf: 'center', fontSize: '12px' }}>
-              {loadingMore ? 'Cargando…' : 'Cargar más'}
+              {loadingMore ? t('common.loadingPlain') : t('tickerPage.loadMore')}
             </button>
           )}
         </div>

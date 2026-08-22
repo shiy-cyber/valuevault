@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api, setToken, setNetworkStatusHandler } from './lib/api.js';
-import { NAV, PAGE_TITLES } from './data/constants.js';
+import { NAV } from './data/constants.js';
+import { SUPPORTED_LANGS } from './i18n/index.js';
 import { timeAgo } from './lib/format.js';
 import { usePageMeta } from './lib/usePageMeta.js';
 
@@ -48,9 +50,10 @@ import Maintenance from './components/Maintenance.jsx';
 
 // Fallback de Suspense mientras se descarga el chunk de una página.
 function RouteFallback() {
+  const { t } = useTranslation();
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", fontSize: '12px' }}>
-      ⏳ Cargando…
+      {t('common.loading')}
     </div>
   );
 }
@@ -68,6 +71,7 @@ export default function App() {
     : path.startsWith('/comunidad/ticker/') ? 'ticker'
     : path.split('/')[1] || 'dashboard';
 
+  const { t, i18n } = useTranslation();
   const [assets, setAssets] = useState([]);
   const [notes, setNotes] = useState([]);
   const [theme, setTheme] = useState('dark');
@@ -122,17 +126,17 @@ export default function App() {
         if (seq !== portfolioSeq.current) return; // respuesta obsoleta, descartada
         setAssets(a); setNotes(n);
         const stamps = a.map(x => x.priceUpdatedAt).filter(Boolean).sort();
-        setLastRefresh(stamps.length ? timeAgo(stamps[stamps.length - 1]) : null);
+        setLastRefresh(stamps.length ? timeAgo(stamps[stamps.length - 1], t) : null);
         // Demo sin precios refrescados (datos semilla) → traer precios en vivo
         if (a.length && a.every(x => !x.priceUpdatedAt)) {
           api.refreshPrices()
-            .then(r => { if (seq === portfolioSeq.current && r.assets) { setAssets(r.assets); setLastRefresh(timeAgo(r.at)); } })
+            .then(r => { if (seq === portfolioSeq.current && r.assets) { setAssets(r.assets); setLastRefresh(timeAgo(r.at, t)); } })
             .catch(() => {});
         }
       })
       // Fallo de conexión con el backend → pantalla de mantenimiento (no error)
       .catch(() => { if (seq === portfolioSeq.current) setBackendDown(true); });
-  }, []);
+  }, [t]);
 
   // ─── Perfil público de comunidad (del usuario logueado) ─
   const loadCommunity = useCallback(() => {
@@ -214,19 +218,19 @@ export default function App() {
   };
   const logout = () => {
     setToken(null); setUser(null); setCommunity(null);
-    toast('Sesión cerrada');
+    toast(t('toast.sessionClosed'));
     reloadPortfolio();
   };
   const showRecoveryCode = async () => {
-    if (!window.confirm('Se generará un código de recuperación NUEVO y el anterior dejará de funcionar. ¿Continuar?')) return;
+    if (!window.confirm(t('confirm.regenerateCode'))) return;
     try { const r = await api.regenerateCode(); setPresetCode(r.recoveryCode); setAuthOpen(true); }
-    catch (e) { toast('⚠ ' + e.message); }
+    catch (e) { toast(t('toast.error', { message: e.message })); }
   };
   // Exige sesión para acciones de escritura; si no, abre el modal
   const requireAuth = () => {
     if (user) return true;
     setAuthOpen(true);
-    toast('Crea una cuenta para gestionar tu propia cartera');
+    toast(t('toast.needAccount'));
     return false;
   };
 
@@ -236,6 +240,13 @@ export default function App() {
     const t = theme === 'dark' ? 'light' : 'dark';
     setTheme(t);
     api.setConfig('theme', t).catch(() => {});
+  };
+
+  // ─── Idioma ─────────────────────────────────────────────
+  useEffect(() => { document.documentElement.setAttribute('lang', i18n.language); }, [i18n.language]);
+  const changeLang = (code) => {
+    i18n.changeLanguage(code);
+    localStorage.setItem('vv_lang', code);
   };
 
   const go = (id) => { navigate(id === 'dashboard' ? '/' : '/' + id); setSidebarOpen(false); };
@@ -248,7 +259,7 @@ export default function App() {
       if (editId) {
         const updated = await api.updateAsset(editId, payload);
         setAssets(prev => prev.map(a => a.id === editId ? updated : a));
-        toast(`✓ ${updated.ticker} actualizado`);
+        toast(t('toast.assetUpdated', { ticker: updated.ticker }));
       } else {
         // Fija el FX de entrada (EUR por 1 ud. de su divisa) para poder
         // separar después retorno de activo vs retorno de divisa.
@@ -260,21 +271,21 @@ export default function App() {
         }
         const created = await api.createAsset(payload);
         setAssets(prev => [...prev, created]);
-        toast(`✓ ${created.ticker} registrado`);
+        toast(t('toast.assetCreated', { ticker: created.ticker }));
       }
       closeAssetModal();
-    } catch (e) { toast('⚠ ' + e.message); }
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
   };
 
   const deleteAsset = async (a) => {
     if (!requireAuth()) return;
-    if (!window.confirm(`¿Eliminar ${a.ticker}?`)) return;
+    if (!window.confirm(t('confirm.deleteAsset', { ticker: a.ticker }))) return;
     try {
       await api.deleteAsset(a.id);
       setAssets(prev => prev.filter(x => x.id !== a.id));
       setNotes(prev => prev.map(n => n.assetId === a.id ? { ...n, assetId: null } : n));
-      toast(`🗑 ${a.ticker} eliminado`);
-    } catch (e) { toast('⚠ ' + e.message); }
+      toast(t('toast.assetDeleted', { ticker: a.ticker }));
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
   };
 
   // ─── Refresco de precios en vivo (Yahoo) ────────────────
@@ -284,9 +295,9 @@ export default function App() {
     try {
       const r = await api.refreshPrices();
       if (r.assets) setAssets(r.assets);
-      setLastRefresh(timeAgo(r.at));
-      toast(`↻ ${r.updated}/${r.total} precios actualizados`);
-    } catch (e) { toast('⚠ ' + e.message); }
+      setLastRefresh(timeAgo(r.at, t));
+      toast(t('toast.pricesUpdated', { updated: r.updated, total: r.total }));
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
     finally { setRefreshing(false); }
   };
 
@@ -296,9 +307,9 @@ export default function App() {
       const r = await api.refreshAssetData(id);
       setAssets(prev => prev.map(x => (x.id === id ? r.asset : x)));
       toast(r.source === 'alphavantage'
-        ? `✓ ${r.asset.ticker}: datos actualizados`
-        : `↻ ${r.asset.ticker}: solo precio (Alpha Vantage sin cuota hoy)`);
-    } catch (e) { toast('⚠ ' + e.message); }
+        ? t('toast.assetDataUpdated', { ticker: r.asset.ticker })
+        : t('toast.assetPriceOnly', { ticker: r.asset.ticker }));
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
   };
 
   // Calcula calidad del capital (ROIC/FCF/WACC) bajo demanda (Alpha Vantage)
@@ -309,10 +320,12 @@ export default function App() {
       setAssets(prev => prev.map(x => (x.id === id ? r.asset : x)));
       const a = r.asset, est = r.estimates;
       const parts = [];
-      if (a.roic != null) parts.push(`ROIC ${a.roic}% vs WACC ${a.wacc ?? '—'}%`);
-      if (est?.targetUpside != null) parts.push(`target ${est.targetUpside >= 0 ? '+' : ''}${est.targetUpside}% (${est.recommendation || '—'})`);
-      toast(parts.length ? `✓ ${a.ticker}: ${parts.join(' · ')}` : `↻ ${a.ticker}: ${(r.errors || []).join(' · ') || 'sin datos'}`);
-    } catch (e) { toast('⚠ ' + e.message); }
+      if (a.roic != null) parts.push(t('toast.qualityRoic', { roic: a.roic, wacc: a.wacc ?? '—' }));
+      if (est?.targetUpside != null) parts.push(t('toast.qualityTarget', { upside: (est.targetUpside >= 0 ? '+' : '') + est.targetUpside, rec: est.recommendation || '—' }));
+      toast(parts.length
+        ? t('toast.qualityUpdated', { ticker: a.ticker, parts: parts.join(' · ') })
+        : t('toast.qualityNoData', { ticker: a.ticker, errors: (r.errors || []).join(' · ') || t('common.noData') }));
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
   };
 
   // ─── Notas ──────────────────────────────────────────────
@@ -321,8 +334,8 @@ export default function App() {
       const created = await api.createNote(payload);
       setNotes(prev => [created, ...prev]);
       setLearnModal({ open: false, linkedAssetId: null });
-      toast('✓ Nota guardada');
-    } catch (e) { toast('⚠ ' + e.message); }
+      toast(t('toast.noteSaved'));
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
   };
 
   // ─── Export / Reset ─────────────────────────────────────
@@ -334,19 +347,19 @@ export default function App() {
       const a = document.createElement('a');
       a.href = url; a.download = `valuevault-${new Date().toISOString().slice(0, 10)}.json`; a.click();
       URL.revokeObjectURL(url);
-      toast('✓ Backup exportado');
-    } catch (e) { toast('⚠ ' + e.message); }
+      toast(t('toast.backupExported'));
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
   };
 
   const resetData = async () => {
     if (!requireAuth()) return;
-    if (!window.confirm('¿Borrar todos los activos y notas? No se puede deshacer.')) return;
+    if (!window.confirm(t('confirm.resetData'))) return;
     try {
       await Promise.all(assets.map(a => api.deleteAsset(a.id)));
       await Promise.all(notes.map(n => api.deleteNote(n.id)));
       setAssets([]); setNotes([]);
-      toast('🗑 Datos borrados');
-    } catch (e) { toast('⚠ ' + e.message); }
+      toast(t('toast.dataDeleted'));
+    } catch (e) { toast(t('toast.error', { message: e.message })); }
   };
 
   const openNotes = (id) => setDetailId(id);
@@ -358,7 +371,7 @@ export default function App() {
 
   const navHandlers = { onNotes: openNotes, onEdit: openEdit, onDelete: deleteAsset, onRefreshData: refreshAssetData, onRefreshQuality: refreshQuality };
 
-  usePageMeta(PAGE_TITLES[section], !PRIVATE_SECTIONS.has(section));
+  usePageMeta(t('pageTitles.' + section), !PRIVATE_SECTIONS.has(section));
 
   return (
     <>
@@ -372,8 +385,8 @@ export default function App() {
         </div>
         <div className="nav">
           {NAV.map((item, i) => item.section
-            ? <div className="nav-section" key={'s' + i}>{item.section}</div>
-            : <div key={item.id} className={`nav-item${section === item.id ? ' active' : ''}`} onClick={() => go(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}</div>
+            ? <div className="nav-section" key={'s' + i}>{t('navSection.' + item.section)}</div>
+            : <div key={item.id} className={`nav-item${section === item.id ? ' active' : ''}`} onClick={() => go(item.id)}><span className="nav-icon">{item.icon}</span>{t('nav.' + item.id)}</div>
           )}
         </div>
         <div className="sidebar-bottom">
@@ -381,18 +394,18 @@ export default function App() {
             <>
               <div className="stat-row" style={{ alignItems: 'center' }}>
                 <span className="stat-label" title={user.email} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>👤 {user.email}</span>
-                <button className="sb-btn" onClick={logout} style={{ padding: '3px 9px', flex: 'none' }}>Salir</button>
+                <button className="sb-btn" onClick={logout} style={{ padding: '3px 9px', flex: 'none' }}>{t('sidebar.logout')}</button>
               </div>
-              <button className="sb-btn" style={{ width: '100%', marginBottom: '10px', fontSize: '11px' }} onClick={showRecoveryCode}>🔑 Código de recuperación</button>
+              <button className="sb-btn" style={{ width: '100%', marginBottom: '10px', fontSize: '11px' }} onClick={showRecoveryCode}>{t('sidebar.recoveryCode')}</button>
             </>
           ) : (
-            <button className="sb-btn" style={{ width: '100%', marginBottom: '10px' }} onClick={() => setAuthOpen(true)}>🔑 Iniciar sesión / Registrarse</button>
+            <button className="sb-btn" style={{ width: '100%', marginBottom: '10px' }} onClick={() => setAuthOpen(true)}>{t('sidebar.login')}</button>
           )}
-          <div className="stat-row"><span className="stat-label">Activos</span><span className="stat-val">{assets.length}</span></div>
-          <div className="stat-row"><span className="stat-label">Notas</span><span className="stat-val">{notes.length}</span></div>
+          <div className="stat-row"><span className="stat-label">{t('sidebar.assets')}</span><span className="stat-val">{assets.length}</span></div>
+          <div className="stat-row"><span className="stat-label">{t('sidebar.notes')}</span><span className="stat-val">{notes.length}</span></div>
           <div className="sb-btns">
-            <button className="sb-btn" onClick={exportData}>💾 Export</button>
-            <button className="sb-btn" onClick={resetData}>🗑 Reset</button>
+            <button className="sb-btn" onClick={exportData}>{t('sidebar.export')}</button>
+            <button className="sb-btn" onClick={resetData}>{t('sidebar.reset')}</button>
           </div>
         </div>
       </nav>
@@ -401,25 +414,36 @@ export default function App() {
         <div className="topbar">
           <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
             <button className="menu-btn" onClick={() => setSidebarOpen(true)}>☰</button>
-            <div className="page-title">{PAGE_TITLES[section]}</div>
+            <div className="page-title">{t('pageTitles.' + section)}</div>
           </div>
           <div className="topbar-right">
             {user && (
-              <button className="theme-toggle" onClick={() => setNotifOpen(true)} title="Notificaciones" style={{ position: 'relative' }}>
+              <button className="theme-toggle" onClick={() => setNotifOpen(true)} title={t('topbar.notifications')} style={{ position: 'relative' }}>
                 🔔
                 {unread > 0 && <span style={{ position: 'absolute', top: '-3px', right: '-3px', background: 'var(--red)', color: '#fff', fontSize: '9px', fontWeight: 700, minWidth: '15px', height: '15px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{unread > 9 ? '9+' : unread}</span>}
               </button>
             )}
+            <select
+              className="theme-toggle"
+              value={i18n.language}
+              onChange={(e) => changeLang(e.target.value)}
+              title={t('topbar.language')}
+              style={{ cursor: 'pointer' }}
+            >
+              {SUPPORTED_LANGS.map(l => (
+                <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
+              ))}
+            </select>
             <button className="theme-toggle" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
-            <button className="btn btn-outline" onClick={() => newAsset('portfolio')}>+ Nuevo Activo</button>
-            <button className="btn btn-gold" onClick={() => go('screener')}>Screener ↗</button>
+            <button className="btn btn-outline" onClick={() => newAsset('portfolio')}>{t('topbar.newAsset')}</button>
+            <button className="btn btn-gold" onClick={() => go('screener')}>{t('topbar.screener')}</button>
           </div>
         </div>
 
         <div className="content">
           {!user && ['dashboard', 'assets', 'watchlist', 'compare', 'charts', 'learning'].includes(section) && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '4px solid var(--gold)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', fontSize: '12px', color: 'var(--muted)', lineHeight: 1.6 }}>
-              👁 Estás viendo la cartera <b>DEMO</b> compartida (solo lectura). <span onClick={() => setAuthOpen(true)} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>Crea tu cuenta privada</span> para gestionar tus propios activos y notas.
+              {t('demoBanner.prefix')} <b>DEMO</b> {t('demoBanner.suffix')} <span onClick={() => setAuthOpen(true)} style={{ color: 'var(--gold)', cursor: 'pointer', fontWeight: 600 }}>{t('demoBanner.cta')}</span> {t('demoBanner.after')}
             </div>
           )}
           <Suspense fallback={<RouteFallback />}>

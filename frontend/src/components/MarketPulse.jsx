@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api.js';
 import SparkChart from './shared/SparkChart.jsx';
 
@@ -10,9 +11,7 @@ const IDX = [
 ];
 
 const scoreColor = (v) => v == null ? '#7a8694' : v < 25 ? '#e74c3c' : v < 45 ? '#e67e22' : v < 55 ? '#c9a84c' : v < 75 ? '#2ecc71' : '#16a085';
-const scoreZone = (v) => v == null ? '—' : v < 25 ? 'Miedo extremo' : v < 45 ? 'Miedo' : v < 55 ? 'Neutral' : v < 75 ? 'Codicia' : 'Codicia extrema';
 const vixColor = (x) => x == null ? '#7a8694' : x < 13 ? '#16a085' : x < 20 ? '#2ecc71' : x < 30 ? '#c9a84c' : x < 40 ? '#e67e22' : '#e74c3c';
-const vixZone = (x) => x == null ? '—' : x < 13 ? 'Complacencia' : x < 20 ? 'Calma' : x < 30 ? 'Cautela' : x < 40 ? 'Miedo' : 'Pánico';
 const chgColor = (c) => c == null ? '#7a8694' : c >= 0 ? '#2ecc71' : '#e74c3c';
 
 function Spark({ points, color }) {
@@ -26,6 +25,9 @@ function Spark({ points, color }) {
 // ya cacheados en backend (10 min cotizaciones/histórico, snapshot del cron
 // para sentimiento) — barata de pedir.
 export default function MarketPulse() {
+  const { t } = useTranslation();
+  const scoreZone = (v) => v == null ? '—' : v < 25 ? t('marketPulse.zones.extremeFear') : v < 45 ? t('marketPulse.zones.fear') : v < 55 ? t('marketPulse.zones.neutral') : v < 75 ? t('marketPulse.zones.greed') : t('marketPulse.zones.extremeGreed');
+  const vixZone = (x) => x == null ? '—' : x < 13 ? t('marketPulse.vixZones.complacency') : x < 20 ? t('marketPulse.vixZones.calm') : x < 30 ? t('marketPulse.vixZones.caution') : x < 40 ? t('marketPulse.vixZones.fear') : t('marketPulse.vixZones.panic');
   const [quotes, setQuotes] = useState(null);
   const [hist, setHist] = useState({});
   const [fng, setFng] = useState(null);
@@ -72,9 +74,9 @@ export default function MarketPulse() {
   return (
     <div style={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '4px solid var(--gold)', borderRadius: '12px', marginBottom: '18px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '10px 16px', background: 'var(--surface2)', minWidth: '150px' }}>
-        <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '13px' }}>Pulso del Mercado</span>
+        <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '13px' }}>{t('marketPulse.title')}</span>
         <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '9px', color: 'var(--muted)', cursor: 'pointer' }} onClick={load}>
-          {loading ? 'cargando…' : updatedAt ? `↻ ${updatedAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : '↻ actualizar'}
+          {loading ? t('marketPulse.loading') : updatedAt ? t('marketPulse.updated', { time: updatedAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) }) : t('marketPulse.refresh')}
         </span>
       </div>
 
@@ -91,7 +93,7 @@ export default function MarketPulse() {
           {fng && pill('fng', 'Fear & Greed', Math.round(fng.score), scoreColor(fng.score), scoreZone(fng.score), fngSpark)}
         </div>
       )}
-      {loading && <div style={{ padding: '10px 16px', fontSize: '11px', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>Cargando situación del mercado…</div>}
+      {loading && <div style={{ padding: '10px 16px', fontSize: '11px', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>{t('marketPulse.loadingMarket')}</div>}
     </div>
   );
 }
