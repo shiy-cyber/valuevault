@@ -154,6 +154,7 @@
       "analystConsensus": "Analyst Consensus",
       "businessQuality": "Business Quality",
       "capitalQuality": "Capital Quality",
+      "financialHealth": "Financial Health & Solvency Risk",
       "capex": "Capital Expenditure (CapEx)",
       "trendShareholder": "Trend & Shareholder Returns",
       "financialStrength": "Financial Strength",
@@ -192,14 +193,20 @@
       "capexToDA": "CapEx / D&A",
       "priceVsMa200": "Price vs MA200",
       "sharesDilution": "Shares 5y (dilution)",
-      "debtEquity": "Debt/Equity"
+      "debtEquity": "Debt/Equity",
+      "maintenanceCapex": "Maintenance CapEx",
+      "growthCapex": "Growth CapEx",
+      "netBuybackYield": "Net buyback yield",
+      "peVsHistory": "P/E {{current}}x vs 5y avg {{avg5}}x / 10y {{avg10}}x",
+      "evEbitdaVsHistory": "EV/EBITDA {{current}}x vs 5y avg {{avg5}}x / 10y {{avg10}}x"
     },
     "hints": {
       "valuationHistory": "Click \"📊 Fundamentals\" to compute the historical evolution (P/E, P/B, EV/EBITDA, ROE…).",
       "analystConsensus": "Click \"📊 Fundamentals\" to bring in the analyst consensus.",
       "roic": "Click \"📊 ROIC / FCF\" to calculate it (Alpha Vantage).",
       "capex": "Click \"📊 Fundamentals\" to compute capital expenditure.",
-      "trend": "Click \"📊 Fundamentals\" to bring in trend (MA50/200), shareholder yield and dilution (Alpha Vantage)."
+      "trend": "Click \"📊 Fundamentals\" to bring in trend (MA50/200), shareholder yield and dilution (Alpha Vantage).",
+      "financialHealth": "Click \"📊 Fundamentals\" to compute Altman Z, Piotroski F and Beneish M (needs 2 fiscal years)."
     }
   },
   "sidebar": {
@@ -846,7 +853,10 @@
       "shares": "Shares outstanding",
       "netDebt": "Net debt", "netDebtHint": "debt − cash",
       "price": "Current price", "priceSuffix": "$/sh",
-      "rf": "Risk-free rate (10Y)", "beta": "Beta", "erp": "Equity risk premium (ERP)"
+      "rf": "Risk-free rate (10Y)", "beta": "Beta", "erp": "Equity risk premium (ERP)",
+      "useSbcAdjusted": "Use FCF adjusted for stock-based compensation (SBC)",
+      "sbcNote": "Raw FCF {{fcf}} − SBC {{sbc}} = adjusted FCF {{adjusted}}. SBC is a real (dilutive) expense that operating cash flow doesn't deduct.",
+      "capexSplitNote": "Maintenance CapEx ≈ {{maint}} (replaces depreciating assets) · growth CapEx ≈ {{growth}} (expansion). Adjust FCF by hand if you want to deduct only the growth portion."
     },
     "growthWarn": {
       "auto": "⚠ Auto growth {{value}}% ({{method}}",
@@ -894,6 +904,12 @@
       "slightlyUndervalued": "Slightly undervalued",
       "fairValue": "Near fair value",
       "overvalued": "Overvalued"
+    },
+    "sensitivityMatrix": {
+      "title": "Sensitivity matrix · WACC × terminal growth",
+      "note": "Intrinsic value / share across different WACC and terminal growth (g) combinations, holding the rest of the assumptions fixed. The highlighted cell is your current scenario.",
+      "waccLabel": "WACC",
+      "gLabel": "g"
     }
   },
   "volProfilePage": {

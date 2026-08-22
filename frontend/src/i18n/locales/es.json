@@ -154,6 +154,7 @@
       "analystConsensus": "Consenso de Analistas",
       "businessQuality": "Calidad del Negocio",
       "capitalQuality": "Calidad del Capital",
+      "financialHealth": "Salud Financiera & Riesgo de Solvencia",
       "capex": "Gastos de Capital (CapEx)",
       "trendShareholder": "Tendencia & Retribución al Accionista",
       "financialStrength": "Solidez Financiera",
@@ -192,14 +193,20 @@
       "capexToDA": "CapEx / Amortización",
       "priceVsMa200": "Precio vs MA200",
       "sharesDilution": "Acciones 5a (dilución)",
-      "debtEquity": "Deuda/Equity"
+      "debtEquity": "Deuda/Equity",
+      "maintenanceCapex": "CapEx mantenimiento",
+      "growthCapex": "CapEx crecimiento",
+      "netBuybackYield": "Recompra neta dilución",
+      "peVsHistory": "P/E {{current}}x vs media 5A {{avg5}}x / 10A {{avg10}}x",
+      "evEbitdaVsHistory": "EV/EBITDA {{current}}x vs media 5A {{avg5}}x / 10A {{avg10}}x"
     },
     "hints": {
       "valuationHistory": "Pulsa «📊 Fundamentales» para calcular la evolución histórica (P/E, P/B, EV/EBITDA, ROE…).",
       "analystConsensus": "Pulsa «📊 Fundamentales» para traer el consenso de analistas.",
       "roic": "Pulsa «📊 ROIC / FCF» para calcularlo (Alpha Vantage).",
       "capex": "Pulsa «📊 Fundamentales» para calcular los gastos de capital.",
-      "trend": "Pulsa «📊 Fundamentales» para traer tendencia (MA50/200), shareholder yield y dilución (Alpha Vantage)."
+      "trend": "Pulsa «📊 Fundamentales» para traer tendencia (MA50/200), shareholder yield y dilución (Alpha Vantage).",
+      "financialHealth": "Pulsa «📊 Fundamentales» para calcular Altman Z, Piotroski F y Beneish M (requiere 2 ejercicios fiscales)."
     }
   },
   "sidebar": {
@@ -846,7 +853,10 @@
       "shares": "Acciones en circulación",
       "netDebt": "Deuda neta", "netDebtHint": "deuda − caja",
       "price": "Precio actual", "priceSuffix": "$/acc",
-      "rf": "Tipo libre de riesgo (10Y)", "beta": "Beta", "erp": "Prima de riesgo (ERP)"
+      "rf": "Tipo libre de riesgo (10Y)", "beta": "Beta", "erp": "Prima de riesgo (ERP)",
+      "useSbcAdjusted": "Usar FCF ajustado por compensación en acciones (SBC)",
+      "sbcNote": "FCF bruto {{fcf}} − SBC {{sbc}} = FCF ajustado {{adjusted}}. El SBC es un gasto real (dilución) que el flujo de caja operativo no descuenta.",
+      "capexSplitNote": "CapEx de mantenimiento ≈ {{maint}} (repone lo que se deprecia) · CapEx de crecimiento ≈ {{growth}} (expansión). Ajusta el FCF a mano si quieres descontar solo el de crecimiento."
     },
     "growthWarn": {
       "auto": "⚠ Crecimiento auto {{value}}% ({{method}}",
@@ -894,6 +904,12 @@
       "slightlyUndervalued": "Ligeramente infravalorada",
       "fairValue": "Cerca del valor justo",
       "overvalued": "Sobrevalorada"
+    },
+    "sensitivityMatrix": {
+      "title": "Matriz de sensibilidad · WACC × crecimiento terminal",
+      "note": "Valor intrínseco / acción según distintas combinaciones de WACC y crecimiento terminal (g), manteniendo el resto de supuestos fijos. La celda resaltada es tu escenario actual.",
+      "waccLabel": "WACC",
+      "gLabel": "g"
     }
   },
   "volProfilePage": {

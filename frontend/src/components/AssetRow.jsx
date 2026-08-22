@@ -504,6 +504,17 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
   const upside = (a.targetMean > 0 && a.current > 0) ? +((a.targetMean / a.current - 1) * 100).toFixed(1) : null;
   // Precio vs MA200: >0 por encima de la media (tendencia alcista de fondo).
   const vsMa200 = (a.current > 0 && a.ma200 > 0) ? +((a.current / a.ma200 - 1) * 100).toFixed(1) : null;
+  // Normalización de múltiplos vs media histórica (100% cliente, sin backend):
+  // a.valuationHistory ya trae hasta 10 ejercicios (más reciente primero).
+  // Comparar el múltiplo ACTUAL contra su propia media 5A/10A filtra ruido de
+  // ciclo económico o partidas puntuales — barato pero "caro para sí mismo" no
+  // es lo mismo que barato para el sector.
+  const histAvg = (field, n) => {
+    const vals = (a.valuationHistory || []).slice(0, n).map(h => h[field]).filter(v => v != null);
+    return vals.length ? +(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2) : null;
+  };
+  const peAvg5 = histAvg('pe', 5), peAvg10 = histAvg('pe', 10);
+  const evAvg5 = histAvg('evEbitda', 5), evAvg10 = histAvg('evEbitda', 10);
 
   const doRefresh = async () => {
     if (busyData || !onRefreshData) return;
@@ -602,6 +613,20 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <MV label="P/E" val={a.pe} suffix="x" /><MV label="Fwd P/E" val={a.fpe} suffix="x" /><MV label="P/B" val={a.pb} suffix="x" />
             <MV label="PEG" val={a.peg} /><MV label="EV/EBITDA" val={a.evebitda} suffix="x" /><MV label="P/Sales" val={a.ps} suffix="x" />
           </div>
+          {(peAvg5 != null || evAvg5 != null) && (
+            <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {peAvg5 != null && a.pe != null && (
+                <span style={{ fontSize: '10px', padding: '4px 9px', borderRadius: '10px', background: 'var(--surface)', color: a.pe <= peAvg5 ? 'var(--green)' : 'var(--red)' }}>
+                  {t('assetRow.fields.peVsHistory', { current: a.pe, avg5: peAvg5, avg10: peAvg10 ?? '—' })}
+                </span>
+              )}
+              {evAvg5 != null && a.evebitda != null && (
+                <span style={{ fontSize: '10px', padding: '4px 9px', borderRadius: '10px', background: 'var(--surface)', color: a.evebitda <= evAvg5 ? 'var(--green)' : 'var(--red)' }}>
+                  {t('assetRow.fields.evEbitdaVsHistory', { current: a.evebitda, avg5: evAvg5, avg10: evAvg10 ?? '—' })}
+                </span>
+              )}
+            </div>
+          )}
           <div style={{ marginBottom: '12px' }}>
             <ValuationHistoryChart history={a.valuationHistory} theme={theme} />
             {(!a.valuationHistory || a.valuationHistory.length < 2) && (
@@ -676,6 +701,21 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>{t('assetRow.hints.roic')}</div>
           )}
 
+          <div className="mv-section-label">{t('assetRow.sections.financialHealth')}</div>
+          <div className="mv-grid">
+            <MV label="Altman Z-Score" val={a.altmanZ} good={2.99} warn={1.81} />
+            <MV label="Piotroski F-Score" val={a.piotroskiF} suffix="/9" good={7} warn={4} />
+            <div className="mv-item">
+              <div className="mv-label">Beneish M-Score</div>
+              <div className="mv-val" style={{ color: a.beneishM == null ? 'var(--muted)' : a.beneishM <= -2.22 ? 'var(--green)' : a.beneishM <= -1.78 ? 'var(--orange)' : 'var(--red)' }}>
+                {a.beneishM == null ? '—' : a.beneishM}
+              </div>
+            </div>
+          </div>
+          {a.altmanZ == null && a.piotroskiF == null && a.beneishM == null && (
+            <div style={{ fontSize: '10px', color: 'var(--muted)', margin: '-4px 0 12px' }}>{t('assetRow.hints.financialHealth')}</div>
+          )}
+
           <div className="mv-section-label">
             {t('assetRow.sections.capex')}
             {a.capexProfile && (
@@ -687,6 +727,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <MV label={t('assetRow.fields.capexToRevenue')} val={a.capexToRevenue} suffix="%" />
             <MV label={t('assetRow.fields.capexToOCF')} val={a.capexToOCF} suffix="%" />
             <MV label={t('assetRow.fields.capexToDA')} val={a.capexToDA} suffix="x" />
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.maintenanceCapex')}</div><div className="mv-val">{fmtUsdCompact(a.maintenanceCapex)}</div></div>
+            <div className="mv-item"><div className="mv-label">{t('assetRow.fields.growthCapex')}</div><div className="mv-val">{fmtUsdCompact(a.growthCapex)}</div></div>
           </div>
           <CapexChart history={a.capexHistory} theme={theme} />
           {a.capex == null && (
@@ -700,6 +742,7 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
             <div className="mv-item"><div className="mv-label">MA200</div><div className="mv-val">{a.ma200 != null ? fmt(a.ma200) : '—'}</div></div>
             <div className="mv-item"><div className="mv-label">{t('assetRow.fields.priceVsMa200')}</div><div className="mv-val" style={{ color: vsMa200 == null ? 'var(--muted)' : vsMa200 >= 0 ? 'var(--green)' : 'var(--red)' }}>{vsMa200 == null ? '—' : (vsMa200 >= 0 ? '+' : '') + vsMa200 + '%'}</div></div>
             <MV label="Shareholder Yield" val={a.shYield} suffix="%" good={4} warn={1} />
+            <MV label={t('assetRow.fields.netBuybackYield')} val={a.netBuybackYield} suffix="%" good={2} warn={0} />
             <div className="mv-item"><div className="mv-label">{t('assetRow.fields.sharesDilution')}</div><div className="mv-val" style={{ color: a.sharesChg == null ? 'var(--muted)' : a.sharesChg <= 0 ? 'var(--green)' : 'var(--red)' }}>{a.sharesChg == null ? '—' : (a.sharesChg > 0 ? '+' : '') + a.sharesChg + '%'}</div></div>
           </div>
           {a.ma200 == null && a.shYield == null && a.sharesChg == null && (

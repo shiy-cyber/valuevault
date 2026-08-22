@@ -31,6 +31,9 @@ export default function Valuation({ toast }) {
   const [ticker, setTicker] = useState('');
   const [loading, setLoading] = useState(false);
   const [meta, setMeta] = useState(null); // {name, sector, roicData, fcfCAGR}
+  const [sbcInfo, setSbcInfo] = useState(null); // {fcf, sbc, fcfAdjusted} en $ (sin escalar)
+  const [useSbcAdjusted, setUseSbcAdjusted] = useState(false);
+  const [capexInfo, setCapexInfo] = useState(null); // {maintenance, growth} en $ (sin escalar)
 
   // Supuestos del modelo (FCF, deuda y acciones en millones)
   const [fcf0, setFcf0] = useState(1000);
@@ -65,6 +68,12 @@ export default function Valuation({ toast }) {
     try {
       const d = await api.fundamentals(sym);
       if (d.fcf != null) setFcf0(+(d.fcf / 1e6).toFixed(0));
+      // FCF ajustado por SBC (compensación en acciones) y desglose de CapEx
+      // mantenimiento/crecimiento — null si la fuente no los cubre (degrada
+      // con gracia, el toggle/nota simplemente no aparecen).
+      setSbcInfo((d.sbc != null || d.fcfAdjusted != null) ? { fcf: d.fcf, sbc: d.sbc, fcfAdjusted: d.fcfAdjusted } : null);
+      setUseSbcAdjusted(false);
+      setCapexInfo((d.maintenanceCapex != null || d.growthCapex != null) ? { maintenance: d.maintenanceCapex, growth: d.growthCapex } : null);
       if (d.sharesOutstanding) setShares(+(d.sharesOutstanding / 1e6).toFixed(0));
       if (d.netDebt != null) setNetDebt(+(d.netDebt / 1e6).toFixed(0));
       if (d.price != null) setPrice(d.price);
@@ -105,6 +114,38 @@ export default function Valuation({ toast }) {
     const tvWeight = ev > 0 ? (pvTv / ev) * 100 : null; // % del EV que viene de la perpetuidad
     return { rows, pvSum, pvTv, tv, tvWeight, ev, equity, perShare, upside, n };
   }, [fcf0, growth, years, termGrowth, wacc, shares, netDebt, price, t]);
+
+  // ─── Matriz de sensibilidad WACC × crecimiento terminal ─────
+  // Reutiliza exactamente la misma matemática de PV/TV que `dcf`, variando
+  // solo WACC (±2pp, pasos de 0.5) y g terminal (±1pp, pasos de 0.5) alrededor
+  // de los inputs actuales — para ver de un vistazo cuán sensible es el valor
+  // intrínseco a esos dos supuestos (los más discutibles del modelo).
+  const WACC_OFFSETS = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
+  const GT_OFFSETS = [-1, -0.5, 0, 0.5, 1];
+  const sensitivity = useMemo(() => {
+    const f0 = N(fcf0), sh = N(shares), nd = N(netDebt);
+    const g = N(growth) / 100, n = Math.max(1, Math.min(15, N(years, 5)));
+    const baseW = N(wacc), baseGt = N(termGrowth);
+    if (sh <= 0) return null;
+    const waccSteps = WACC_OFFSETS.map(d => +(baseW + d).toFixed(2));
+    const gtSteps = GT_OFFSETS.map(d => +(baseGt + d).toFixed(2));
+    const grid = waccSteps.map(wPct => {
+      const w = wPct / 100;
+      return gtSteps.map(gtPct => {
+        const gt = gtPct / 100;
+        if (w <= gt) return null;
+        let pvSum = 0, fN = f0;
+        for (let y = 1; y <= n; y++) { fN = f0 * Math.pow(1 + g, y); pvSum += fN / Math.pow(1 + w, y); }
+        const tv = (fN * (1 + gt)) / (w - gt);
+        const pvTv = tv / Math.pow(1 + w, n);
+        const equity = pvSum + pvTv - nd;
+        return equity / sh;
+      });
+    });
+    return { waccSteps, gtSteps, grid };
+  }, [fcf0, growth, years, termGrowth, wacc, shares, netDebt]);
+  const CURRENT_ROW = WACC_OFFSETS.indexOf(0);
+  const CURRENT_COL = GT_OFFSETS.indexOf(0);
 
   // Fiabilidad del crecimiento autocompletado: banda ancha (FCF volátil),
   // pocos años de histórico o crecimiento casi plano → avisar y pedir revisión.
@@ -159,6 +200,26 @@ export default function Valuation({ toast }) {
         <div style={cardBase}>
           <div style={cap}>{t('valuationPage.modelAssumptions')}</div>
           <Field label={t('valuationPage.fields.fcf0')} value={fcf0} onChange={setFcf0} suffix="M$" hint={t('valuationPage.fields.fcf0Hint')} />
+          {sbcInfo?.fcfAdjusted != null && (
+            <div style={{ marginTop: '-6px', marginBottom: '12px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--muted)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={useSbcAdjusted} onChange={e => {
+                  const on = e.target.checked;
+                  setUseSbcAdjusted(on);
+                  setFcf0(+((on ? sbcInfo.fcfAdjusted : sbcInfo.fcf) / 1e6).toFixed(0));
+                }} />
+                {t('valuationPage.fields.useSbcAdjusted')}
+              </label>
+              <div style={{ fontSize: '9px', color: 'var(--muted)', marginTop: '3px' }}>
+                {t('valuationPage.fields.sbcNote', { fcf: fmtB(sbcInfo.fcf / 1e6), sbc: fmtB(sbcInfo.sbc / 1e6), adjusted: fmtB(sbcInfo.fcfAdjusted / 1e6) })}
+              </div>
+            </div>
+          )}
+          {capexInfo && (capexInfo.maintenance != null || capexInfo.growth != null) && (
+            <div style={{ marginTop: '-6px', marginBottom: '12px', fontSize: '9px', color: 'var(--muted)' }}>
+              {t('valuationPage.fields.capexSplitNote', { maint: fmtB((capexInfo.maintenance || 0) / 1e6), growth: fmtB((capexInfo.growth || 0) / 1e6) })}
+            </div>
+          )}
           <Field label={t('valuationPage.fields.growth')} value={growth} onChange={setGrowth} suffix={t('valuationPage.fields.growthSuffix')} />
           {gWarn && (
             <div style={{ marginTop: '-6px', marginBottom: '12px', padding: '7px 9px', background: 'rgba(230,126,34,.1)', borderRadius: '7px', fontSize: '10px', color: '#e67e22', fontFamily: "'DM Mono',monospace", lineHeight: 1.5 }}>
@@ -285,6 +346,42 @@ export default function Valuation({ toast }) {
                   {t('valuationPage.tvWeightPrefix')} <b style={{ color: dcf.tvWeight > 80 ? '#e67e22' : 'var(--text)' }}>{dcf.tvWeight.toFixed(0)}%</b> {t('valuationPage.tvWeightOfEv')}{dcf.tvWeight > 80 ? t('valuationPage.tvWeightHigh') : t('valuationPage.tvWeightNormal')}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Matriz de sensibilidad WACC × g terminal */}
+          {sensitivity && (
+            <div style={{ ...cardBase, overflowX: 'auto' }}>
+              <div style={cap}>{t('valuationPage.sensitivityMatrix.title')}</div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '10px', lineHeight: 1.6 }}>{t('valuationPage.sensitivityMatrix.note')}</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace", fontSize: '11px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '4px 6px', textAlign: 'left', color: 'var(--muted)', fontSize: '9px' }}>{t('valuationPage.sensitivityMatrix.waccLabel')} \ {t('valuationPage.sensitivityMatrix.gLabel')}</th>
+                    {sensitivity.gtSteps.map((gt, ci) => (
+                      <th key={gt} style={{ padding: '4px 6px', textAlign: 'right', color: ci === CURRENT_COL ? 'var(--gold)' : 'var(--muted)', fontSize: '10px' }}>{gt.toFixed(1)}%</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensitivity.grid.map((row, ri) => (
+                    <tr key={sensitivity.waccSteps[ri]} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '4px 6px', color: ri === CURRENT_ROW ? 'var(--gold)' : 'var(--muted)', fontSize: '10px' }}>{sensitivity.waccSteps[ri].toFixed(1)}%</td>
+                      {row.map((v, ci) => {
+                        const isCurrent = ri === CURRENT_ROW && ci === CURRENT_COL;
+                        return (
+                          <td key={ci} style={{
+                            padding: '4px 6px', textAlign: 'right',
+                            background: isCurrent ? 'rgba(212,175,55,.15)' : 'transparent',
+                            border: isCurrent ? '1px solid var(--gold)' : 'none',
+                            color: v == null ? 'var(--muted)' : (v / N(price) - 1) >= 0 ? 'var(--green)' : 'var(--red)',
+                          }}>{v == null ? '—' : fmtP(v)}</td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

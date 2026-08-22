@@ -639,7 +639,17 @@ export async function createApp() {
       upd.ma50 = f.ma50 ?? null;
       upd.ma200 = f.ma200 ?? null;
       upd.shYield = f.shYield ?? null;
+      upd.netBuybackYield = f.netBuybackYield ?? null;
       upd.sharesChg = f.sharesChg ?? null;
+      // Ajustes institucionales de FCF/CapEx (sin coste de API extra: mismo getFundamentals)
+      upd.sbc = f.sbc ?? null;
+      upd.fcfAdjusted = f.fcfAdjusted ?? null;
+      upd.maintenanceCapex = f.maintenanceCapex ?? null;
+      upd.growthCapex = f.growthCapex ?? null;
+      // Salud financiera / riesgo de solvencia
+      upd.altmanZ = f.altmanZ ?? null;
+      upd.piotroskiF = f.piotroskiF ?? null;
+      upd.beneishM = f.beneishM ?? null;
       upd.fundamentalsAt = f.fetchedAt ?? null; // antigüedad del dato fuente (badge)
     } catch (e) { errs.push('fundamentales: ' + e.message); }
     try {

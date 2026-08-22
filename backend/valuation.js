@@ -108,6 +108,12 @@ async function fetchFMPStatements(sym) {
     incomeBeforeTax: r.incomeBeforeTax,
     incomeTaxExpense: r.incomeTaxExpense,
     netIncome: r.netIncome,
+    // Beneish SGAI: gastos de venta/administración sobre ventas. Nombre alineado
+    // con el campo NATIVO de Alpha Vantage INCOME_STATEMENT (que es
+    // "sellingGeneralAndAdministrative", SIN "Expenses" — ese sufijo es el
+    // nombre de FMP, no el de AV; usarlo tal cual dejaba este campo siempre
+    // null por la ruta AV primaria).
+    sellingGeneralAndAdministrative: r.sellingGeneralAndAdministrativeExpenses,
   })) };
   const balance = { annualReports: balRows.map(r => ({
     fiscalDateEnding: r.date,
@@ -117,6 +123,18 @@ async function fetchFMPStatements(sym) {
     longTermDebt: r.longTermDebt,
     shortLongTermDebtTotal: r.totalDebt,
     cashAndShortTermInvestments: r.cashAndShortTermInvestments,
+    // Altman Z / Piotroski F / Beneish M: activo y pasivo total, reservas,
+    // corriente y PP&E — ninguno se usaba hasta ahora, todos estándar en FMP.
+    totalAssets: r.totalAssets,
+    totalLiabilities: r.totalLiabilities,
+    retainedEarnings: r.retainedEarnings,
+    totalCurrentAssets: r.totalCurrentAssets,
+    totalCurrentLiabilities: r.totalCurrentLiabilities,
+    // Nombres alineados con los campos NATIVOS de Alpha Vantage BALANCE_SHEET
+    // (no "netReceivables"/"propertyPlantEquipmentNet" — así funcionan igual
+    // por la ruta AV primaria, no solo en el respaldo FMP).
+    currentNetReceivables: r.netReceivables,
+    propertyPlantEquipment: r.propertyPlantEquipmentNet,
   })) };
   // FMP da capex/recompras/dividendos en NEGATIVO (salida de caja); AV los da
   // en positivo — se homogeniza con Math.abs para que el resto del cálculo
@@ -128,6 +146,11 @@ async function fetchFMPStatements(sym) {
     depreciationDepletionAndAmortization: r.depreciationAndAmortization,
     paymentsForRepurchaseOfCommonStock: r.commonStockRepurchased != null ? Math.abs(r.commonStockRepurchased) : null,
     dividendPayout: r.netDividendsPaid != null ? Math.abs(r.netDividendsPaid) : null,
+    // SBC: FMP sí la da como línea propia del cash-flow (AV no la separa)
+    stockBasedCompensation: r.stockBasedCompensation,
+    // Emisión de acciones (entrada de caja) — para netear contra recompras.
+    // Mismo nombre de campo que usa AV nativamente en su CASH_FLOW.
+    proceedsFromIssuanceOfCommonStock: r.commonStockIssuance != null ? Math.abs(r.commonStockIssuance) : null,
   })) };
   const profile = profileRows?.[0] || {};
   // Overview reducido: solo lo que FMP realmente tiene gratis (nombre, sector,
@@ -187,6 +210,11 @@ export async function getFundamentals(ticker) {
   const cf = cash.annualReports?.[0] || {};
   const inc = income.annualReports?.[0] || {};
   const bal = balance.annualReports?.[0] || {};
+  // Ejercicio anterior (t-1) — solo para Piotroski F y Beneish M, que comparan
+  // dos años; el resto del archivo sigue usando cf/inc/bal (año más reciente).
+  const cf1 = cash.annualReports?.[1] || {};
+  const inc1 = income.annualReports?.[1] || {};
+  const bal1 = balance.annualReports?.[1] || {};
 
   // Free Cash Flow = flujo de caja operativo − capex
   const fcfOf = (r) => (num(r.operatingCashflow) != null && num(r.capitalExpenditures) != null)
@@ -221,6 +249,24 @@ export async function getFundamentals(ticker) {
     })
     .filter(r => r.capex != null);
   const capexProfile = capexProfileOf(capexToRevenue, capexToDA);
+
+  // ─── SBC (stock-based compensation) y FCF ajustado ───────────
+  // Alpha Vantage sí trae esta línea nativa en CASH_FLOW; el mapeo de FMP
+  // (más arriba) la replica para que la ruta de respaldo se comporte igual.
+  // Cuando ninguna fuente la cubre para un ticker concreto queda en null y
+  // degrada con gracia, como el resto de campos de cobertura parcial de este
+  // archivo. Tratamos el SBC como gasto real en efectivo (no se "añade de
+  // vuelta"): el FCF ajustado resta la dilución que ya se paga a empleados
+  // en acciones.
+  const sbc = num(cf.stockBasedCompensation);
+  const fcfAdjusted = (fcf != null && sbc != null) ? +(fcf - sbc).toFixed(0) : null;
+
+  // ─── CapEx de mantenimiento vs crecimiento (heurística Greenwald) ─────
+  // Sin API que dé el desglose real: maintenance ≈ D&A (lo mínimo para
+  // reponer el activo que se deprecia), growth = resto. Si CapEx < D&A
+  // (empresa desinvirtiendo), todo el CapEx se considera mantenimiento.
+  const maintenanceCapex = (capex != null && da != null) ? +Math.min(capex, da).toFixed(0) : null;
+  const growthCapex = (capex != null && da != null) ? +Math.max(capex - da, 0).toFixed(0) : null;
 
   // CAGR de 2 extremos (legacy, se conserva para transparencia/comparación)
   let fcfCAGR = null;
@@ -383,9 +429,121 @@ export async function getFundamentals(ticker) {
   const marketCap = (price != null && shares != null && shares > 0) ? price * shares : null;
   const fcfy = (fcf != null && marketCap && marketCap > 0) ? +((fcf / marketCap) * 100).toFixed(2) : null;
 
-  // WACC = We·ke + Wd·kd·(1−tax). ke por CAPM (rf + β·ERP). Supuestos: rf 4%,
+  // ─── Altman Z-Score (riesgo de quiebra, horizonte ~24 meses) ─────────────
+  // Fórmula estándar para cotizadas (Altman 1968/2000):
+  // Z = 1.2·(WC/TA) + 1.4·(RE/TA) + 3.3·(EBIT/TA) + 0.6·(MktCap/TotalLiab) + 1.0·(Sales/TA)
+  // Zonas: Z > 2.99 segura · 1.81–2.99 gris · Z < 1.81 distress. Un solo
+  // ejercicio basta (a diferencia de Piotroski/Beneish, que comparan 2 años).
+  const totalAssets = num(bal.totalAssets);
+  const totalLiabilities = num(bal.totalLiabilities);
+  const workingCapital = (num(bal.totalCurrentAssets) != null && num(bal.totalCurrentLiabilities) != null)
+    ? num(bal.totalCurrentAssets) - num(bal.totalCurrentLiabilities) : null;
+  const retainedEarnings = num(bal.retainedEarnings);
+  let altmanZ = null;
+  if (totalAssets && workingCapital != null && retainedEarnings != null
+      && ebit != null && totalLiabilities && marketCap != null && revenue) {
+    altmanZ = +(
+      1.2 * (workingCapital / totalAssets) +
+      1.4 * (retainedEarnings / totalAssets) +
+      3.3 * (ebit / totalAssets) +
+      0.6 * (marketCap / totalLiabilities) +
+      1.0 * (revenue / totalAssets)
+    ).toFixed(2);
+  }
+
+  // ─── Piotroski F-Score (0-9, calidad/fortaleza del balance) ──────────────
+  // 9 tests binarios comparando el ejercicio actual (t) contra el anterior
+  // (t-1) — filtro clásico contra "value traps" (barato pero deteriorándose).
+  // Todo o nada: si falta cualquier input de los dos años, queda en null en
+  // vez de un score parcial engañoso (no tiene sentido "medio test binario").
+  let piotroskiF = null;
+  {
+    const ta0 = totalAssets, ta1 = num(bal1.totalAssets);
+    const ni0 = num(inc.netIncome), ni1 = num(inc1.netIncome);
+    const cfo0 = ocf, cfo1 = num(cf1.operatingCashflow);
+    const ltd0 = num(bal.longTermDebt), ltd1 = num(bal1.longTermDebt);
+    const ca0 = num(bal.totalCurrentAssets), ca1 = num(bal1.totalCurrentAssets);
+    const cl0 = num(bal.totalCurrentLiabilities), cl1 = num(bal1.totalCurrentLiabilities);
+    const sh0 = num(bal.commonStockSharesOutstanding), sh1 = num(bal1.commonStockSharesOutstanding);
+    const gp0 = num(inc.grossProfit), gp1 = num(inc1.grossProfit);
+    const rev0 = revenue, rev1 = num(inc1.totalRevenue);
+    if (ta0 && ta1 && ni0 != null && ni1 != null && cfo0 != null && cfo1 != null
+        && ltd0 != null && ltd1 != null && ca0 != null && ca1 != null && cl0 && cl1
+        && sh0 != null && sh1 != null && gp0 != null && gp1 != null && rev0 && rev1) {
+      const roa0 = ni0 / ta0, roa1 = ni1 / ta1;
+      const cr0 = ca0 / cl0, cr1 = ca1 / cl1;
+      const lev0 = ltd0 / ta0, lev1 = ltd1 / ta1;
+      const gm0 = gp0 / rev0, gm1 = gp1 / rev1;
+      const at0 = rev0 / ta0, at1 = rev1 / ta1;
+      let f = 0;
+      if (roa0 > 0) f++;              // 1. rentable
+      if (cfo0 > 0) f++;              // 2. caja operativa positiva
+      if (roa0 > roa1) f++;           // 3. rentabilidad mejora
+      if (cfo0 > ni0) f++;            // 4. calidad de earnings (caja > contable)
+      if (lev0 < lev1) f++;           // 5. menos apalancamiento
+      if (cr0 > cr1) f++;             // 6. más liquidez corriente
+      if (sh0 <= sh1) f++;            // 7. sin nueva dilución
+      if (gm0 > gm1) f++;             // 8. margen bruto mejora
+      if (at0 > at1) f++;             // 9. eficiencia de activos mejora
+      piotroskiF = f;
+    }
+  }
+
+  // ─── Beneish M-Score (detección de manipulación contable, modelo 1999) ───
+  // 8 variables (DSRI/GMI/AQI/SGI/DEPI/SGAI/TATA/LVGI). M > -1.78 sugiere
+  // riesgo elevado de manipulación de resultados. TODO O NADA (mismo criterio
+  // que Piotroski, más abajo): si falta cualquiera de las 8 variables (dato
+  // ausente o denominador 0), el score entero queda en null. Antes cada
+  // componente ausente degradaba a un valor "neutro" (1.0, o 0 en TATA) y la
+  // suma de neutros caía por debajo del umbral de alarma → badge VERDE de
+  // "sin riesgo de manipulación" para un ticker del que apenas había datos.
+  let beneishM = null;
+  {
+    const div = (a, b) => (a != null && b != null && b !== 0) ? a / b : null;
+    const ta1 = num(bal1.totalAssets), rev1 = num(inc1.totalRevenue);
+    const netRecv0 = num(bal.currentNetReceivables), netRecv1 = num(bal1.currentNetReceivables);
+    const gp0 = num(inc.grossProfit), gp1 = num(inc1.grossProfit);
+    const ca0 = num(bal.totalCurrentAssets), ca1 = num(bal1.totalCurrentAssets);
+    const ppe0 = num(bal.propertyPlantEquipment), ppe1 = num(bal1.propertyPlantEquipment);
+    const dep0 = num(cf.depreciationDepletionAndAmortization), dep1 = num(cf1.depreciationDepletionAndAmortization);
+    // Nombre alineado con el campo NATIVO de AV INCOME_STATEMENT (sin "Expenses").
+    const sga0 = num(inc.sellingGeneralAndAdministrative), sga1 = num(inc1.sellingGeneralAndAdministrative);
+    const ltd0 = num(bal.longTermDebt), ltd1 = num(bal1.longTermDebt);
+    const cl0 = num(bal.totalCurrentLiabilities), cl1 = num(bal1.totalCurrentLiabilities);
+    const ni0 = num(inc.netIncome);
+
+    const dsri = div(div(netRecv0, revenue), div(netRecv1, rev1));
+    const gmi = div(div(gp1, rev1), div(gp0, revenue));
+    const aq0 = (totalAssets && ca0 != null && ppe0 != null) ? 1 - ((ca0 + ppe0) / totalAssets) : null;
+    const aq1 = (ta1 && ca1 != null && ppe1 != null) ? 1 - ((ca1 + ppe1) / ta1) : null;
+    const aqi = div(aq0, aq1);
+    const sgi = div(revenue, rev1);
+    const depRate0 = div(dep0, (ppe0 != null && dep0 != null) ? ppe0 + dep0 : null);
+    const depRate1 = div(dep1, (ppe1 != null && dep1 != null) ? ppe1 + dep1 : null);
+    const depi = div(depRate1, depRate0);
+    const sgai = div(div(sga0, revenue), div(sga1, rev1));
+    const tata = (totalAssets && ni0 != null && ocf != null) ? (ni0 - ocf) / totalAssets : null;
+    const lev0 = (totalAssets && ltd0 != null && cl0 != null) ? (ltd0 + cl0) / totalAssets : null;
+    const lev1 = (ta1 && ltd1 != null && cl1 != null) ? (ltd1 + cl1) / ta1 : null;
+    const lvgi = div(lev0, lev1);
+
+    if ([dsri, gmi, aqi, sgi, depi, sgai, tata, lvgi].every(v => v != null)) {
+      beneishM = +(-4.84 + 0.920 * dsri + 0.528 * gmi + 0.404 * aqi + 0.892 * sgi
+        + 0.115 * depi - 0.172 * sgai + 4.679 * tata - 0.327 * lvgi).toFixed(2);
+    }
+  }
+
+  // WACC = We·ke + Wd·kd·(1−tax). ke por CAPM (rf + β·ERP). rf = 10Y del
+  // Tesoro EN VIVO (Yahoo ^TNX, mismo símbolo que usa /api/macro), no un
+  // supuesto fijo — más preciso en regímenes de tipos altos/bajos. Si la
+  // cotización falla, cae al 4% de siempre (no rompe el cálculo).
   // ERP 5%, coste de deuda 5%. Sin estructura de deuda → WACC = coste de equity.
-  const RF = 0.04, ERP = 0.05, KD = 0.05;
+  let RF = 0.04;
+  try {
+    const q10y = await getQuote('^TNX');
+    if (q10y?.price != null && Number.isFinite(q10y.price)) RF = q10y.price / 100;
+  } catch { /* rf en vivo no disponible → se mantiene el 4% de respaldo */ }
+  const ERP = 0.05, KD = 0.05;
   let costEquity = null, wacc = null;
   if (beta != null) {
     costEquity = RF + beta * ERP;
@@ -437,6 +595,14 @@ export async function getFundamentals(ticker) {
   const shYield = (marketCap && marketCap > 0 && (buybacks != null || divPaid != null))
     ? +((((buybacks || 0) + (divPaid || 0)) / marketCap) * 100).toFixed(2) : null;
 
+  // Recompra NETA de dilución = (recompras − emisión de acciones) / capitalización.
+  // A diferencia de shYield (que solo suma, sin descontar la dilución vía SBC/
+  // ampliaciones), esta métrica resta lo que la empresa emite — una recompra
+  // "de cara a la galería" financiada con nueva emisión de acciones da ~0%.
+  const issuance = num(cf.proceedsFromIssuanceOfCommonStock);
+  const netBuybackYield = (marketCap && marketCap > 0 && (buybacks != null || issuance != null))
+    ? +((((buybacks || 0) - (issuance || 0)) / marketCap) * 100).toFixed(2) : null;
+
   // Dilución vs recompra: variación % del nº de acciones (BALANCE_SHEET, hasta 5a).
   // Negativo = recompra (reduce acciones, bueno) · positivo = dilución.
   const shareSeries = (balance.annualReports || []).slice(0, 5)
@@ -458,6 +624,9 @@ export async function getFundamentals(ticker) {
     fcf,
     fcfHistory,
     fcfCAGR,
+    // FCF ajustado por SBC — null si la fuente no separa esa línea (ruta AV)
+    sbc,
+    fcfAdjusted,
     fcfGrowth: rg.growth,            // crecimiento robusto (regresión) — autocompleta el modelo
     fcfGrowthLow: rg.low,
     fcfGrowthHigh: rg.high,
@@ -476,6 +645,10 @@ export async function getFundamentals(ticker) {
     costEquity,
     wacc,
     roe: num(overview.ReturnOnEquityTTM) != null ? +(num(overview.ReturnOnEquityTTM) * 100).toFixed(1) : null,
+    // Salud financiera / riesgo de solvencia (quiebra, calidad de balance, manipulación contable)
+    altmanZ,
+    piotroskiF,
+    beneishM,
     // CapEx — gastos de capital (en qué invierte la empresa)
     capex,
     capexToRevenue,
@@ -483,6 +656,9 @@ export async function getFundamentals(ticker) {
     capexToDA,
     capexHistory,
     capexProfile,
+    // CapEx de mantenimiento (≈D&A) vs crecimiento (heurística Greenwald)
+    maintenanceCapex,
+    growthCapex,
     // Evolución de múltiplos de valoración y calidad por ejercicio fiscal (hasta 5 años)
     valuationHistory,
     // Quick-wins coste 0 (OVERVIEW): consenso de analistas (respaldo gratis de
@@ -494,6 +670,7 @@ export async function getFundamentals(ticker) {
     ma50,
     ma200,
     shYield,
+    netBuybackYield,
     sharesChg,
     // Antigüedad del dato fuente (para el badge de procedencia) + qué
     // proveedor lo sirvió ('av' | 'fmp', respaldo solo si AV falló/no cubría).

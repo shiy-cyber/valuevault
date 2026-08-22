@@ -154,6 +154,7 @@
       "analystConsensus": "分析师共识",
       "businessQuality": "业务质量",
       "capitalQuality": "资本质量",
+      "financialHealth": "财务健康与偿付风险",
       "capex": "资本支出（CapEx）",
       "trendShareholder": "趋势与股东回报",
       "financialStrength": "财务稳健度",
@@ -192,14 +193,20 @@
       "capexToDA": "资本支出/折旧摊销",
       "priceVsMa200": "价格 vs MA200",
       "sharesDilution": "5年股份变化（稀释）",
-      "debtEquity": "负债/权益"
+      "debtEquity": "负债/权益",
+      "maintenanceCapex": "维护性资本支出",
+      "growthCapex": "增长性资本支出",
+      "netBuybackYield": "净回购收益率（扣除增发）",
+      "peVsHistory": "P/E {{current}}x vs 5年均值 {{avg5}}x / 10年 {{avg10}}x",
+      "evEbitdaVsHistory": "EV/EBITDA {{current}}x vs 5年均值 {{avg5}}x / 10年 {{avg10}}x"
     },
     "hints": {
       "valuationHistory": "点击「📊 基本面」以计算历史走势（P/E、P/B、EV/EBITDA、ROE…）。",
       "analystConsensus": "点击「📊 基本面」以获取分析师共识。",
       "roic": "点击「📊 ROIC / FCF」以计算（Alpha Vantage）。",
       "capex": "点击「📊 基本面」以计算资本支出。",
-      "trend": "点击「📊 基本面」以获取趋势（MA50/200）、股东回报率和股份稀释情况（Alpha Vantage）。"
+      "trend": "点击「📊 基本面」以获取趋势（MA50/200）、股东回报率和股份稀释情况（Alpha Vantage）。",
+      "financialHealth": "点击「📊 基本面」以计算 Altman Z、Piotroski F 和 Beneish M（需要2个财年数据）。"
     }
   },
   "sidebar": {
@@ -846,7 +853,10 @@
       "shares": "流通股数",
       "netDebt": "净负债", "netDebtHint": "负债 − 现金",
       "price": "当前价格", "priceSuffix": "$/股",
-      "rf": "无风险利率（10年期）", "beta": "Beta", "erp": "股权风险溢价（ERP）"
+      "rf": "无风险利率（10年期）", "beta": "Beta", "erp": "股权风险溢价（ERP）",
+      "useSbcAdjusted": "使用经股权激励（SBC）调整后的自由现金流",
+      "sbcNote": "原始FCF {{fcf}} − SBC {{sbc}} = 调整后FCF {{adjusted}}。SBC是真实的（稀释性）支出，经营现金流并未扣除它。",
+      "capexSplitNote": "维护性资本开支 ≈ {{maint}}（替换折旧资产）· 增长性资本开支 ≈ {{growth}}（扩张）。如只想扣除增长部分，可手动调整FCF。"
     },
     "growthWarn": {
       "auto": "⚠ 自动计算增长率 {{value}}%（{{method}}",
@@ -894,6 +904,12 @@
       "slightlyUndervalued": "略被低估",
       "fairValue": "接近合理价值",
       "overvalued": "被高估"
+    },
+    "sensitivityMatrix": {
+      "title": "敏感性矩阵 · WACC × 永续增长率",
+      "note": "在保持其他假设不变的情况下，不同WACC与永续增长率（g）组合下的每股内在价值。高亮单元格为当前情景。",
+      "waccLabel": "WACC",
+      "gLabel": "g"
     }
   },
   "volProfilePage": {

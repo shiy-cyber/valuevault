@@ -363,6 +363,22 @@ export async function initSchema() {
   await ensureColumn('assets', 'ma200', 'REAL');
   await ensureColumn('assets', 'shYield', 'REAL');
   await ensureColumn('assets', 'sharesChg', 'REAL');
+  // Recompra NETA de dilución % (recompras − emisión de acciones / capitalización).
+  await ensureColumn('assets', 'netBuybackYield', 'REAL');
+  // Ajustes de nivel institucional al FCF/CapEx: sbc = compensación en acciones
+  // (gasto real restado del FCF); fcfAdjusted = FCF − sbc; maintenance/growthCapex
+  // = desglose CapEx (heurística Greenwald, mantenimiento ≈ D&A). Independientes,
+  // las escribe /quality.
+  await ensureColumn('assets', 'sbc', 'REAL');
+  await ensureColumn('assets', 'fcfAdjusted', 'REAL');
+  await ensureColumn('assets', 'maintenanceCapex', 'REAL');
+  await ensureColumn('assets', 'growthCapex', 'REAL');
+  // Salud financiera / riesgo de solvencia: Altman Z (quiebra), Piotroski F
+  // (0-9, calidad de balance), Beneish M (riesgo de manipulación contable).
+  // Independientes, las escribe /quality.
+  await ensureColumn('assets', 'altmanZ', 'REAL');
+  await ensureColumn('assets', 'piotroskiF', 'REAL');
+  await ensureColumn('assets', 'beneishM', 'REAL');
   // Próxima fecha de resultados (EARNINGS_CALENDAR). Columna independiente: la
   // escribe /quality; alimenta el auto-catalizador (catalyst/catalystDate).
   await ensureColumn('assets', 'nextEarnings', 'TEXT');

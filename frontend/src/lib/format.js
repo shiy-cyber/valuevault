@@ -29,9 +29,11 @@ export function mvColor(val, good, warn) {
   const v = parseFloat(val);
   const empty = val === null || val === undefined || val === '' || isNaN(v);
   if (empty) return 'var(--muted)';
-  if (good && v >= good) return 'var(--green)';
-  if (warn && v >= warn) return 'var(--orange)';
-  if (good) return 'var(--red)';
+  // != null (no truthy): good/warn en 0 son umbrales válidos (p.ej. warn={0}
+  // en netBuybackYield), no "sin umbral" — un umbral 0 no debe tratarse como ausente.
+  if (good != null && v >= good) return 'var(--green)';
+  if (warn != null && v >= warn) return 'var(--orange)';
+  if (good != null) return 'var(--red)';
   return 'var(--text)';
 }
 
@@ -188,6 +190,11 @@ export function compositeScore(a) {
     sub(a.om, 'high', 20, 10), sub(a.nm, 'high', 15, 8), sub(a.de, 'low', 1, 2),
     sub(a.cr, 'high', 1.5, 1), sub(a.qr, 'high', 1, 0.7),
     sub(a.roic, 'high', 15, 8), sub(spread, 'high', 5, 0), // ROIC y creación de valor (P1.3)
+    // Salud financiera institucional: Altman Z (quiebra) y Piotroski F (calidad
+    // de balance) van "más alto mejor"; Beneish M va invertido (más negativo =
+    // menos riesgo de manipulación contable) — mismos umbrales que los badges
+    // de AssetRow.jsx (2.99/1.81, 7/4, -2.22/-1.78).
+    sub(a.altmanZ, 'high', 2.99, 1.81), sub(a.piotroskiF, 'high', 7, 4), sub(a.beneishM, 'low', -2.22, -1.78),
   ]);
   // Posición en el rango de 52 semanas (0..1): cerca de máximos = momentum alto
   let pos52 = null;
