@@ -156,6 +156,7 @@ const VALUATION_METRICS = [
   { key: 'pb', label: 'P/B', color: '#3a8eff', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
   { key: 'evEbitda', label: 'EV/EBITDA', color: '#9b59b6', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(1) + 'x' },
   { key: 'roe', label: 'ROE', color: '#2ecc71', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
+  { key: 'roic', label: 'ROIC', color: '#1abc9c', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
   { key: 'netMargin', label: 'Margen neto', color: '#16a085', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
   { key: 'grossMargin', label: 'Margen bruto', color: '#e67e22', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
   { key: 'debtToEquity', label: 'Deuda/Equity', color: '#e74c3c', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
@@ -166,7 +167,7 @@ const VALUATION_YEAR_RANGES = [[3, '3A'], [5, '5A'], [10, '10A']];
 function ValuationHistoryChart({ history, theme }) {
   const { t } = useTranslation();
   const isDark = theme === 'dark';
-  const [selected, setSelected] = useState(() => new Set(['pe']));
+  const [selected, setSelected] = useState(() => new Set(['roic', 'netMargin']));
   const [years, setYears] = useState(5);
   if (!Array.isArray(history) || history.length < 2) return null;
   const allRows = [...history].reverse(); // cronológico (más antiguo primero), hasta 10 ejercicios

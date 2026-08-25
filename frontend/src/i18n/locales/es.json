@@ -719,7 +719,23 @@
     "zones": { "extremeFear": "Miedo extremo", "fear": "Miedo", "neutral": "Neutral", "greed": "Codicia", "extremeGreed": "Codicia extrema" },
     "vixZones": { "complacency": "Complacencia", "calm": "Calma", "caution": "Cautela", "fear": "Miedo", "panic": "Pánico" }
   },
+  "macroPulse": {
+    "title": "Macro",
+    "seeMore": "ver detalle →",
+    "spread102": "Curva 10Y-2Y",
+    "coreCpi": "Core CPI",
+    "fedRate": "Tipo Fed",
+    "unemployment": "Paro"
+  },
   "screenerPage": {
+    "institutional": {
+      "title": "Filtro Institucional · Tu Cartera",
+      "subtitle": "Activos de tu cartera/watchlist con margen de seguridad (DCF automático) ≥{{mos}}%, Piotroski F-Score >{{f}} y Altman Z-Score >{{z}} — confirmando ausencia de distrés financiero a corto plazo.",
+      "colTicker": "Ticker", "colPrice": "Precio", "colIntrinsic": "Valor intrínseco", "colMos": "Margen seg.", "colF": "Piotroski F", "colZ": "Altman Z",
+      "badgeOptimal": "Óptimo", "badgeAcceptable": "Aceptable",
+      "noneQualify": "Ninguno de los {{count}} activos evaluados cumple los 3 criterios a la vez ahora mismo.",
+      "noneEvaluated": "Ningún activo tiene aún el DCF automático y los scores de salud financiera calculados. Pulsa «📊 Fundamentales» en cada ficha para evaluarlo."
+    },
     "title": "Stock Screener Real",
     "subtitle": "Configura los filtros y abre directamente en Finviz con datos en tiempo real",
     "any": "Cualquiera",

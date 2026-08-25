@@ -719,7 +719,23 @@
     "zones": { "extremeFear": "极度恐惧", "fear": "恐惧", "neutral": "中性", "greed": "贪婪", "extremeGreed": "极度贪婪" },
     "vixZones": { "complacency": "自满", "calm": "平静", "caution": "谨慎", "fear": "恐惧", "panic": "恐慌" }
   },
+  "macroPulse": {
+    "title": "宏观",
+    "seeMore": "查看详情 →",
+    "spread102": "10年-2年利差",
+    "coreCpi": "核心CPI",
+    "fedRate": "美联储利率",
+    "unemployment": "失业率"
+  },
   "screenerPage": {
+    "institutional": {
+      "title": "机构级筛选 · 你的持仓",
+      "subtitle": "持仓/关注列表中安全边际（自动DCF）≥{{mos}}%、Piotroski F-Score >{{f}} 且 Altman Z-Score >{{z}} 的资产 —— 确认短期内无财务困境风险。",
+      "colTicker": "代码", "colPrice": "价格", "colIntrinsic": "内在价值", "colMos": "安全边际", "colF": "Piotroski F", "colZ": "Altman Z",
+      "badgeOptimal": "最优", "badgeAcceptable": "合格",
+      "noneQualify": "已评估的 {{count}} 个资产中，目前没有同时满足这3项标准的。",
+      "noneEvaluated": "还没有资产计算过自动DCF和财务健康评分。请在每张资产卡片上点击「📊 基本面」进行评估。"
+    },
     "title": "真实选股器",
     "subtitle": "设置筛选条件，直接在 Finviz 中打开实时数据",
     "any": "任意",

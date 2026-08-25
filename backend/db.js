@@ -379,6 +379,11 @@ export async function initSchema() {
   await ensureColumn('assets', 'altmanZ', 'REAL');
   await ensureColumn('assets', 'piotroskiF', 'REAL');
   await ensureColumn('assets', 'beneishM', 'REAL');
+  // DCF automático (supuestos por defecto: 5 años, g terminal 2.5%, WACC/growth
+  // ya calculados) — alimenta el filtro institucional de cartera del Screener
+  // (MoS + Piotroski F + Altman Z). Independientes, las escribe /quality.
+  await ensureColumn('assets', 'dcfIntrinsicValue', 'REAL');
+  await ensureColumn('assets', 'dcfMarginOfSafety', 'REAL');
   // Próxima fecha de resultados (EARNINGS_CALENDAR). Columna independiente: la
   // escribe /quality; alimenta el auto-catalizador (catalyst/catalystDate).
   await ensureColumn('assets', 'nextEarnings', 'TEXT');

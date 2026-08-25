@@ -719,7 +719,23 @@
     "zones": { "extremeFear": "Extreme Fear", "fear": "Fear", "neutral": "Neutral", "greed": "Greed", "extremeGreed": "Extreme Greed" },
     "vixZones": { "complacency": "Complacency", "calm": "Calm", "caution": "Caution", "fear": "Fear", "panic": "Panic" }
   },
+  "macroPulse": {
+    "title": "Macro",
+    "seeMore": "see detail →",
+    "spread102": "10Y-2Y Curve",
+    "coreCpi": "Core CPI",
+    "fedRate": "Fed Rate",
+    "unemployment": "Unemployment"
+  },
   "screenerPage": {
+    "institutional": {
+      "title": "Institutional Filter · Your Portfolio",
+      "subtitle": "Portfolio/watchlist assets with margin of safety (auto DCF) ≥{{mos}}%, Piotroski F-Score >{{f}} and Altman Z-Score >{{z}} — confirming no short-term financial distress.",
+      "colTicker": "Ticker", "colPrice": "Price", "colIntrinsic": "Intrinsic value", "colMos": "Margin of safety", "colF": "Piotroski F", "colZ": "Altman Z",
+      "badgeOptimal": "Optimal", "badgeAcceptable": "Acceptable",
+      "noneQualify": "None of the {{count}} evaluated assets currently meet all 3 criteria at once.",
+      "noneEvaluated": "No asset has the auto DCF and financial health scores computed yet. Click \"📊 Fundamentals\" on each card to evaluate it."
+    },
     "title": "Real Stock Screener",
     "subtitle": "Set up your filters and open directly in Finviz with real-time data",
     "any": "Any",

@@ -650,6 +650,9 @@ export async function createApp() {
       upd.altmanZ = f.altmanZ ?? null;
       upd.piotroskiF = f.piotroskiF ?? null;
       upd.beneishM = f.beneishM ?? null;
+      // DCF automático (supuestos por defecto) — filtro institucional del Screener
+      upd.dcfIntrinsicValue = f.dcfIntrinsicValue ?? null;
+      upd.dcfMarginOfSafety = f.dcfMarginOfSafety ?? null;
       upd.fundamentalsAt = f.fetchedAt ?? null; // antigüedad del dato fuente (badge)
     } catch (e) { errs.push('fundamentales: ' + e.message); }
     try {

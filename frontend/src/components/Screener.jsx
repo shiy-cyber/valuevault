@@ -1,10 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   SC_SECTORS, SC_SECTOR_LABELS, SC_CAP, SC_PE, SC_PB, SC_DIV, SC_ROE, SC_COUNTRY, SC_STRAT,
   SC_FPE, SC_PEG, SC_EVEBITDA, SC_EPS_NEXTY, SC_EPS_5Y, SC_DEBTEQ, SC_RECOM, SC_GROSSMARGIN, SC_OPERMARGIN, SC_NETMARGIN,
   finvizURL, stockAnalysisURL, yahooScreenerURL, SCREENER_TOOLS,
 } from '../data/constants.js';
+import { fmt } from '../lib/format.js';
+
+// Umbrales del filtro institucional (MoS del DCF automático + Piotroski F +
+// Altman Z) — MoS_OPTIMAL es el nivel "óptimo" dentro del rango pedido
+// (25-30%); MoS_MIN es el mínimo aceptable. F_MIN y Z_SAFE descartan distrés
+// financiero a corto plazo (F ≤ 6 o Z ≤ 2.99 → fuera, sin excepción).
+const MOS_MIN = 25, MOS_OPTIMAL = 30, F_MIN = 6, Z_SAFE = 2.99;
+function institutionalMatch(a) {
+  if (a.dcfMarginOfSafety == null || a.piotroskiF == null || a.altmanZ == null) return null;
+  if (a.dcfMarginOfSafety < MOS_MIN || a.piotroskiF <= F_MIN || a.altmanZ <= Z_SAFE) return false;
+  return a.dcfMarginOfSafety >= MOS_OPTIMAL ? 'optimal' : 'acceptable';
+}
 
 const Field = ({ label, value, onChange, options }) => (
   <div className="form-group">
@@ -28,8 +40,19 @@ function buildThresholdOpts(keys, unit, t) {
   });
 }
 
-export default function Screener() {
+export default function Screener({ assets = [] }) {
   const { t } = useTranslation();
+  // Filtro institucional sobre TU cartera/watchlist (no el mercado externo de
+  // más abajo): DCF automático con margen de seguridad ≥25% + Piotroski F>6 +
+  // Altman Z>2.99 confirmando ausencia de distrés financiero a corto plazo.
+  const institutional = useMemo(() => {
+    return assets
+      .map(a => ({ a, tier: institutionalMatch(a) }))
+      .filter(({ tier }) => tier === 'optimal' || tier === 'acceptable')
+      .sort((x, y) => (y.a.dcfMarginOfSafety ?? 0) - (x.a.dcfMarginOfSafety ?? 0));
+  }, [assets]);
+  const evaluated = assets.filter(a => a.dcfMarginOfSafety != null && a.piotroskiF != null && a.altmanZ != null).length;
+
   const [f, setF] = useState({
     sector:'', cap:'', pe:'', pb:'', div:'', roe:'', country:'', strat:'',
     fpe:'', peg:'', evebitda:'', epsNextY:'', eps5y:'', debteq:'', recom:'', grossmargin:'', opermargin:'', netmargin:'',
@@ -56,6 +79,51 @@ export default function Screener() {
 
   return (
     <div className="section active">
+      <div className="screener-controls" style={{ marginBottom: '20px' }}>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '18px' }}>{t('screenerPage.institutional.title')}</div>
+        <div style={{ fontSize: '11px', color: 'var(--muted)', fontFamily: "'DM Mono',monospace", marginTop: '3px', lineHeight: 1.6 }}>
+          {t('screenerPage.institutional.subtitle', { mos: MOS_MIN, f: F_MIN, z: Z_SAFE })}
+        </div>
+        {institutional.length > 0 ? (
+          <div style={{ overflowX: 'auto', marginTop: '14px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace", fontSize: '12px' }}>
+              <thead>
+                <tr style={{ color: 'var(--muted)', fontSize: '10px', textAlign: 'right' }}>
+                  <th style={{ textAlign: 'left', padding: '4px 8px' }}>{t('screenerPage.institutional.colTicker')}</th>
+                  <th style={{ padding: '4px 8px' }}>{t('screenerPage.institutional.colPrice')}</th>
+                  <th style={{ padding: '4px 8px' }}>{t('screenerPage.institutional.colIntrinsic')}</th>
+                  <th style={{ padding: '4px 8px' }}>{t('screenerPage.institutional.colMos')}</th>
+                  <th style={{ padding: '4px 8px' }}>{t('screenerPage.institutional.colF')}</th>
+                  <th style={{ padding: '4px 8px' }}>{t('screenerPage.institutional.colZ')}</th>
+                  <th style={{ padding: '4px 8px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {institutional.map(({ a, tier }) => (
+                  <tr key={a.id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--gold)' }}>{a.ticker}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmt(a.current)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{fmt(a.dcfIntrinsicValue)}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--green)' }}>+{a.dcfMarginOfSafety.toFixed(1)}%</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{a.piotroskiF}/9</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>{a.altmanZ}</td>
+                    <td style={{ textAlign: 'right', padding: '6px 8px' }}>
+                      <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', color: '#fff', background: tier === 'optimal' ? 'var(--green)' : 'var(--gold)' }}>
+                        {tier === 'optimal' ? t('screenerPage.institutional.badgeOptimal') : t('screenerPage.institutional.badgeAcceptable')}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '10px' }}>
+            {evaluated > 0 ? t('screenerPage.institutional.noneQualify', { count: evaluated }) : t('screenerPage.institutional.noneEvaluated')}
+          </div>
+        )}
+      </div>
+
       <div className="screener-controls">
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px' }}>
           <div>

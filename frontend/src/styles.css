@@ -236,11 +236,21 @@ tr:hover td{background:var(--surface2);}
   .sidebar{transform:translateX(-100%);transition:transform .3s;}
   .sidebar.open{transform:translateX(0);}
   .main{margin-left:0;}
-  .topbar{padding:10px 14px;}
+  /* En móvil el topbar-right (campana+idioma+tema+nuevo activo+screener) no
+     cabe en una sola fila junto al título — antes desbordaba fuera de la
+     pantalla en vez de encogerse (flex-shrink:0), forzando scroll horizontal
+     de toda la página; con ese scroll el título+hamburguesa quedaban fuera de
+     vista y la campana (primer botón de topbar-right) terminaba ocupando su
+     sitio visual. Envolver a una 2ª fila evita el desbordamiento del todo. */
+  .topbar{padding:10px 14px;flex-wrap:wrap;row-gap:8px;}
   .topbar>div:first-child{min-width:0;flex:1;}
   .page-title{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .topbar-right{gap:6px;flex-shrink:0;}
+  .topbar-right{gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;}
   .topbar-right .btn{padding:7px 10px;font-size:12px;}
+  /* El <select> de idioma no tenía tope de ancho: al mostrar el nombre del
+     idioma elegido ("🇪🇸 Español") ocupaba casi toda la fila y desplazaba
+     visualmente al resto de controles/hamburguesa. Se acorta con ellipsis. */
+  .topbar-right select.theme-toggle{max-width:110px;font-size:12px;padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .content{padding:16px;}
   .kpi-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
   .charts-grid{grid-template-columns:1fr;}

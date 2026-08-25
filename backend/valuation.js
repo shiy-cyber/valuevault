@@ -354,8 +354,9 @@ export async function getFundamentals(ticker) {
     };
     const incY = byYear(income.annualReports), balY = byYear(balance.annualReports), cashY = byYear(cash.annualReports);
     const years = Object.keys(incY).filter(y => balY[y]).sort((a, b) => b - a).slice(0, 10);
-    valuationHistory = years.map(y => {
-      const ir = incY[y], br = balY[y], cr = cashY[y] || {};
+    // Misma fórmula tanto para un ejercicio anual completo como para el punto
+    // TTM sintético de más abajo — evita duplicar el cálculo de 10 métricas.
+    const rowFrom = (label, ir, br, cr) => {
       const px = priceNear(ir.fiscalDateEnding);
       const sh = num(br.commonStockSharesOutstanding);
       const ni = num(ir.netIncome);
@@ -368,6 +369,13 @@ export async function getFundamentals(ticker) {
       const stD = num(br.shortTermDebt), ltD = num(br.longTermDebt);
       const debtY = (stD != null || ltD != null) ? (stD || 0) + (ltD || 0) : null;
       const cashEqY = num(br.cashAndShortTermInvestments) ?? num(br.cashAndCashEquivalentsAtCarryingValue);
+      // ROIC histórico: misma fórmula que el ROIC actual (NOPAT / capital
+      // invertido), pero con el EBIT/tasa impositiva/balance DE ESE periodo
+      // en vez del más reciente — reutiliza datos ya descargados, sin llamada extra.
+      const pretaxY = num(ir.incomeBeforeTax), taxExpY = num(ir.incomeTaxExpense);
+      const taxRateY = (pretaxY && taxExpY != null && pretaxY !== 0) ? Math.max(0, Math.min(0.5, taxExpY / pretaxY)) : 0.21;
+      const investedCapitalY = (eq != null && debtY != null) ? eq + debtY - (cashEqY || 0) : null;
+      const nopatY = opInc != null ? opInc * (1 - taxRateY) : null;
       const eps = (ni != null && sh) ? ni / sh : null;
       const bvps = (eq != null && sh) ? eq / sh : null;
       const mcapY = (px != null && sh) ? px * sh : null;
@@ -375,7 +383,7 @@ export async function getFundamentals(ticker) {
       const evY = (mcapY != null && debtY != null) ? mcapY + debtY - (cashEqY || 0) : null;
       const fwdEps = forwardEpsFrom(ir.fiscalDateEnding);
       return {
-        year: y,
+        year: label,
         price: px != null ? +px.toFixed(2) : null,
         eps, // interno, para el crecimiento interanual (PEG) — no se muestra directamente
         pe: (px != null && eps > 0) ? +(px / eps).toFixed(2) : null,
@@ -383,11 +391,40 @@ export async function getFundamentals(ticker) {
         pb: (px != null && bvps > 0) ? +(px / bvps).toFixed(2) : null,
         evEbitda: (evY != null && ebitdaY > 0) ? +(evY / ebitdaY).toFixed(2) : null,
         roe: (ni != null && eq) ? +((ni / eq) * 100).toFixed(2) : null,
+        roic: (nopatY != null && investedCapitalY && investedCapitalY > 0) ? +((nopatY / investedCapitalY) * 100).toFixed(2) : null,
         netMargin: (ni != null && rev) ? +((ni / rev) * 100).toFixed(2) : null,
         grossMargin: (gp != null && rev) ? +((gp / rev) * 100).toFixed(2) : null,
         debtToEquity: (debtY != null && eq) ? +(debtY / eq).toFixed(2) : null,
       };
-    });
+    };
+    valuationHistory = years.map(y => rowFrom(y, incY[y], balY[y], cashY[y] || {}));
+
+    // ─── TTM (últimos 4 trimestres) ───────────────────────────────────────
+    // AV ya devuelve `quarterlyReports` en la MISMA llamada que `annualReports`
+    // (sin coste de cuota extra) — hasta ahora se descartaba. Suma las 4 líneas
+    // de resultados/caja más recientes (P&L y CF son de flujo, se suman bien);
+    // el balance NO se suma, es una foto → se usa el del trimestre más reciente.
+    // Solo aporta valor si el trimestre más reciente es POSTERIOR al último
+    // cierre anual ya incluido arriba (si coinciden, sería un punto duplicado
+    // — típico cuando el Q4 recién publicado ES el cierre del año fiscal).
+    const incQ = (income.quarterlyReports || []).slice(0, 4);
+    const cashQ = (cash.quarterlyReports || []).slice(0, 4);
+    const balQ = (balance.quarterlyReports || [])[0];
+    const latestAnnualDate = years[0] ? incY[years[0]]?.fiscalDateEnding : null;
+    if (incQ.length === 4 && cashQ.length === 4 && balQ && incQ[0].fiscalDateEnding !== latestAnnualDate) {
+      const sum = (rows, key) => {
+        const vals = rows.map(r => num(r[key])).filter(v => v != null);
+        return vals.length ? vals.reduce((s, v) => s + v, 0) : null;
+      };
+      const ttmIr = {
+        fiscalDateEnding: incQ[0].fiscalDateEnding,
+        totalRevenue: sum(incQ, 'totalRevenue'), grossProfit: sum(incQ, 'grossProfit'),
+        ebit: sum(incQ, 'ebit'), ebitda: sum(incQ, 'ebitda'), operatingIncome: sum(incQ, 'operatingIncome'),
+        netIncome: sum(incQ, 'netIncome'), incomeBeforeTax: sum(incQ, 'incomeBeforeTax'), incomeTaxExpense: sum(incQ, 'incomeTaxExpense'),
+      };
+      const ttmCr = { depreciationDepletionAndAmortization: sum(cashQ, 'depreciationDepletionAndAmortization') };
+      valuationHistory.unshift(rowFrom('TTM', ttmIr, balQ, ttmCr));
+    }
     // PEG histórico = P/E ÷ crecimiento interanual del EPS (TRAILING, no forward:
     // el PEG "oficial" de Alpha Vantage usa estimaciones de analistas de HOY, que
     // no tenemos con retroactividad — este es el único PEG que se puede calcular
@@ -556,6 +593,32 @@ export async function getFundamentals(ticker) {
     costEquity = +(costEquity * 100).toFixed(2);
   }
 
+  // ─── DCF automático (para el filtro institucional del Screener) ──────────
+  // Réplica EXACTA de la matemática de la calculadora interactiva
+  // (frontend/Valuation.jsx: mismo bucle de PV, mismo TV a perpetuidad, mismo
+  // margen de seguridad = 1 − precio/valor intrínseco) pero con los supuestos
+  // AUTOMÁTICOS que esa calculadora precarga por defecto (5 años de
+  // proyección, 2.5% de crecimiento terminal, WACC/crecimiento ya calculados
+  // arriba) — sin inputs manuales del usuario, para poder puntuar TODA la
+  // cartera de golpe. Es un punto de partida conservador, no sustituye a
+  // ajustar el modelo a mano ticker a ticker en la calculadora.
+  let dcfIntrinsicValue = null, dcfMarginOfSafety = null;
+  if (fcf != null && shares > 0 && wacc != null) {
+    const gRaw = rg.growth != null ? rg.growth : (fcfCAGR != null ? fcfCAGR : 8);
+    const g = Math.max(0, Math.min(15, gRaw)) / 100;
+    const gt = 0.025, w = wacc / 100, n = 5;
+    if (w > gt) {
+      let pvSum = 0, fN = fcf;
+      for (let y = 1; y <= n; y++) { fN = fcf * Math.pow(1 + g, y); pvSum += fN / Math.pow(1 + w, y); }
+      const tv = (fN * (1 + gt)) / (w - gt);
+      const pvTv = tv / Math.pow(1 + w, n);
+      const equity = pvSum + pvTv - (netDebt || 0);
+      const perShare = equity / shares;
+      dcfIntrinsicValue = +perShare.toFixed(2);
+      if (price > 0 && perShare > 0) dcfMarginOfSafety = +((1 - price / perShare) * 100).toFixed(1);
+    }
+  }
+
   // ── Quick-wins coste 0 del OVERVIEW (ya descargado) ──────────────────────
   // Consenso de analistas GRATIS: respaldo cuando Yahoo (estimates.js) falla
   // por crumb. Buckets de rating → recommendationKey compatible con la UI.
@@ -644,6 +707,9 @@ export async function getFundamentals(ticker) {
     fcfy,
     costEquity,
     wacc,
+    // DCF automático (supuestos por defecto, ver comentario más arriba)
+    dcfIntrinsicValue,
+    dcfMarginOfSafety,
     roe: num(overview.ReturnOnEquityTTM) != null ? +(num(overview.ReturnOnEquityTTM) * 100).toFixed(1) : null,
     // Salud financiera / riesgo de solvencia (quiebra, calidad de balance, manipulación contable)
     altmanZ,

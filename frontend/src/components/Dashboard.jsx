@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import AssetRow from './AssetRow.jsx';
 import RiskPanel from './RiskPanel.jsx';
 import MarketPulse from './MarketPulse.jsx';
+import MacroPulse from './MacroPulse.jsx';
 import { portfolioStats, fmtBase } from '../lib/format.js';
 
 export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality, goAssets, onRefresh, refreshing, lastRefresh }) {
@@ -17,6 +18,7 @@ export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEd
   return (
     <div className="section active">
       <MarketPulse />
+      <MacroPulse />
 
       <div className="kpi-grid">
         <div className="kpi-card">

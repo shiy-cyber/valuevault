@@ -454,7 +454,7 @@ export default function App() {
             <Route path="/watchlist" element={<Watchlist assets={watchlist} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} onAdd={() => newAsset('watchlist')} />} />
             <Route path="/compare" element={<Compare assets={assets} />} />
             <Route path="/charts" element={<Charts assets={portfolio} theme={theme} fxRates={fxRates} />} />
-            <Route path="/screener" element={<Screener />} />
+            <Route path="/screener" element={<Screener assets={assets} />} />
             <Route path="/valuation" element={<Valuation toast={toast} />} />
             <Route path="/volprofile" element={<VolProfile theme={theme} toast={toast} />} />
             <Route path="/smc" element={<SMC theme={theme} toast={toast} />} />
