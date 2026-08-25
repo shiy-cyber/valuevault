@@ -99,6 +99,11 @@
     "valuationHistory": {
       "title": "估值走势"
     },
+    "epsConsensus": {
+      "title": "预期EPS与实际EPS（历史）",
+      "estimated": "预期EPS（共识）",
+      "reported": "实际EPS"
+    },
     "capexNarrative": {
       "analyzing": "⏳ 分析中…",
       "cta": "🏭 资本投向？(AI)",
@@ -716,6 +721,7 @@
     "updated": "↻ {{time}}",
     "refresh": "↻ 刷新",
     "loadingMarket": "正在加载市场概况…",
+    "cryptoFng": "加密货币恐慌贪婪指数",
     "zones": { "extremeFear": "极度恐惧", "fear": "恐惧", "neutral": "中性", "greed": "贪婪", "extremeGreed": "极度贪婪" },
     "vixZones": { "complacency": "自满", "calm": "平静", "caution": "谨慎", "fear": "恐惧", "panic": "恐慌" }
   },

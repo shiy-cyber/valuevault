@@ -160,6 +160,7 @@ const VALUATION_METRICS = [
   { key: 'netMargin', label: 'Margen neto', color: '#16a085', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
   { key: 'grossMargin', label: 'Margen bruto', color: '#e67e22', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
   { key: 'debtToEquity', label: 'Deuda/Equity', color: '#e74c3c', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
+  { key: 'fcf', label: 'FCF', color: '#f1c40f', axis: 'usd', fmt: v => v == null ? '—' : fmtUsdCompact(v) },
 ];
 
 const VALUATION_YEAR_RANGES = [[3, '3A'], [5, '5A'], [10, '10A']];
@@ -186,6 +187,7 @@ function ValuationHistoryChart({ history, theme }) {
   const shown = active.length ? active : [available[0]];
   const usesMult = shown.some(m => m.axis === 'mult');
   const usesPct = shown.some(m => m.axis === 'pct');
+  const usesUsd = shown.some(m => m.axis === 'usd');
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
   const data = {
@@ -193,7 +195,7 @@ function ValuationHistoryChart({ history, theme }) {
     datasets: shown.map(m => ({
       label: m.label, data: rows.map(r => r[m.key]), borderColor: m.color, backgroundColor: m.color + '22',
       borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.25, fill: shown.length === 1, spanGaps: true,
-      yAxisID: m.axis === 'pct' ? 'pct' : 'mult', _fmt: m.fmt,
+      yAxisID: m.axis === 'pct' ? 'pct' : m.axis === 'usd' ? 'usd' : 'mult', _fmt: m.fmt,
     })),
   };
   const opts = {
@@ -207,6 +209,7 @@ function ValuationHistoryChart({ history, theme }) {
       x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
       mult: { display: usesMult, position: 'left', grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => v + 'x' } },
       pct: { display: usesPct, position: 'right', grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => v + '%' } },
+      usd: { display: usesUsd, position: 'right', grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => fmtUsdCompact(v) } },
     },
   };
   return (
@@ -225,6 +228,59 @@ function ValuationHistoryChart({ history, theme }) {
         ))}
       </div>
       <div style={{ position: 'relative', height: shown.length > 1 ? '190px' : '160px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px' }}>
+        <Line data={data} options={opts} />
+      </div>
+    </div>
+  );
+}
+
+const EPS_YEAR_RANGES = [[3, '3A'], [5, '5A'], [10, '10A']];
+
+// EPS estimado (consenso justo antes de reportar) vs EPS real, trimestre a
+// trimestre — hasta 10 años del mismo array que ya trae Sorpresas de
+// Resultados (sin llamada extra), a diferencia de esa tira que solo enseña
+// los últimos 4 trimestres. Muestra si el consenso ha sido sistemáticamente
+// optimista/pesimista con esta empresa a largo plazo.
+function EpsConsensusChart({ history, theme }) {
+  const { t } = useTranslation();
+  const isDark = theme === 'dark';
+  const [years, setYears] = useState(5);
+  if (!Array.isArray(history) || history.length < 2) return null;
+  const allRows = [...history].reverse(); // cronológico (más antiguo primero)
+  const rows = years * 4 >= allRows.length ? allRows : allRows.slice(-years * 4);
+  const textColor = isDark ? '#7a8694' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
+  const fmtEps = (v) => v == null ? '—' : '$' + v.toFixed(2);
+  const data = {
+    labels: rows.map(r => r.date),
+    datasets: [
+      { label: t('assetRow.epsConsensus.estimated'), data: rows.map(r => r.estimatedEPS), borderColor: '#7a8694', borderDash: [4, 3], borderWidth: 2, pointRadius: 2, pointHoverRadius: 4, tension: 0.2, spanGaps: true },
+      { label: t('assetRow.epsConsensus.reported'), data: rows.map(r => r.reportedEPS), borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,.1)', borderWidth: 2, pointRadius: 2, pointHoverRadius: 4, tension: 0.2, fill: false, spanGaps: true },
+    ],
+  };
+  const opts = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: true, position: 'bottom', labels: { color: textColor, font: { family: 'DM Mono', size: 9 }, boxWidth: 10, padding: 8 } },
+      tooltip: { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1, callbacks: { label: c => c.dataset.label + ': ' + fmtEps(c.parsed.y) } },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => '$' + v } },
+    },
+  };
+  return (
+    <div style={{ marginTop: '4px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+        <div className="mv-section-label" style={{ margin: 0 }}>{t('assetRow.epsConsensus.title')}</div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {EPS_YEAR_RANGES.map(([n, l]) => (
+            <button key={n} className={`filter-chip${years === n ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setYears(n)}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ position: 'relative', height: '160px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px' }}>
         <Line data={data} options={opts} />
       </div>
     </div>
@@ -662,6 +718,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
               </div>
             </>
           )}
+
+          <EpsConsensusChart history={a.earningsSurprises?.epsHistory} theme={theme} />
 
           <div className="mv-section-label">
             {t('assetRow.sections.analystConsensus')}

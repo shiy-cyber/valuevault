@@ -59,32 +59,38 @@ export async function getNextEarnings(symbol) {
 
 // Sorpresas de resultados (Alpha Vantage EARNINGS, JSON). Momentum fundamental:
 // ¿la empresa bate o falla las estimaciones de EPS? Devuelve los últimos 4
-// trimestres + cuántos batió. Cacheado vía avCache (TTL 7d).
+// trimestres (para la tira de badges) + un histórico largo (hasta 10 años)
+// del MISMO array ya descargado — sin llamada extra — con EPS estimado vs
+// real por trimestre, para el gráfico de consenso a largo plazo. Cacheado
+// vía avCache (TTL 7d).
 export async function getEarningsSurprises(symbol) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
   const fnum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+  const mapRow = (r) => {
+    const sp = fnum(r.surprisePercentage);
+    return {
+      date: r.fiscalDateEnding,
+      reportedEPS: fnum(r.reportedEPS),
+      estimatedEPS: fnum(r.estimatedEPS),
+      surprisePct: sp == null ? null : +sp.toFixed(1),
+      beat: sp == null ? null : sp >= 0,
+    };
+  };
 
-  let history = [];
+  let full = [];
   try {
     const { data } = await avQuery('EARNINGS', sym);
     const q = Array.isArray(data?.quarterlyEarnings) ? data.quarterlyEarnings : [];
-    history = q.slice(0, 4).map(r => {
-      const sp = fnum(r.surprisePercentage);
-      return {
-        date: r.fiscalDateEnding,
-        reportedEPS: fnum(r.reportedEPS),
-        estimatedEPS: fnum(r.estimatedEPS),
-        surprisePct: sp == null ? null : +sp.toFixed(1),
-        beat: sp == null ? null : sp >= 0,
-      };
-    }).filter(r => r.reportedEPS != null);
+    full = q.map(mapRow).filter(r => r.reportedEPS != null);
   } catch { /* AV caído/cuota agotada → se intenta el respaldo FMP */ }
 
-  if (!history.length) {
+  if (!full.length) {
+    // Respaldo FMP: solo 5 registros de cuota gratis → sin fondo suficiente
+    // para el histórico largo, pero sirve igual para la tira de 4 trimestres.
     const rows = await fetchEarningsFMP(sym);
-    const reported = (rows || []).filter(r => r.epsActual != null).sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 4);
-    history = reported.map(r => {
+    const reported = (rows || []).filter(r => r.epsActual != null).sort((a, b) => a.date < b.date ? 1 : -1);
+    full = reported.map(r => {
       const est = r.epsEstimated;
       const sp = (est != null && est !== 0) ? ((r.epsActual - est) / Math.abs(est)) * 100 : null;
       return {
@@ -97,7 +103,9 @@ export async function getEarningsSurprises(symbol) {
     });
   }
 
-  if (!history.length) return null;
+  if (!full.length) return null;
+  const history = full.slice(0, 4); // tira de badges, comportamiento sin cambios
+  const epsHistory = full.slice(0, 40); // hasta 10 años (trimestral) para el gráfico
   const rated = history.filter(r => r.beat != null);
-  return { history, beats: rated.filter(r => r.beat).length, total: rated.length };
+  return { history, epsHistory, beats: rated.filter(r => r.beat).length, total: rated.length };
 }

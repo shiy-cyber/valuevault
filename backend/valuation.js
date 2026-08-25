@@ -395,6 +395,7 @@ export async function getFundamentals(ticker) {
         netMargin: (ni != null && rev) ? +((ni / rev) * 100).toFixed(2) : null,
         grossMargin: (gp != null && rev) ? +((gp / rev) * 100).toFixed(2) : null,
         debtToEquity: (debtY != null && eq) ? +(debtY / eq).toFixed(2) : null,
+        fcf: fcfOf(cr),
       };
     };
     valuationHistory = years.map(y => rowFrom(y, incY[y], balY[y], cashY[y] || {}));
@@ -422,7 +423,11 @@ export async function getFundamentals(ticker) {
         ebit: sum(incQ, 'ebit'), ebitda: sum(incQ, 'ebitda'), operatingIncome: sum(incQ, 'operatingIncome'),
         netIncome: sum(incQ, 'netIncome'), incomeBeforeTax: sum(incQ, 'incomeBeforeTax'), incomeTaxExpense: sum(incQ, 'incomeTaxExpense'),
       };
-      const ttmCr = { depreciationDepletionAndAmortization: sum(cashQ, 'depreciationDepletionAndAmortization') };
+      const ttmCr = {
+        depreciationDepletionAndAmortization: sum(cashQ, 'depreciationDepletionAndAmortization'),
+        operatingCashflow: sum(cashQ, 'operatingCashflow'),
+        capitalExpenditures: sum(cashQ, 'capitalExpenditures'),
+      };
       valuationHistory.unshift(rowFrom('TTM', ttmIr, balQ, ttmCr));
     }
     // PEG histórico = P/E ÷ crecimiento interanual del EPS (TRAILING, no forward:

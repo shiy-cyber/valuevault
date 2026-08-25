@@ -99,6 +99,11 @@
     "valuationHistory": {
       "title": "Evolución de Valoración"
     },
+    "epsConsensus": {
+      "title": "EPS estimado vs real (histórico)",
+      "estimated": "EPS estimado (consenso)",
+      "reported": "EPS real"
+    },
     "capexNarrative": {
       "analyzing": "⏳ Analizando…",
       "cta": "🏭 ¿En qué invierte? (IA)",
@@ -716,6 +721,7 @@
     "updated": "↻ {{time}}",
     "refresh": "↻ actualizar",
     "loadingMarket": "Cargando situación del mercado…",
+    "cryptoFng": "F&G Cripto",
     "zones": { "extremeFear": "Miedo extremo", "fear": "Miedo", "neutral": "Neutral", "greed": "Codicia", "extremeGreed": "Codicia extrema" },
     "vixZones": { "complacency": "Complacencia", "calm": "Calma", "caution": "Cautela", "fear": "Miedo", "panic": "Pánico" }
   },

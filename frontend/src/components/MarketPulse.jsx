@@ -31,6 +31,7 @@ export default function MarketPulse() {
   const [quotes, setQuotes] = useState(null);
   const [hist, setHist] = useState({});
   const [fng, setFng] = useState(null);
+  const [crypto, setCrypto] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
 
@@ -45,6 +46,7 @@ export default function MarketPulse() {
       ]);
       setQuotes(q);
       setFng(s?.cnn ?? null);
+      setCrypto(s?.crypto ?? null);
       const h = {};
       symbols.forEach((sym, i) => { h[sym] = hs[i]?.points?.map(p => p.close) ?? null; });
       setHist(h);
@@ -61,6 +63,7 @@ export default function MarketPulse() {
   const find = (sym) => quotes?.find(q => q.symbol === sym);
   const vix = find('^VIX');
   const fngSpark = (fng?.history || []).slice(-30).map(h => h.score);
+  const cryptoSpark = (crypto?.history || []).slice(-30).map(h => h.value);
 
   const pill = (key, label, value, color, sub, sparkPoints) => (
     <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '10px 16px', minWidth: '120px', flex: '1 1 120px' }}>
@@ -91,6 +94,7 @@ export default function MarketPulse() {
           })}
           {pill('vix', 'VIX', vix?.price ?? '—', vixColor(vix?.price), vixZone(vix?.price), hist['^VIX'])}
           {fng && pill('fng', 'Fear & Greed', Math.round(fng.score), scoreColor(fng.score), scoreZone(fng.score), fngSpark)}
+          {crypto?.value != null && pill('crypto', t('marketPulse.cryptoFng'), Math.round(crypto.value), scoreColor(crypto.value), scoreZone(crypto.value), cryptoSpark)}
         </div>
       )}
       {loading && <div style={{ padding: '10px 16px', fontSize: '11px', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>{t('marketPulse.loadingMarket')}</div>}

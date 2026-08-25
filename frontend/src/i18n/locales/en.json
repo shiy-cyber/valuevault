@@ -99,6 +99,11 @@
     "valuationHistory": {
       "title": "Valuation History"
     },
+    "epsConsensus": {
+      "title": "Estimated vs actual EPS (history)",
+      "estimated": "Estimated EPS (consensus)",
+      "reported": "Actual EPS"
+    },
     "capexNarrative": {
       "analyzing": "⏳ Analyzing…",
       "cta": "🏭 What does it invest in? (AI)",
@@ -716,6 +721,7 @@
     "updated": "↻ {{time}}",
     "refresh": "↻ refresh",
     "loadingMarket": "Loading market snapshot…",
+    "cryptoFng": "Crypto F&G",
     "zones": { "extremeFear": "Extreme Fear", "fear": "Fear", "neutral": "Neutral", "greed": "Greed", "extremeGreed": "Extreme Greed" },
     "vixZones": { "complacency": "Complacency", "calm": "Calm", "caution": "Caution", "fear": "Fear", "panic": "Panic" }
   },
