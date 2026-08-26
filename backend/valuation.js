@@ -396,6 +396,7 @@ export async function getFundamentals(ticker) {
         grossMargin: (gp != null && rev) ? +((gp / rev) * 100).toFixed(2) : null,
         debtToEquity: (debtY != null && eq) ? +(debtY / eq).toFixed(2) : null,
         fcf: fcfOf(cr),
+        sharesOutstanding: sh,
       };
     };
     valuationHistory = years.map(y => rowFrom(y, incY[y], balY[y], cashY[y] || {}));

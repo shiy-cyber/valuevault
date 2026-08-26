@@ -161,7 +161,18 @@ const VALUATION_METRICS = [
   { key: 'grossMargin', label: 'Margen bruto', color: '#e67e22', axis: 'pct', fmt: v => v == null ? '—' : v.toFixed(1) + '%' },
   { key: 'debtToEquity', label: 'Deuda/Equity', color: '#e74c3c', axis: 'mult', fmt: v => v == null ? '—' : v.toFixed(2) + 'x' },
   { key: 'fcf', label: 'FCF', color: '#f1c40f', axis: 'usd', fmt: v => v == null ? '—' : fmtUsdCompact(v) },
+  { key: 'sharesOutstanding', label: 'Acciones en circulación', color: '#3498db', axis: 'shares', fmt: v => fmtSharesCompact(v) },
 ];
+
+// Igual que fmtUsdCompact pero sin el signo $ — es un recuento de acciones, no dinero.
+function fmtSharesCompact(v) {
+  if (v == null || isNaN(v)) return '—';
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+  if (abs >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (abs >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+  return v.toLocaleString('es-ES');
+}
 
 const VALUATION_YEAR_RANGES = [[3, '3A'], [5, '5A'], [10, '10A']];
 
@@ -188,6 +199,7 @@ function ValuationHistoryChart({ history, theme }) {
   const usesMult = shown.some(m => m.axis === 'mult');
   const usesPct = shown.some(m => m.axis === 'pct');
   const usesUsd = shown.some(m => m.axis === 'usd');
+  const usesShares = shown.some(m => m.axis === 'shares');
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
   const data = {
@@ -195,7 +207,7 @@ function ValuationHistoryChart({ history, theme }) {
     datasets: shown.map(m => ({
       label: m.label, data: rows.map(r => r[m.key]), borderColor: m.color, backgroundColor: m.color + '22',
       borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.25, fill: shown.length === 1, spanGaps: true,
-      yAxisID: m.axis === 'pct' ? 'pct' : m.axis === 'usd' ? 'usd' : 'mult', _fmt: m.fmt,
+      yAxisID: m.axis === 'pct' ? 'pct' : m.axis === 'usd' ? 'usd' : m.axis === 'shares' ? 'shares' : 'mult', _fmt: m.fmt,
     })),
   };
   const opts = {
@@ -210,6 +222,7 @@ function ValuationHistoryChart({ history, theme }) {
       mult: { display: usesMult, position: 'left', grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => v + 'x' } },
       pct: { display: usesPct, position: 'right', grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => v + '%' } },
       usd: { display: usesUsd, position: 'right', grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => fmtUsdCompact(v) } },
+      shares: { display: usesShares, position: 'left', grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => fmtSharesCompact(v) } },
     },
   };
   return (
