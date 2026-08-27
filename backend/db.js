@@ -269,6 +269,24 @@ export async function initSchema() {
       data      TEXT,
       fetchedAt TEXT
     );
+    -- Precios de memoria (DRAM/NAND/HBM, memoryindex.io) — a diferencia de
+    -- snapshots (1 fila por clave, se sobreescribe), aquí se ACUMULA 1 fila
+    -- por día y producto: la fuente solo da el precio DEL DÍA + variación
+    -- ya calculada (24h/30d/interanual), no histórico propio, así que el
+    -- historial para graficar lo construimos nosotros con el cron diario.
+    CREATE TABLE IF NOT EXISTS memory_price_history (
+      date       TEXT NOT NULL,
+      contractId TEXT NOT NULL,
+      name       TEXT,
+      segment    TEXT,
+      unit       TEXT,
+      spot       REAL,
+      chg24h     REAL,
+      chg30d     REAL,
+      chgYoy     REAL,
+      PRIMARY KEY (date, contractId)
+    );
+    CREATE INDEX IF NOT EXISTS idx_memprice_contract ON memory_price_history(contractId, date);
     CREATE TABLE IF NOT EXISTS theses (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       userId     INTEGER NOT NULL,

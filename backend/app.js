@@ -13,6 +13,7 @@ import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
 import { getMacro } from './macro.js';
+import { getMemoryPrices, getMemoryHistory } from './memory.js';
 import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
 import { getRisk } from './risk.js';
@@ -886,6 +887,16 @@ export async function createApp() {
     if (snap?.data) return res.json({ ...snap.data, _fetchedAt: snap.fetchedAt });
     const data = await getMacro(false); await saveSnapshot('macro', data).catch(() => {});
     res.json(data);
+  }));
+  // Precios de memoria (DRAM/NAND/HBM, memoryindex.io) — current: snapshot del
+  // día con % de cambio ya calculado por la fuente; history: acumulado propio
+  // (crece día a día vía el cron diario, ver ingest-daily.js).
+  app.get('/api/memory-prices', h(async (req, res) => {
+    const [current, history] = await Promise.all([
+      getMemoryPrices(req.query.fresh === '1'),
+      getMemoryHistory(),
+    ]);
+    res.json({ current, history });
   }));
   app.get('/api/volprofile/:symbol', h(async (req, res) => { res.json(await getVolProfile(req.params.symbol, req.query.range, req.query.anchor)); }));
   app.get('/api/smc/:symbol', h(async (req, res) => { res.json(await getSMC(req.params.symbol, req.query.range)); }));

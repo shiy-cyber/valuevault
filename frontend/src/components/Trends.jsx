@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Line, Bar } from 'react-chartjs-2';
 import { api } from '../lib/api.js';
+import MemoryPrices from './MemoryPrices.jsx';
 
 const PERIOD_KEYS = ['1m','3m','6m','ytd','1y','3y','5y','10y'];
 // Periodos intra-mes (puntos diarios) → etiqueta "12 May"; el resto → "May '25".
@@ -212,6 +213,8 @@ export default function Trends({ theme, toast }) {
           </table>
         </div>
       </div>
+
+      <MemoryPrices theme={theme} />
 
       <div style={{ marginTop:'14px', padding:'12px 16px', background:'var(--surface2)', borderRadius:'8px', borderLeft:'3px solid var(--gold)', fontSize:'11px', color:'var(--muted)', lineHeight:1.7 }}>
         {t('trendsPage.footer')}

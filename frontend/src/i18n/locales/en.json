@@ -1109,6 +1109,17 @@
     "universeSuffix": "Click a market to analyze it in detail.",
     "footer": "📈 Trend following accepts many small losses (sideways markets) to capture a few large gains (strong trends). The ATR stop and volatility-based sizing keep risk constant. An analysis tool using daily Yahoo data, not advice."
   },
+  "memoryPrices": {
+    "title": "Memory Prices (DRAM · NAND · HBM)",
+    "subtitle": "Daily snapshot (memoryindex.io) + own history accumulated day by day",
+    "allSegments": "All",
+    "colProduct": "Product",
+    "colSegment": "Segment",
+    "colPrice": "Price",
+    "colYoy": "YoY",
+    "buildingHistory": "Building our own history — check back in a few days to see the trend chart.",
+    "sourceNote": "Source: memoryindex.io (public data). Today's price and 24h/30d/YoY changes computed by the source; the chart's history is accumulated by our own daily cron starting today."
+  },
   "trendsPage": {
     "periods": { "1m": "1 Month", "3m": "3 Months", "6m": "6 Months", "ytd": "YTD", "1y": "1 Year", "3y": "3 Years", "5y": "5 Years", "10y": "10 Years", "20y": "20 Years" },
     "someFallback": "⚠ Some sectors are using fallback data",

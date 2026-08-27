@@ -1109,6 +1109,17 @@
     "universeSuffix": "点击某个市场可查看详细分析。",
     "footer": "📈 趋势跟踪策略容忍多次小额亏损（横盘行情），以捕捉少数几次大额收益（强趋势行情）。ATR 止损和基于波动率的仓位规模能让风险水平保持恒定。这是一个基于 Yahoo 日线数据的分析工具，不构成投资建议。"
   },
+  "memoryPrices": {
+    "title": "存储器价格（DRAM · NAND · HBM）",
+    "subtitle": "每日快照（memoryindex.io）+ 每天累积的自有历史数据",
+    "allSegments": "全部",
+    "colProduct": "产品",
+    "colSegment": "细分",
+    "colPrice": "价格",
+    "colYoy": "同比",
+    "buildingHistory": "正在累积自有历史数据 — 几天后再来查看趋势图。",
+    "sourceNote": "数据来源：memoryindex.io（公开数据）。当日价格及24小时/30天/同比变化由数据源计算；图表历史数据由我们自己的每日定时任务从今天开始累积。"
+  },
   "trendsPage": {
     "periods": { "1m": "1个月", "3m": "3个月", "6m": "6个月", "ytd": "年初至今", "1y": "1年", "3y": "3年", "5y": "5年", "10y": "10年", "20y": "20年" },
     "someFallback": "⚠ 部分行业正在使用备用数据",

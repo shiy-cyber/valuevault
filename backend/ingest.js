@@ -11,6 +11,7 @@ import { getQuotes } from './sectors.js';
 import { getMacro } from './macro.js';
 import { getSentiment } from './sentiment.js';
 import { getFundamentals } from './valuation.js';
+import { ingestMemoryPrices } from './memory.js';
 
 // Universo ACTIVO: solo los tickers que algún usuario tiene en cartera/watchlist.
 // Acota coste/cuota: no se trae "todo el mercado", solo lo que se usa.
@@ -123,6 +124,20 @@ export async function cachedFundamentals(ticker) {
   await run('INSERT OR REPLACE INTO fundamentals_cache (ticker, data, fetchedAt) VALUES (?, ?, ?)',
     [t, JSON.stringify(data), new Date().toISOString()]);
   return { ...data, _cached: false };
+}
+
+// ─── Precios de memoria (DRAM/NAND/HBM) ──────────────────────────────────
+// Diario (una fila nueva por producto y día en memory_price_history).
+export async function ingestMemory() {
+  const startedAt = new Date().toISOString();
+  try {
+    const r = await ingestMemoryPrices();
+    const s = summarize({ startedAt, total: r.updated, updated: r.updated, failed: 0, errors: [] });
+    console.log(`📥 ingestMemory: ${r.updated} productos (${r.date})`);
+    return s;
+  } catch (e) {
+    return summarize({ startedAt, total: 0, updated: 0, failed: 1, errors: [e.message] });
+  }
 }
 
 // Monitorización: si HEALTHCHECK_URL está definido, "ficha" tras cada corrida.

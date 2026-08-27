@@ -1109,6 +1109,17 @@
     "universeSuffix": "Pulsa un mercado para analizarlo en detalle.",
     "footer": "📈 El seguimiento de tendencia asume muchas pérdidas pequeñas (lateral) para capturar pocas ganancias grandes (tendencia fuerte). El stop por ATR y el sizing por volatilidad mantienen el riesgo constante. Herramienta de análisis con datos diarios de Yahoo, no asesoramiento."
   },
+  "memoryPrices": {
+    "title": "Precios de Memoria (DRAM · NAND · HBM)",
+    "subtitle": "Snapshot diario (memoryindex.io) + histórico propio acumulado día a día",
+    "allSegments": "Todos",
+    "colProduct": "Producto",
+    "colSegment": "Segmento",
+    "colPrice": "Precio",
+    "colYoy": "Interanual",
+    "buildingHistory": "Acumulando histórico propio — vuelve en unos días para ver la tendencia en gráfico.",
+    "sourceNote": "Fuente: memoryindex.io (datos públicos). Precio del día y variaciones 24h/30d/interanual calculadas por la fuente; el histórico del gráfico se acumula con un cron diario propio a partir de hoy."
+  },
   "trendsPage": {
     "periods": { "1m": "1 Mes", "3m": "3 Meses", "6m": "6 Meses", "ytd": "YTD", "1y": "1 Año", "3y": "3 Años", "5y": "5 Años", "10y": "10 Años", "20y": "20 Años" },
     "someFallback": "⚠ Algunos sectores usan datos de respaldo",
