@@ -140,6 +140,13 @@
       "annual": "{{year}}: ${{amount}}/share",
       "partialNote": "* current year (partial)"
     },
+    "segments": {
+      "cta": "🥧 Revenue Segments",
+      "title": "Revenue Segments",
+      "fiscalYear": "FY {{year}}",
+      "totalNote": "Total revenue for the fiscal year: {{total}}. Source: 10-K (Financial Modeling Prep) — only available for a subset of stocks.",
+      "trendTitle": "Sales Evolution by Segment"
+    },
     "actions": {
       "calculating": "⏳ Calculating…",
       "fundamentals": "📊 Fundamentals",
@@ -1110,15 +1117,22 @@
     "footer": "📈 Trend following accepts many small losses (sideways markets) to capture a few large gains (strong trends). The ATR stop and volatility-based sizing keep risk constant. An analysis tool using daily Yahoo data, not advice."
   },
   "memoryPrices": {
-    "title": "Memory Prices (DRAM · NAND · HBM)",
-    "subtitle": "Daily snapshot (memoryindex.io) + own history accumulated day by day",
+    "title": "📈 Semiconductor Market Trend",
+    "subtitle": "Long-run demand and price (worldwide billings + PPI) plus today's DRAM/NAND/HBM memory spot",
+    "billingsTitle": "Demand · Worldwide Billings (WSTS, since 1986)",
+    "perMonth": "per month",
+    "billingsNote": "Real monthly global semiconductor industry billings (Americas+Europe+Japan+Asia-Pacific). The most direct demand proxy with the longest free history available.",
+    "ppiTitle": "Underlying Price · Semiconductor PPI (BLS)",
+    "ppiNote": "Quality-adjusted price index (not the spot price): it structurally trends down due to Moore's Law even during severe shortages — useful for the long-run underlying trend, not the current price spike.",
+    "spotTitle": "Memory Spot (today)",
     "allSegments": "All",
     "colProduct": "Product",
     "colSegment": "Segment",
     "colPrice": "Price",
     "colYoy": "YoY",
-    "buildingHistory": "Building our own history — check back in a few days to see the trend chart.",
-    "sourceNote": "Source: memoryindex.io (public data). Today's price and 24h/30d/YoY changes computed by the source; the chart's history is accumulated by our own daily cron starting today."
+    "buildingHistory": "Building our own spot history — check back in a few days to see the trend chart.",
+    "sourceUnavailable": "Source unavailable right now.",
+    "sourceNote": "Sources: memoryindex.io (daily spot, 24h/30d/YoY), U.S. Bureau of Labor Statistics (semiconductor PPI), WSTS (worldwide billings). 7d/60d/90d/180d are computed against our own accumulated history (blank until enough days of our own data exist); spot history is accumulated by our own daily cron starting today."
   },
   "trendsPage": {
     "periods": { "1m": "1 Month", "3m": "3 Months", "6m": "6 Months", "ytd": "YTD", "1y": "1 Year", "3y": "3 Years", "5y": "5 Years", "10y": "10 Years", "20y": "20 Years" },

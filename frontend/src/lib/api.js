@@ -134,4 +134,5 @@ export const api = {
   news: (id) => req('POST', `/api/assets/${id}/news`),
   insiders: (id) => req('POST', `/api/assets/${id}/insiders`),
   dividends: (id) => req('POST', `/api/assets/${id}/dividends`),
+  segments: (id) => req('POST', `/api/assets/${id}/segments`),
 };

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Line, Bar } from 'react-chartjs-2';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api.js';
 import { fmt, getRiskW, riskLabel, riskColor, mvColor, tagList, changePct, insiderLinks, timeAgo, compositeScore, positionMetrics, fmtBase, fmtUsdCompact } from '../lib/format.js';
+import { CHART_COLORS } from '../lib/chartSetup.js';
 
 const scoreColor = (s) => s == null ? 'var(--muted)' : s >= 67 ? 'var(--green)' : s >= 45 ? 'var(--orange)' : 'var(--red)';
 // Color por recomendación de consenso (la etiqueta se resuelve via i18next: assetRow.rec.<key>)
@@ -510,6 +511,120 @@ function InsiderTx({ assetId }) {
   );
 }
 
+const SEGMENT_YEAR_RANGES = [[5, '5A'], [10, '10A']];
+
+// Evolución de cada segmento a lo largo de los años (barras apiladas) — del
+// mismo `history` que ya trae getRevenueSegments(), sin llamada extra. La
+// nomenclatura de segmentos puede cambiar en años antiguos (reorganización de
+// negocio); se unen todos los nombres vistos en el rango elegido y se rellena
+// con 0 donde un segmento no existía ese año.
+function RevenueSegmentsTrend({ history, theme }) {
+  const { t } = useTranslation();
+  const isDark = theme === 'dark';
+  const [years, setYears] = useState(5);
+  if (!Array.isArray(history) || history.length < 2) return null;
+  const rows = years >= history.length ? history : history.slice(-years);
+  const allNames = [...new Set(rows.flatMap(r => r.segments.map(s => s.name)))];
+  const textColor = isDark ? '#7a8694' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
+  const data = {
+    labels: rows.map(r => r.fiscalYear),
+    datasets: allNames.map((name, i) => ({
+      label: name,
+      data: rows.map(r => r.segments.find(s => s.name === name)?.value ?? 0),
+      backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+    })),
+  };
+  const opts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: textColor, font: { family: 'DM Mono', size: 9 }, boxWidth: 10, padding: 8 } },
+      tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmtUsdCompact(c.parsed.y) } },
+    },
+    scales: {
+      x: { stacked: true, grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
+      y: { stacked: true, grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 8 }, callback: v => fmtUsdCompact(v) } },
+    },
+  };
+  return (
+    <div style={{ marginTop: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>{t('assetRow.segments.trendTitle')}</div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {SEGMENT_YEAR_RANGES.map(([n, l]) => (
+            <button key={n} className={`filter-chip${years === n ? ' active' : ''}`} style={{ padding: '2px 9px', fontSize: '10px' }} onClick={() => setYears(n)}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ position: 'relative', height: '200px' }}><Bar data={data} options={opts} /></div>
+    </div>
+  );
+}
+
+// Segmentación de ingresos por producto/línea de negocio (FMP, real 10-K).
+// Bajo demanda: botón que carga al pulsar. Solo cubre un subconjunto de
+// tickers (grandes caps) según el plan de FMP — el 502 del backend se
+// muestra tal cual como aviso, no como error bloqueante.
+function RevenueSegments({ assetId, theme }) {
+  const { t } = useTranslation();
+  const isDark = theme === 'dark';
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const load = async () => {
+    if (busy) return;
+    setBusy(true); setErr(null);
+    try { setData(await api.segments(assetId)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+  const textColor = isDark ? '#7a8694' : '#6b7280';
+  const chartData = data ? {
+    labels: data.segments.map(s => s.name),
+    datasets: [{ data: data.segments.map(s => s.value), backgroundColor: CHART_COLORS.slice(0, data.segments.length), borderColor: isDark ? '#111418' : '#ffffff', borderWidth: 2 }],
+  } : null;
+  const chartOpts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: c => c.label + ': ' + fmtUsdCompact(c.parsed) } },
+    },
+  };
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      {!data && (
+        <button className="btn btn-outline" disabled={busy} onClick={load} style={{ fontSize: '11px', padding: '6px 12px' }}>
+          {busy ? t('common.loading') : t('assetRow.segments.cta')}
+        </button>
+      )}
+      {err && <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '6px' }}>{err}</div>}
+      {data && (
+        <div>
+          <div className="mv-section-label">
+            {t('assetRow.segments.title')}
+            <span style={{ marginLeft: '8px', fontSize: '10px', color: 'var(--muted)' }}>{t('assetRow.segments.fiscalYear', { year: data.fiscalYear })}</span>
+            <button className="btn btn-outline" disabled={busy} onClick={load} style={{ marginLeft: '8px', fontSize: '10px', padding: '2px 8px' }}>{busy ? t('common.busy') : '↻'}</button>
+          </div>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
+            <div style={{ position: 'relative', height: '160px', width: '160px', flexShrink: 0 }}><Doughnut data={chartData} options={chartOpts} /></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '11px', minWidth: '180px' }}>
+              {data.segments.map((s, i) => (
+                <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '9px', height: '9px', borderRadius: '2px', background: CHART_COLORS[i % CHART_COLORS.length], display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ color: 'var(--text)', flex: 1 }}>{s.name}</span>
+                  <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{s.pct}% · {fmtUsdCompact(s.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '8px' }}>{t('assetRow.segments.totalNote', { total: fmtUsdCompact(data.total) })}</div>
+          <RevenueSegmentsTrend history={data.history} theme={theme} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Histórico de dividendos + racha de crecimiento (Alpha Vantage). Bajo demanda:
 // botón que carga al pulsar. Año a verde si sube vs el anterior, rojo si baja.
 function Dividends({ assetId }) {
@@ -652,6 +767,8 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
           )}
 
           <CompanyIntro a={a} />
+
+          <RevenueSegments assetId={a.id} theme={theme} />
 
           <NewsSentiment assetId={a.id} />
 

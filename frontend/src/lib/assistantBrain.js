@@ -49,7 +49,36 @@ const GLOSSARY = {
   'fear and greed': ['Fear & Greed', 'Índice de miedo y codicia (CNN) + VIX + cripto. Miedo extremo puede ser señal contrarian de compra; codicia extrema, de cautela. Sección "Sentimiento".'],
   cape: ['CAPE / Shiller PE', 'CAPE (Shiller PE / PE10) = precio del S&P 500 ÷ beneficios medios de 10 años ajustados por inflación. Mide si el MERCADO ENTERO está caro o barato vs su historia (media ~17). Un CAPE alto se asocia a menores retornos a 10 años, pero es mal indicador de timing. Lo tienes EN VIVO en la sección "Sentimiento".'],
   shiller: ['CAPE / Shiller PE', 'El CAPE de Shiller (PE10) valora el S&P 500 con 10 años de beneficios ajustados por inflación. Media histórica ~17; alto = mercado caro. En vivo en la sección "Sentimiento".'],
-  score: ['Score compuesto', 'Score compuesto (0-100) en 3 pilares: Valor (¿está barata? P/E, P/B, PEG, EV/EBITDA…), Calidad (¿es un buen negocio? ROE, ROIC, márgenes, deuda) y Momentum (¿va a mejor? revisiones de EPS, sorpresas de resultados, tendencia de precio). Convierte ~24 ratios en 3 decisiones. El de Momentum es un proxy (rango 52 semanas + crecimiento del EPS) si aún no has traído revisiones de analistas.'],
+  score: ['Score compuesto', 'Score compuesto (0-100) en 3 pilares: Valor (¿está barata? P/E, P/B, PEG, EV/EBITDA…), Calidad (¿es un buen negocio? ROE, ROIC, márgenes, deuda, Altman Z, Piotroski F, Beneish M) y Momentum (¿va a mejor? revisiones de EPS, sorpresas de resultados, tendencia de precio). Convierte ~30 ratios en 3 decisiones. El de Momentum es un proxy (rango 52 semanas + crecimiento del EPS) si aún no has traído revisiones de analistas.'],
+
+  // ─── Salud financiera / riesgo de solvencia (Fase 2 institucional) ───
+  'altman z': ['Altman Z-Score', 'Altman Z-Score = modelo de 1968 que combina 5 ratios de balance para estimar el riesgo de quiebra a ~24 meses vista. Zonas: Z > 2.99 segura · 1.81-2.99 zona gris · Z < 1.81 distrés financiero. Ojo: en empresas "asset-light" de alta capitalización (SaaS, tech) puede salir absurdamente alto — es un sesgo conocido de la fórmula, pensada para manufactureras. Sección "Salud Financiera" de cada activo (pulsa «📊 Fundamentales»).'],
+  'z score': ['Altman Z-Score', 'Altman Z-Score = modelo de 1968 que combina 5 ratios de balance para estimar el riesgo de quiebra a ~24 meses vista. Zonas: Z > 2.99 segura · 1.81-2.99 zona gris · Z < 1.81 distrés financiero. Ojo: en empresas "asset-light" de alta capitalización (SaaS, tech) puede salir absurdamente alto — es un sesgo conocido de la fórmula, pensada para manufactureras. Sección "Salud Financiera" de cada activo (pulsa «📊 Fundamentales»).'],
+  piotroski: ['Piotroski F-Score', 'Piotroski F-Score = 0 a 9 puntos sumando 9 tests binarios de rentabilidad, apalancamiento y eficiencia, comparando el año actual con el anterior. 7-9 = balance sólido · 4-6 = medio · 0-3 = débil. Filtro clásico contra "value traps" (empresas baratas pero deteriorándose por dentro). Todo o nada: si falta algún dato de los 2 años, queda en blanco en vez de dar un score parcial engañoso.'],
+  'piotroski f': ['Piotroski F-Score', 'Piotroski F-Score = 0 a 9 puntos sumando 9 tests binarios de rentabilidad, apalancamiento y eficiencia, comparando el año actual con el anterior. 7-9 = balance sólido · 4-6 = medio · 0-3 = débil. Filtro clásico contra "value traps" (empresas baratas pero deteriorándose por dentro). Todo o nada: si falta algún dato de los 2 años, queda en blanco en vez de dar un score parcial engañoso.'],
+  'f score': ['Piotroski F-Score', 'Piotroski F-Score = 0 a 9 puntos sumando 9 tests binarios de rentabilidad, apalancamiento y eficiencia, comparando el año actual con el anterior. 7-9 = balance sólido · 4-6 = medio · 0-3 = débil. Filtro clásico contra "value traps" (empresas baratas pero deteriorándose por dentro). Todo o nada: si falta algún dato de los 2 años, queda en blanco en vez de dar un score parcial engañoso.'],
+  beneish: ['Beneish M-Score', 'Beneish M-Score = modelo de 1999 (8 variables) para detectar posible manipulación contable ANTES de fiarte de sus cuentas. M > -1.78 sugiere riesgo elevado; cuanto más negativo, mejor. Igual que el Piotroski, es todo o nada: si faltan datos de los 2 años que necesita, el score se queda vacío en vez de arriesgarse a un falso "todo bien".'],
+  'beneish m': ['Beneish M-Score', 'Beneish M-Score = modelo de 1999 (8 variables) para detectar posible manipulación contable ANTES de fiarte de sus cuentas. M > -1.78 sugiere riesgo elevado; cuanto más negativo, mejor. Igual que el Piotroski, es todo o nada: si faltan datos de los 2 años que necesita, el score se queda vacío en vez de arriesgarse a un falso "todo bien".'],
+  'm score': ['Beneish M-Score', 'Beneish M-Score = modelo de 1999 (8 variables) para detectar posible manipulación contable ANTES de fiarte de sus cuentas. M > -1.78 sugiere riesgo elevado; cuanto más negativo, mejor. Igual que el Piotroski, es todo o nada: si faltan datos de los 2 años que necesita, el score se queda vacío en vez de arriesgarse a un falso "todo bien".'],
+
+  // ─── Ajustes institucionales de FCF/CapEx ────────────────────
+  sbc: ['SBC (Stock-Based Compensation)', 'SBC = compensación que la empresa paga a empleados en ACCIONES en vez de en efectivo. No sale del flujo de caja operativo, pero SÍ diluye al accionista — por eso el FCF ajustado la resta: FCF ajustado = FCF − SBC. Fácil de infravalorar en empresas SaaS/tech que pagan mucho así.'],
+  'fcf ajustado': ['FCF Ajustado por SBC', 'FCF ajustado = FCF − compensación en acciones (SBC), tratada como un gasto real en efectivo. Da una foto más conservadora que el FCF bruto en empresas que pagan mucho a su plantilla en acciones. Disponible como toggle en la calculadora «Valoración DCF».'],
+  'capex mantenimiento': ['CapEx Mantenimiento vs Crecimiento', 'Heurística (Greenwald): CapEx de mantenimiento ≈ mínimo entre CapEx y Amortización (lo justo para reponer lo que se deprecia); CapEx de crecimiento = el resto (expansión real). Sirve para estimar el FCF "de verdad" para el accionista, descontando solo el CapEx de crecimiento si quieres ser conservador.'],
+  'capex crecimiento': ['CapEx Mantenimiento vs Crecimiento', 'Heurística (Greenwald): CapEx de mantenimiento ≈ mínimo entre CapEx y Amortización (lo justo para reponer lo que se deprecia); CapEx de crecimiento = el resto (expansión real). Sirve para estimar el FCF "de verdad" para el accionista, descontando solo el CapEx de crecimiento si quieres ser conservador.'],
+  'recompra neta': ['Recompra Neta de Dilución', 'Recompra neta = (recompras de acciones − emisión de nuevas acciones) ÷ capitalización. A diferencia del Shareholder Yield (que solo suma recompras+dividendos), esta RESTA lo que la empresa emite — una recompra "de cara a la galería" financiada con nueva emisión de acciones da ~0%.'],
+  'net buyback yield': ['Recompra Neta de Dilución', 'Recompra neta = (recompras de acciones − emisión de nuevas acciones) ÷ capitalización. A diferencia del Shareholder Yield (que solo suma recompras+dividendos), esta RESTA lo que la empresa emite — una recompra "de cara a la galería" financiada con nueva emisión de acciones da ~0%.'],
+
+  // ─── DCF automático, matriz de sensibilidad y TTM ────────────
+  'matriz de sensibilidad': ['Matriz de Sensibilidad (DCF)', 'Tabla que recalcula el valor intrínseco variando el WACC y el crecimiento terminal alrededor de tus supuestos actuales — para ver de un vistazo cuánto cambia la valoración si esos dos números (los más discutibles del modelo) fueran algo distintos. Debajo de la tabla de proyección, en «Valoración DCF».'],
+  ttm: ['TTM (Trailing Twelve Months)', 'TTM = últimos 12 meses (los 4 trimestres más recientes ya reportados), en vez de esperar al cierre del año fiscal. En el gráfico "Evolución de Valoración" aparece como un punto extra, más actual que el último ejercicio anual cerrado.'],
+  'dcf automatico': ['DCF Automático', 'Versión de la calculadora DCF con supuestos por defecto (5 años de proyección, 2.5% de crecimiento terminal, WACC ya calculado) sin que tengas que tocar nada — así se puede puntuar TODA tu cartera de golpe en el filtro institucional del Screener. No sustituye a ajustar el modelo a mano para un candidato serio.'],
+  'filtro institucional': ['Filtro Institucional (Screener)', 'En el Screener, arriba del todo: lista los activos de tu cartera/watchlist que cumplen A LA VEZ margen de seguridad (DCF automático) ≥25%, Piotroski F-Score >6 y Altman Z-Score >2.99 — confirmando ausencia de distrés financiero a corto plazo. Objetivo: reducir falsos positivos en growth y evitar "value traps".'],
+
+  // ─── Tendencia del mercado de semiconductores ────────────────
+  'ppi semiconductores': ['PPI de Semiconductores', 'Índice de precios de productor de la industria de semiconductores (BLS, EE.UU.), ajustado por calidad — NO es el precio spot: baja estructuralmente por la Ley de Moore incluso en plena escasez de chips. Sirve para ver la tendencia de precio de fondo a largo plazo (~10 años), complementando al spot diario. Sección "Tendencias".'],
+  wsts: ['Facturación Mundial de Semiconductores (WSTS)', 'Facturación mensual real de toda la industria de semiconductores a nivel mundial, con histórico desde 1986 — el proxy de demanda más directo y con más recorrido disponible gratis. Sección "Tendencias" → Tendencia del Mercado de Semiconductores.'],
+  'facturacion mundial': ['Facturación Mundial de Semiconductores (WSTS)', 'Facturación mensual real de toda la industria de semiconductores a nivel mundial, con histórico desde 1986 — el proxy de demanda más directo y con más recorrido disponible gratis. Sección "Tendencias" → Tendencia del Mercado de Semiconductores.'],
 
   // ─── Ficha de un activo (panel expandido en Mis Activos) ─────
   'fwd pe': ['Fwd P/E (Forward)', 'Fwd P/E o P/E adelantado = precio ÷ beneficio por acción ESPERADO para el próximo ejercicio (no el ya reportado). Si es más bajo que el P/E normal, el mercado espera que el beneficio crezca; si es más alto, espera que caiga.'],
@@ -135,15 +164,17 @@ const HELP = [
   { kw: ['anadir activo', 'agregar activo', 'nuevo activo', 'como meto', 'como añado', 'crear activo'], text: 'Pulsa «+ Nuevo Activo» (arriba a la derecha) o el botón de añadir. Rellena ticker, nombre, precio de entrada, tamaño y, opcionalmente, tesis/objetivo/stop. También puedes usar el autocompletado por ticker (Alpha Vantage).', action: { label: 'Ir a Mis Activos', section: 'assets' } },
   { kw: ['watchlist', 'seguimiento'], text: 'La Watchlist es para activos que sigues pero NO tienes en cartera (marcados con ★). Es independiente de tu cartera real.', action: { label: 'Ir a Watchlist', section: 'watchlist' } },
   { kw: ['comparador', 'comparar'], text: 'El Comparador enfrenta 2-3 activos métrica a métrica; resalta en verde el mejor y en rojo el peor de cada fila.', action: { label: 'Ir al Comparador', section: 'compare' } },
-  { kw: ['screener', 'filtrar acciones', 'buscar acciones'], text: 'El Stock Screener arma filtros (sector, capitalización, P/E, P/B, dividendo, ROE…) y te abre Finviz/StockAnalysis con esos filtros ya aplicados.', action: { label: 'Ir al Screener', section: 'screener' } },
-  { kw: ['fundamentales', 'roic', 'calcular calidad'], text: 'Abre un activo (clic en la fila) y pulsa «📊 Fundamentales» para traer ROIC, FCF Yield, WACC, CapEx y consenso de analistas (Alpha Vantage, 25 req/día).', action: { label: 'Ir a Mis Activos', section: 'assets' } },
-  { kw: ['valoracion', 'dcf', 'valor intrinseco', 'cuanto vale'], text: 'La sección «Valoración DCF» estima el valor intrínseco con descuento de flujos + ROIC/WACC. Autocompleta datos por ticker y aplica el WACC por estructura de capital.', action: { label: 'Ir a Valoración DCF', section: 'valuation' } },
+  { kw: ['screener', 'filtrar acciones', 'buscar acciones'], text: 'El Stock Screener arma filtros (sector, capitalización, P/E, P/B, dividendo, ROE…) y te abre Finviz/StockAnalysis con esos filtros ya aplicados. Arriba del todo tienes además el «Filtro Institucional»: lista los activos de TU cartera/watchlist que cumplen a la vez margen de seguridad del DCF automático ≥25%, Piotroski F-Score >6 y Altman Z-Score >2.99.', action: { label: 'Ir al Screener', section: 'screener' } },
+  { kw: ['fundamentales', 'roic', 'calcular calidad'], text: 'Abre un activo (clic en la fila) y pulsa «📊 Fundamentales» para traer ROIC, FCF Yield, WACC, CapEx (con desglose mantenimiento/crecimiento), SBC y FCF ajustado, recompra neta de dilución, Altman Z, Piotroski F, Beneish M, DCF automático y consenso de analistas (Alpha Vantage, 25 req/día).', action: { label: 'Ir a Mis Activos', section: 'assets' } },
+  { kw: ['valoracion', 'dcf', 'valor intrinseco', 'cuanto vale'], text: 'La sección «Valoración DCF» estima el valor intrínseco con descuento de flujos + ROIC/WACC, con matriz de sensibilidad WACC×crecimiento terminal y toggle de FCF ajustado por SBC. Autocompleta datos por ticker y aplica el WACC por estructura de capital.', action: { label: 'Ir a Valoración DCF', section: 'valuation' } },
+  { kw: ['salud financiera', 'riesgo de quiebra', 'manipulacion contable'], text: 'La sección «Salud Financiera» de cada activo (dentro de la ficha, tras pulsar «📊 Fundamentales») trae 3 scores: Altman Z-Score (riesgo de quiebra), Piotroski F-Score (calidad del balance) y Beneish M-Score (riesgo de manipulación contable). Los tres son "todo o nada": si falta un dato, quedan en blanco en vez de dar un resultado a medias engañoso.', action: { label: 'Ir a Mis Activos', section: 'assets' } },
   { kw: ['historico', 'grafico de precio', 'evolucion'], text: 'Abre un activo (clic en la fila) y verás el gráfico histórico de precio con rangos 1M/6M/1A/5A.', action: { label: 'Ir a Mis Activos', section: 'assets' } },
   { kw: ['exportar', 'export', 'backup', 'copia'], text: 'En la barra lateral (abajo) tienes «💾 Export» para descargar tu cartera y notas en JSON.' },
   { kw: ['cuenta', 'registrar', 'iniciar sesion', 'login', 'crear cuenta'], text: 'Pulsa «🔑 Iniciar sesión / Registrarse». Con cuenta, tu cartera y notas son privadas. Sin sesión ves la cartera DEMO (solo lectura).' },
   { kw: ['recuperacion', 'recuperar cuenta', 'olvide', 'contrasena'], text: 'La recuperación es por CÓDIGO (la app no envía correos). Guarda tu código «XXXX-XXXX-XXXX-XXXX»; para resetear necesitas email + código + nueva contraseña.' },
   { kw: ['notas', 'aprendizaje'], text: 'La sección «Aprendizaje» guarda notas de inversión, que puedes vincular a un activo concreto.', action: { label: 'Ir a Aprendizaje', section: 'learning' } },
-  { kw: ['macro', 'tipos', 'inflacion', 'fed'], text: 'La sección «Macro Research» trae 37 indicadores en vivo (curva de tipos, inflación, empleo, Fed…) más fuentes de referencia.', action: { label: 'Ir a Macro', section: 'macro' } },
+  { kw: ['macro', 'tipos', 'inflacion', 'fed'], text: 'La sección «Macro Research» trae 37 indicadores en vivo (curva de tipos, inflación, empleo, Fed…) más fuentes de referencia. En el Dashboard también tienes un resumen rápido: curva 10Y-2Y, Core CPI, tipo Fed y paro.', action: { label: 'Ir a Macro', section: 'macro' } },
+  { kw: ['semiconductores', 'chips', 'dram', 'nand', 'memoria ram', 'precio de la memoria'], text: 'En «Tendencias» (arriba del todo) tienes la Tendencia del Mercado de Semiconductores: demanda real desde 1986 (facturación mundial, WSTS), precio de fondo a ~10 años (PPI, BLS) y el spot diario de memoria DRAM/NAND/HBM (memoryindex.io) con histórico propio que se acumula día a día.', action: { label: 'Ir a Tendencias', section: 'trends' } },
   { kw: ['mapa de mercado', 'treemap', 'finviz'], text: 'El «Mapa de Mercado» es un treemap tipo Finviz con grandes valores coloreados por variación diaria. Doble clic en un valor abre su ficha en Finviz.', action: { label: 'Ir al Mapa', section: 'marketmap' } },
   { kw: ['manual', 'ayuda', 'como funciona', 'guia', 'instrucciones'], text: 'Tienes el «Manual de uso» en la sección «Aprendizaje y Manual» (pestaña Manual de uso). Y a mí puedes preguntarme definiciones, cómo usar cada sección y datos de tu cartera.', action: { label: 'Ir al Manual', section: 'learning' } },
 ];
@@ -170,6 +201,11 @@ const METRICS = [
   { field: 'om', label: 'Margen Operativo', aliases: ['margen operativo', 'operating margin'], better: 'high', suf: '%' },
   { field: 'nm', label: 'Margen Neto', aliases: ['margen neto', 'net margin'], better: 'high', suf: '%' },
   { field: 'capex', label: 'CapEx', aliases: ['capex', 'gastos de capital'], better: 'high', usd: true },
+  { field: 'altmanZ', label: 'Altman Z-Score', aliases: ['altman z', 'altman', 'z score'], better: 'high' },
+  { field: 'piotroskiF', label: 'Piotroski F-Score', aliases: ['piotroski', 'piotroski f', 'f score'], better: 'high', suf: '/9' },
+  { field: 'beneishM', label: 'Beneish M-Score', aliases: ['beneish', 'beneish m', 'm score'], better: 'low' },
+  { field: 'dcfMarginOfSafety', label: 'Margen de Seguridad (DCF automático)', aliases: ['margen de seguridad', 'margen seguridad'], better: 'high', suf: '%' },
+  { field: 'netBuybackYield', label: 'Recompra Neta de Dilución', aliases: ['recompra neta', 'net buyback yield'], better: 'high', suf: '%' },
 ];
 function findMetric(q) {
   // alias más largo primero
@@ -202,6 +238,10 @@ function assetCard(a) {
     `P/E ${fmt(a.pe)} · ROE ${fmt(a.roe)}% · ROIC ${a.roic != null ? a.roic + '%' : '—'} · Div ${a.dy != null ? a.dy + '%' : '—'}`,
     `Score compuesto: ${sc.total ?? '—'}/100 (Valor ${sc.value ?? '—'} · Calidad ${sc.quality ?? '—'} · Momentum ${sc.momentum ?? '—'})`,
   ];
+  if (a.altmanZ != null || a.piotroskiF != null || a.beneishM != null) {
+    lines.push(`Salud financiera: Altman Z ${a.altmanZ ?? '—'} · Piotroski F ${a.piotroskiF != null ? a.piotroskiF + '/9' : '—'} · Beneish M ${a.beneishM ?? '—'}`);
+  }
+  if (a.dcfMarginOfSafety != null) lines.push(`Margen de seguridad (DCF automático): ${a.dcfMarginOfSafety >= 0 ? '+' : ''}${a.dcfMarginOfSafety}%`);
   if (a.thesis) lines.push(`Tesis: ${a.thesis.slice(0, 180)}${a.thesis.length > 180 ? '…' : ''}`);
   return lines.join('\n');
 }
@@ -231,9 +271,9 @@ export function answer(question, ctx = {}) {
   // Capacidades / ayuda general
   if (has(q, 'que puedes hacer', 'que sabes', 'ayuda', 'que eres', 'para que sirves', 'opciones')) {
     return {
-      text: '🤖 Soy el asistente de ValueVault. Puedo ayudarte con:\n\n• Definiciones: «¿qué es el ROIC?», «explícame el DCF», «qué es CapEx».\n• Cómo usar la app: «cómo añado un activo», «para qué sirve el screener».\n• Tu cartera: «mi mejor activo», «cuáles están en pérdidas», «valor de mi cartera», «el de mayor ROE», «háblame de AAPL».\n\nSoy local (sin coste, sin enviar nada fuera).',
+      text: '🤖 Soy el asistente de ValueVault. Puedo ayudarte con:\n\n• Definiciones: «¿qué es el ROIC?», «explícame el DCF», «qué es el Piotroski F-Score».\n• Cómo usar la app: «cómo añado un activo», «para qué sirve el screener», «qué es el filtro institucional».\n• Tu cartera: «mi mejor activo», «cuáles están en pérdidas», «valor de mi cartera», «el de mayor Altman Z», «háblame de AAPL».\n\nSoy local (sin coste, sin enviar nada fuera).',
       chips: [
-        { label: '¿Qué es el ROIC?', q: '¿qué es el ROIC?' },
+        { label: '¿Qué es el Piotroski F-Score?', q: '¿qué es el Piotroski F-Score?' },
         { label: 'Mi mejor activo', q: 'mi mejor activo' },
         { label: 'Valor de mi cartera', q: 'valor de mi cartera' },
         { label: '¿Cómo añado un activo?', q: '¿cómo añado un activo?' },
@@ -336,7 +376,7 @@ export function answer(question, ctx = {}) {
 
   // Fallback
   return {
-    text: 'No estoy seguro de eso 🤔. Soy un asistente de reglas (sin IA externa). Puedo con: definiciones (ROIC, WACC, DCF, CapEx…), cómo usar la app, y datos de tu cartera (mejor/peor activo, en pérdidas, valor total, mayor ROE, ficha de un ticker…).',
+    text: 'No estoy seguro de eso 🤔. Soy un asistente de reglas (sin IA externa). Puedo con: definiciones (ROIC, WACC, DCF, CapEx, Altman Z, Piotroski F, Beneish M…), cómo usar la app, y datos de tu cartera (mejor/peor activo, en pérdidas, valor total, mayor ROE, ficha de un ticker…).',
     chips: [
       { label: '¿Qué es el WACC?', q: '¿qué es el WACC?' },
       { label: 'Activos en pérdidas', q: 'qué activos tengo en pérdidas' },

@@ -140,6 +140,13 @@
       "annual": "{{year}}: ${{amount}}/acción",
       "partialNote": "* año en curso (parcial)"
     },
+    "segments": {
+      "cta": "🥧 Segmentos de Ingresos",
+      "title": "Segmentos de Ingresos",
+      "fiscalYear": "ejercicio {{year}}",
+      "totalNote": "Ingresos totales del ejercicio: {{total}}. Fuente: 10-K (Financial Modeling Prep) — solo disponible para un subconjunto de valores.",
+      "trendTitle": "Evolución de Ventas por Segmento"
+    },
     "actions": {
       "calculating": "⏳ Calculando…",
       "fundamentals": "📊 Fundamentales",
@@ -1110,15 +1117,22 @@
     "footer": "📈 El seguimiento de tendencia asume muchas pérdidas pequeñas (lateral) para capturar pocas ganancias grandes (tendencia fuerte). El stop por ATR y el sizing por volatilidad mantienen el riesgo constante. Herramienta de análisis con datos diarios de Yahoo, no asesoramiento."
   },
   "memoryPrices": {
-    "title": "Precios de Memoria (DRAM · NAND · HBM)",
-    "subtitle": "Snapshot diario (memoryindex.io) + histórico propio acumulado día a día",
+    "title": "📈 Tendencia del Mercado de Semiconductores",
+    "subtitle": "Demanda y precio a largo plazo (facturación mundial + PPI) más el spot diario de memoria DRAM/NAND/HBM",
+    "billingsTitle": "Demanda · Facturación Mundial (WSTS, desde 1986)",
+    "perMonth": "al mes",
+    "billingsNote": "Facturación mensual real de la industria de semiconductores a nivel mundial (Americas+Europa+Japón+Asia-Pacífico). El proxy de demanda más directo y con más histórico disponible gratis.",
+    "ppiTitle": "Precio de fondo · PPI Semiconductores (BLS)",
+    "ppiNote": "Índice de precios ajustado por calidad (no es el precio spot): baja estructuralmente por la Ley de Moore incluso en plena escasez — sirve para ver la tendencia de fondo a largo plazo, no el pico de precios actual.",
+    "spotTitle": "Spot de Memoria (hoy)",
     "allSegments": "Todos",
     "colProduct": "Producto",
     "colSegment": "Segmento",
     "colPrice": "Precio",
     "colYoy": "Interanual",
-    "buildingHistory": "Acumulando histórico propio — vuelve en unos días para ver la tendencia en gráfico.",
-    "sourceNote": "Fuente: memoryindex.io (datos públicos). Precio del día y variaciones 24h/30d/interanual calculadas por la fuente; el histórico del gráfico se acumula con un cron diario propio a partir de hoy."
+    "buildingHistory": "Acumulando histórico propio de spot — vuelve en unos días para ver la tendencia en gráfico.",
+    "sourceUnavailable": "Fuente no disponible ahora mismo.",
+    "sourceNote": "Fuentes: memoryindex.io (spot diario, 24h/30d/interanual), U.S. Bureau of Labor Statistics (PPI semiconductores), WSTS (facturación mundial). 7d/60d/90d/180d se calculan contra nuestro propio histórico acumulado (aparecen en blanco hasta tener suficientes días de datos propios); el histórico de spot se acumula con un cron diario propio a partir de hoy."
   },
   "trendsPage": {
     "periods": { "1m": "1 Mes", "3m": "3 Meses", "6m": "6 Meses", "ytd": "YTD", "1y": "1 Año", "3y": "3 Años", "5y": "5 Años", "10y": "10 Años", "20y": "20 Años" },

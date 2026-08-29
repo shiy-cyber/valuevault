@@ -140,6 +140,13 @@
       "annual": "{{year}}：每股 ${{amount}}",
       "partialNote": "* 当前年度（部分）"
     },
+    "segments": {
+      "cta": "🥧 收入细分",
+      "title": "收入细分",
+      "fiscalYear": "{{year}} 财年",
+      "totalNote": "该财年总收入：{{total}}。数据来源：10-K年报（Financial Modeling Prep）——仅部分股票提供此数据。",
+      "trendTitle": "各细分市场销售趋势"
+    },
     "actions": {
       "calculating": "⏳ 计算中…",
       "fundamentals": "📊 基本面",
@@ -1110,15 +1117,22 @@
     "footer": "📈 趋势跟踪策略容忍多次小额亏损（横盘行情），以捕捉少数几次大额收益（强趋势行情）。ATR 止损和基于波动率的仓位规模能让风险水平保持恒定。这是一个基于 Yahoo 日线数据的分析工具，不构成投资建议。"
   },
   "memoryPrices": {
-    "title": "存储器价格（DRAM · NAND · HBM）",
-    "subtitle": "每日快照（memoryindex.io）+ 每天累积的自有历史数据",
+    "title": "📈 半导体市场趋势",
+    "subtitle": "长期需求与价格（全球营收 + PPI）以及今日DRAM/NAND/HBM存储器现货",
+    "billingsTitle": "需求 · 全球营收（WSTS，1986年至今）",
+    "perMonth": "/ 月",
+    "billingsNote": "全球半导体行业月度真实营收（美洲+欧洲+日本+亚太）。是免费可得历史最长、最直接的需求指标。",
+    "ppiTitle": "基础价格 · 半导体PPI（BLS）",
+    "ppiNote": "经质量调整的价格指数（并非现货价格）：即使在严重短缺时期，也会因摩尔定律而结构性下降 — 用于观察长期基础趋势，而非当前价格飙升。",
+    "spotTitle": "存储器现货（今日）",
     "allSegments": "全部",
     "colProduct": "产品",
     "colSegment": "细分",
     "colPrice": "价格",
     "colYoy": "同比",
-    "buildingHistory": "正在累积自有历史数据 — 几天后再来查看趋势图。",
-    "sourceNote": "数据来源：memoryindex.io（公开数据）。当日价格及24小时/30天/同比变化由数据源计算；图表历史数据由我们自己的每日定时任务从今天开始累积。"
+    "buildingHistory": "正在累积自有现货历史数据 — 几天后再来查看趋势图。",
+    "sourceUnavailable": "该数据源目前不可用。",
+    "sourceNote": "数据来源：memoryindex.io（每日现货，24小时/30天/同比）、美国劳工统计局（半导体PPI）、WSTS（全球营收）。7天/60天/90天/180天变化均根据我们自己累积的历史数据计算（累积数据不足时显示为空）；现货历史数据由我们自己的每日定时任务从今天开始累积。"
   },
   "trendsPage": {
     "periods": { "1m": "1个月", "3m": "3个月", "6m": "6个月", "ytd": "年初至今", "1y": "1年", "3y": "3年", "5y": "5年", "10y": "10年", "20y": "20年" },

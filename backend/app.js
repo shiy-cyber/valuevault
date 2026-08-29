@@ -13,7 +13,7 @@ import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
 import { getMacro } from './macro.js';
-import { getMemoryPrices, getMemoryHistory } from './memory.js';
+import { getMemoryPrices, getMemoryHistory, getSemiconductorPPI, getSemiconductorBillings, getBackwardChanges } from './memory.js';
 import { getFundamentals } from './valuation.js';
 import { getVolProfile } from './volprofile.js';
 import { getRisk } from './risk.js';
@@ -22,6 +22,7 @@ import { getNextEarnings, getEarningsSurprises } from './earnings.js';
 import { getNewsSentiment } from './news.js';
 import { getInsiderTransactions } from './insiders.js';
 import { getDividends } from './dividends.js';
+import { getRevenueSegments } from './segments.js';
 import { searchSymbols } from './search.js';
 import { getGamma } from './gamma.js';
 import { getSMC } from './smc.js';
@@ -792,6 +793,19 @@ export async function createApp() {
     res.json(ins);
   }));
 
+  // Segmentación de ingresos por producto/línea de negocio (FMP, real 10-K).
+  // BAJO DEMANDA (no en /quality): su propio endpoint + botón. Solo cubre un
+  // subconjunto de tickers según el plan de FMP contratado — 502 en el resto.
+  app.post('/api/assets/:id/segments', h(async (req, res) => {
+    const uid = writeUid(req);
+    const id = Number(req.params.id);
+    const existing = await get('SELECT ticker FROM assets WHERE id = ? AND userId = ?', [id, uid]);
+    if (!existing) return res.status(404).json({ error: 'Activo no encontrado' });
+    const seg = await getRevenueSegments(existing.ticker);
+    if (!seg) return res.status(502).json({ error: 'Sin segmentación de ingresos disponible para este valor.' });
+    res.json(seg);
+  }));
+
   // Histórico de dividendos + racha de crecimiento (Alpha Vantage). BAJO
   // DEMANDA (no en /quality): su propio endpoint + botón. Cacheado; no persiste.
   app.post('/api/assets/:id/dividends', h(async (req, res) => {
@@ -888,15 +902,34 @@ export async function createApp() {
     const data = await getMacro(false); await saveSnapshot('macro', data).catch(() => {});
     res.json(data);
   }));
-  // Precios de memoria (DRAM/NAND/HBM, memoryindex.io) — current: snapshot del
-  // día con % de cambio ya calculado por la fuente; history: acumulado propio
-  // (crece día a día vía el cron diario, ver ingest-daily.js).
+  // Tendencia del mercado de semiconductores. current/history: precios de
+  // memoria (DRAM/NAND/HBM, memoryindex.io) — snapshot del día + acumulado
+  // propio vía cron diario. ppi: precio real a largo plazo (BLS, PPI ajustado
+  // por calidad, desde ~10 años). billings: demanda real a largo plazo
+  // (WSTS, facturación mundial mensual, desde 1986). Cada fuente es
+  // independiente (Promise.allSettled): si una falla, las demás igual llegan.
   app.get('/api/memory-prices', h(async (req, res) => {
-    const [current, history] = await Promise.all([
-      getMemoryPrices(req.query.fresh === '1'),
+    const fresh = req.query.fresh === '1';
+    const [current, history, ppi, billings, backward] = await Promise.allSettled([
+      getMemoryPrices(fresh),
       getMemoryHistory(),
+      getSemiconductorPPI(fresh),
+      getSemiconductorBillings(fresh),
+      getBackwardChanges(),
     ]);
-    res.json({ current, history });
+    const v = (s) => s.status === 'fulfilled' ? s.value : null;
+    const byWindow = v(backward) || {};
+    // chg7d/60d/90d/180d: la fuente no los trae, se calculan contra nuestro
+    // propio histórico (null hasta que haya suficientes días acumulados).
+    const pctChange = (now, past) => (past != null && past !== 0) ? +(((now / past) - 1) * 100).toFixed(2) : null;
+    const currentWithBackward = (v(current) || []).map(r => ({
+      ...r,
+      chg7d: pctChange(r.spot, byWindow[7]?.[r.contractId]),
+      chg60d: pctChange(r.spot, byWindow[60]?.[r.contractId]),
+      chg90d: pctChange(r.spot, byWindow[90]?.[r.contractId]),
+      chg180d: pctChange(r.spot, byWindow[180]?.[r.contractId]),
+    }));
+    res.json({ current: currentWithBackward, history: v(history) || [], ppi: v(ppi), billings: v(billings) });
   }));
   app.get('/api/volprofile/:symbol', h(async (req, res) => { res.json(await getVolProfile(req.params.symbol, req.query.range, req.query.anchor)); }));
   app.get('/api/smc/:symbol', h(async (req, res) => { res.json(await getSMC(req.params.symbol, req.query.range)); }));

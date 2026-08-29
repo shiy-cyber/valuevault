@@ -114,6 +114,8 @@ export default function Trends({ theme, toast }) {
 
   return (
     <div className="section active">
+      <MemoryPrices theme={theme} />
+
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px', flexWrap:'wrap', gap:'10px' }}>
         <div>
           <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'16px', marginBottom:'3px' }}>{t('trendsPage.title')}</div>
@@ -213,8 +215,6 @@ export default function Trends({ theme, toast }) {
           </table>
         </div>
       </div>
-
-      <MemoryPrices theme={theme} />
 
       <div style={{ marginTop:'14px', padding:'12px 16px', background:'var(--surface2)', borderRadius:'8px', borderLeft:'3px solid var(--gold)', fontSize:'11px', color:'var(--muted)', lineHeight:1.7 }}>
         {t('trendsPage.footer')}
