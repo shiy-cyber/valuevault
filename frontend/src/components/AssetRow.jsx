@@ -695,7 +695,10 @@ export default function AssetRow({ a, noteCount, theme, fxRates, onNotes, onEdit
   // ciclo económico o partidas puntuales — barato pero "caro para sí mismo" no
   // es lo mismo que barato para el sector.
   const histAvg = (field, n) => {
-    const vals = (a.valuationHistory || []).slice(0, n).map(h => h[field]).filter(v => v != null);
+    // Excluye el punto TTM: es prácticamente el múltiplo ACTUAL, así que
+    // incluirlo compararía a.pe contra una media que ya lo contiene —
+    // amortigua justo la señal "caro/barato vs sí mismo" que mide el badge.
+    const vals = (a.valuationHistory || []).filter(h => h.year !== 'TTM').slice(0, n).map(h => h[field]).filter(v => v != null);
     return vals.length ? +(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2) : null;
   };
   const peAvg5 = histAvg('pe', 5), peAvg10 = histAvg('pe', 10);

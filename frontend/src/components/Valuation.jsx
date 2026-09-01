@@ -24,7 +24,9 @@ function Field({ label, value, onChange, suffix, step, hint }) {
   );
 }
 
-const N = (v, d = 0) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+// Number('') es 0 (finito) — sin este guard, vaciar un campo (ej. "Años de
+// proyección") no caía al valor por defecto `d`, caía a 0 en silencio.
+const N = (v, d = 0) => { if (v === '' || v == null) return d; const n = Number(v); return Number.isFinite(n) ? n : d; };
 
 export default function Valuation({ toast }) {
   const { t } = useTranslation();

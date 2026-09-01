@@ -157,6 +157,10 @@ export async function getSemiconductorPPI(force = false) {
     .map(d => ({ date: `${d.year}-${String(d.period || '').replace('M', '').padStart(2, '0')}-01`, value: num(d.value) }))
     .filter(d => d.value != null)
     .sort((a, b) => a.date.localeCompare(b.date));
+  // Un array vacío NO es un resultado válido — si BLS cambia el formato de la
+  // serie o la descontinúa, mejor un error ruidoso (que Promise.allSettled ya
+  // convierte en null en /api/memory-prices) que cachear "éxito" vacío 12h.
+  if (!points.length) throw new Error('BLS: serie PPI semiconductores vacía');
   ppiCache = { ts: Date.now(), data: points };
   return points;
 }
@@ -194,13 +198,17 @@ export async function getSemiconductorBillings(force = false) {
   for (const row of rows) {
     if (!Array.isArray(row) || !row.length) continue;
     if (typeof row[0] === 'number' && row.slice(1).every(v => v == null)) { year = row[0]; continue; }
-    if (row[0] === 'Worldwide' && year) {
+    if (String(row[0] || '').trim() === 'Worldwide' && year) {
       for (let m = 0; m < 12; m++) {
         const v = row[m + 1];
         if (typeof v === 'number') points.push({ date: `${year}-${String(m + 1).padStart(2, '0')}-01`, value: +(v / 1000).toFixed(1) }); // miles US$ → millones US$
       }
     }
   }
+  // Igual que el PPI: un array vacío es indicio de que WSTS cambió el
+  // formato del Excel (fila "Worldwide" no encontrada, etc.) — mejor fallar
+  // ruidosamente que cachear "éxito" vacío 12h sin que nadie se entere.
+  if (!points.length) throw new Error('WSTS: no se encontraron filas "Worldwide" en el Excel');
   billingsCache = { ts: Date.now(), data: points };
   return points;
 }

@@ -53,7 +53,10 @@ export default function MacroPulse() {
     </div>
   );
 
-  const hasData = !!(spread || infl?.coreCPI || infl?.fedFunds || econ?.unemployment);
+  // spread10_2 SIEMPRE llega como objeto (status/history incluidos) aunque a
+  // Yahoo le falte el tramo 2Y o 10Y — value puede ser null ahí dentro, así
+  // que se comprueba value explícitamente (spread por sí solo es truthy igual).
+  const hasData = !!(spread?.value != null || infl?.coreCPI || infl?.fedFunds || econ?.unemployment);
 
   return (
     <div style={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap', background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '4px solid var(--gold)', borderRadius: '12px', marginBottom: '18px', overflow: 'hidden' }}>
@@ -66,7 +69,7 @@ export default function MacroPulse() {
 
       {!loading && hasData && (
         <div style={{ display: 'flex', flexWrap: 'wrap', flex: 1 }}>
-          {spread && pill('spread', t('macroPulse.spread102'), `${spread.value > 0 ? '+' : ''}${spread.value}%`, statusColor(spread.status), spread.status, (spread.history || []).map(h => h.spread))}
+          {spread?.value != null && pill('spread', t('macroPulse.spread102'), `${spread.value > 0 ? '+' : ''}${spread.value}%`, statusColor(spread.status), spread.status, (spread.history || []).map(h => h.spread))}
           {infl?.coreCPI && pill('coreCpi', t('macroPulse.coreCpi'), `${infl.coreCPI.value}%`, inflColor(infl.coreCPI.value), t('macroPage.yoy'))}
           {infl?.fedFunds && pill('fedFunds', t('macroPulse.fedRate'), `${infl.fedFunds.value}%`, '#c9a84c', t('macroPage.effr'))}
           {econ?.unemployment && pill('unemployment', t('macroPulse.unemployment'), `${econ.unemployment.value}%`, unempColor(econ.unemployment.value), null)}

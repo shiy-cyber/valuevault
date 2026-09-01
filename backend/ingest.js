@@ -7,6 +7,22 @@
 //   · Monitorización: ping opcional a HEALTHCHECK_URL (dead-man switch).
 // ─────────────────────────────────────────────────────────────
 import { all, run, get, saveSnapshot } from './db.js';
+
+// Autoriza una invocación de las funciones programadas de Netlify
+// (netlify/functions/ingest.js, ingest-daily.js): pasan si Netlify las llamó
+// de verdad como cron (cabecera `x-nf-event: schedule`, documentada por
+// Netlify) O si se llama a mano con el mismo secreto que ya protege
+// /api/admin/ingest (`x-ingest-secret`) — así el disparo manual de
+// mantenimiento sigue funcionando aunque el scheduler nativo esté caído.
+// Sin INGEST_SECRET definida, el secreto no bloquea nada (igual que en
+// /api/admin/ingest) — pero el cron real de Netlify sigue pasando igual.
+export function isAuthorizedCron(event) {
+  const headers = event?.headers || {};
+  if ((headers['x-nf-event'] || headers['X-NF-Event']) === 'schedule') return true;
+  const secret = process.env.INGEST_SECRET;
+  if (!secret) return true;
+  return (headers['x-ingest-secret'] || headers['X-Ingest-Secret']) === secret;
+}
 import { getQuotes } from './sectors.js';
 import { getMacro } from './macro.js';
 import { getSentiment } from './sentiment.js';

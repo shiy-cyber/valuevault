@@ -408,15 +408,25 @@ export async function getFundamentals(ticker) {
     // el balance NO se suma, es una foto → se usa el del trimestre más reciente.
     // Solo aporta valor si el trimestre más reciente es POSTERIOR al último
     // cierre anual ya incluido arriba (si coinciden, sería un punto duplicado
-    // — típico cuando el Q4 recién publicado ES el cierre del año fiscal).
+    // — típico cuando el Q4 recién publicado ES el cierre del año fiscal; y si
+    // fuera ANTERIOR —años fiscales atípicos, 10-K llegando antes que el Q4—
+    // tampoco tiene sentido insertarlo como el punto "más reciente").
+    // P&L y cash-flow deben cubrir la MISMA ventana de 4 trimestres — si un
+    // proveedor va desalineado con el otro, el TTM mezclaría 12 meses de
+    // ingresos con 12 meses de caja distintos, así que se descarta entero.
     const incQ = (income.quarterlyReports || []).slice(0, 4);
     const cashQ = (cash.quarterlyReports || []).slice(0, 4);
     const balQ = (balance.quarterlyReports || [])[0];
     const latestAnnualDate = years[0] ? incY[years[0]]?.fiscalDateEnding : null;
-    if (incQ.length === 4 && cashQ.length === 4 && balQ && incQ[0].fiscalDateEnding !== latestAnnualDate) {
+    const quartersAligned = incQ.length === 4 && cashQ.length === 4 &&
+      incQ.every((r, i) => r.fiscalDateEnding === cashQ[i]?.fiscalDateEnding);
+    if (quartersAligned && balQ && (latestAnnualDate == null || incQ[0].fiscalDateEnding > latestAnnualDate)) {
+      // Todo o nada por campo: si falta 1 de los 4 trimestres, ese campo del
+      // TTM queda en null en vez de sumar solo 2-3 trimestres sin avisar
+      // (mismo criterio "todo o nada" que Piotroski/Beneish más abajo).
       const sum = (rows, key) => {
-        const vals = rows.map(r => num(r[key])).filter(v => v != null);
-        return vals.length ? vals.reduce((s, v) => s + v, 0) : null;
+        const vals = rows.map(r => num(r[key]));
+        return vals.every(v => v != null) ? vals.reduce((s, v) => s + v, 0) : null;
       };
       const ttmIr = {
         fiscalDateEnding: incQ[0].fiscalDateEnding,
@@ -609,11 +619,17 @@ export async function getFundamentals(ticker) {
   // cartera de golpe. Es un punto de partida conservador, no sustituye a
   // ajustar el modelo a mano ticker a ticker en la calculadora.
   let dcfIntrinsicValue = null, dcfMarginOfSafety = null;
-  if (fcf != null && shares > 0 && wacc != null) {
+  // fcf > 0 (no solo != null): con FCF negativo (habitual en growth/biotech)
+  // el modelo proyectaría un flujo negativo "creciendo" y daría un valor
+  // intrínseco negativo sin sentido — mejor no calcular el DCF automático.
+  if (fcf > 0 && shares > 0 && wacc != null) {
     const gRaw = rg.growth != null ? rg.growth : (fcfCAGR != null ? fcfCAGR : 8);
     const g = Math.max(0, Math.min(15, gRaw)) / 100;
     const gt = 0.025, w = wacc / 100, n = 5;
-    if (w > gt) {
+    // Margen mínimo WACC−g de 2pp: por debajo, el valor terminal se dispara
+    // (se divide por un número casi cero) y da un margen de seguridad falso
+    // que colaría como "oportunidad" en el filtro institucional del Screener.
+    if (w - gt >= 0.02) {
       let pvSum = 0, fN = fcf;
       for (let y = 1; y <= n; y++) { fN = fcf * Math.pow(1 + g, y); pvSum += fN / Math.pow(1 + w, y); }
       const tv = (fN * (1 + gt)) / (w - gt);

@@ -14,8 +14,12 @@ import { changePct, positionMetrics, portfolioStats, compositeScore, fmt, fmtBas
 // separadores de las etiquetas de la ficha (P/E, Deuda/Equity, EPS Gr.5Y,
 // ROIC − WACC…) para que preguntar con el texto tal cual aparece en pantalla
 // funcione igual que preguntar con una frase natural.
+// El guion/menos se convierte en ESPACIO (no se borra): "Z-Score" debía
+// normalizar a "z score" (la clave del glosario), pero al borrarlo daba
+// "zscore" y ni el glosario ni "el de mayor Z-Score" reconocían nada.
+// El resto de separadores (/ & .) sí se borra sin más, como antes.
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .replace(/α/g, 'alfa').replace(/[/&.\-−]/g, '').replace(/\s+/g, ' ').trim();
+  .replace(/α/g, 'alfa').replace(/[-−]/g, ' ').replace(/[/&.]/g, '').replace(/\s+/g, ' ').trim();
 const has = (q, ...words) => words.some(w => q.includes(w));
 const portfolioOf = (assets) => (assets || []).filter(a => a.type !== 'watchlist');
 const watchlistOf = (assets) => (assets || []).filter(a => a.type === 'watchlist');
@@ -335,8 +339,11 @@ export function answer(question, ctx = {}) {
     return { text: `Tienes ${(ctx.notes || []).length} notas de aprendizaje.` };
   }
 
-  // Mejor / peor por puntuación
-  if (has(q, 'mejor', 'peor', 'mayor', 'menor') && has(q, 'score', 'puntuacion', 'puntaje')) {
+  // Mejor / peor por puntuación — OJO: "score" es subcadena de "Z-Score"/
+  // "F-Score"/"M-Score" (Altman/Piotroski/Beneish, ya normalizados con
+  // espacio), así que sin el `!findMetric(q)` esta rama genérica secuestraba
+  // "el de mayor Z-Score" antes de llegar a su métrica específica de abajo.
+  if (has(q, 'mejor', 'peor', 'mayor', 'menor') && has(q, 'score', 'puntuacion', 'puntaje') && !findMetric(q)) {
     const dir = has(q, 'peor', 'menor', 'mas bajo') ? 'min' : 'max';
     const scored = port.map(a => ({ a, s: compositeScore(a).total })).filter(x => x.s != null);
     if (!scored.length) return { text: 'No tengo scores calculados. Pulsa «📊 Fundamentales» en tus activos.' };
