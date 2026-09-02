@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, setToken, setNetworkStatusHandler } from './lib/api.js';
 import { NAV } from './data/constants.js';
@@ -475,6 +475,11 @@ export default function App() {
           </Routes>
           </Suspense>
         </div>
+
+        <footer className="global-footer">
+          {t('footer.disclaimer')}{' '}
+          <Link to="/about">{t('footer.more')}</Link> · <a href="/privacidad.html">{t('footer.privacy')}</a>
+        </footer>
       </div>
 
       <AssetModal open={assetModal.open} editing={assetModal.editing} presetType={assetModal.presetType} onClose={closeAssetModal} onSave={saveAsset} toast={toast} />

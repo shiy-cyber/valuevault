@@ -1222,5 +1222,10 @@
     "dAgo": "hace {{d}} d",
     "tagStrat": { "value": "Value", "growth": "Growth", "dividend": "Dividend", "momentum": "Momentum", "garp": "GARP", "hidden": "Gema" },
     "tagTime": { "short": "Corto", "medium": "Medio", "long": "Largo" }
+  },
+  "footer": {
+    "disclaimer": "ℹ️ ValueVault es una herramienta de análisis y organización con fines educativos; no constituye asesoramiento de inversión.",
+    "more": "Más info",
+    "privacy": "Privacidad"
   }
 }

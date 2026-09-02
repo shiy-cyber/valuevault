@@ -44,6 +44,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .btn-outline:hover{color:var(--text);border-color:var(--muted);}
 .content{padding:24px 28px;}
 
+.global-footer{padding:14px 28px 20px;font-size:11px;line-height:1.6;color:var(--muted);border-top:1px solid var(--border);}
+.global-footer a{color:var(--gold);text-decoration:none;}
+.global-footer a:hover{text-decoration:underline;}
+
 .section{display:none;}.section.active{display:block;}
 
 /* KPI */
@@ -252,6 +256,7 @@ tr:hover td{background:var(--surface2);}
      visualmente al resto de controles/hamburguesa. Se acorta con ellipsis. */
   .topbar-right select.theme-toggle{max-width:110px;font-size:12px;padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .content{padding:16px;}
+  .global-footer{padding:12px 16px 16px;}
   .kpi-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
   .charts-grid{grid-template-columns:1fr;}
   .arow-tags{display:none;}
