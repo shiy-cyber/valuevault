@@ -6,7 +6,7 @@
 //   · Última copia buena: si un símbolo falla, NO se sobreescribe su fila.
 //   · Monitorización: ping opcional a HEALTHCHECK_URL (dead-man switch).
 // ─────────────────────────────────────────────────────────────
-import { all, run, get, saveSnapshot } from './db.js';
+import { all, run, get } from './db.js';
 
 // Autoriza una invocación de las funciones programadas de Netlify
 // (netlify/functions/ingest.js, ingest-daily.js): pasan si Netlify las llamó
@@ -24,8 +24,6 @@ export function isAuthorizedCron(event) {
   return (headers['x-ingest-secret'] || headers['X-Ingest-Secret']) === secret;
 }
 import { getQuotes } from './sectors.js';
-import { getMacro } from './macro.js';
-import { getSentiment } from './sentiment.js';
 import { getFundamentals } from './valuation.js';
 import { ingestMemoryPrices } from './memory.js';
 
@@ -73,28 +71,6 @@ export async function ingestQuotes(only = null) {
 
 function summarize({ startedAt, total, updated, failed, errors }) {
   return { ok: failed === 0, total, updated, failed, errors: errors.slice(0, 20), startedAt, finishedAt: new Date().toISOString() };
-}
-
-// ─── Snapshots globales (macro, sentimiento…) ───────────────────────────
-// Datos no por-usuario ni por-ticker: un único blob por clave. El cron lo
-// rellena; la API lee de la BD. Última copia buena: si falla, no sobreescribe.
-export async function ingestSnapshot(key, fetchFn) {
-  try { await saveSnapshot(key, await fetchFn()); return { key, ok: true }; }
-  catch (e) { return { key, ok: false, error: e.message }; }
-}
-export async function ingestSnapshots() {
-  const results = await Promise.all([
-    ingestSnapshot('macro', () => getMacro(true)),
-    ingestSnapshot('sentiment', () => getSentiment(true)),
-  ]);
-  const failed = results.filter(r => !r.ok);
-  const summary = {
-    ok: failed.length === 0, total: results.length, updated: results.length - failed.length,
-    failed: failed.length, errors: failed.map(f => `${f.key}: ${f.error}`), finishedAt: new Date().toISOString(),
-  };
-  await pingMonitor(summary).catch(() => {});
-  console.log(`📥 ingestSnapshots: ${summary.updated}/${summary.total} ok`);
-  return summary;
 }
 
 // ─── Fundamentales (Alpha Vantage, CUOTA 25/día) ─────────────────────────

@@ -6,9 +6,9 @@
 // ─────────────────────────────────────────────────────────────
 import express from 'express';
 import cors from 'cors';
-import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, getAvCache, saveAvCache, getSnapshot, saveSnapshot, PUBLIC_USER_COLS, rowToPublicUser, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
+import { ready, all, get, run, rowToAsset, rowToNote, getCapexReport, saveCapexReport, getPublicUserById, getPublicUserByHandle, getAvCache, saveAvCache, PUBLIC_USER_COLS, rowToPublicUser, ASSET_NUM, ASSET_TXT, ASSET_JSON, DEMO_UID } from './db.js';
 import { validateProfileInput, extractTickers, extractHandles } from './community.js';
-import { ingestQuotes, ingestSnapshots, ingestFundamentals, cachedFundamentals } from './ingest.js';
+import { ingestQuotes, ingestFundamentals, cachedFundamentals } from './ingest.js';
 import { lookupTicker } from './alphavantage.js';
 import { getSectors, getIndices, getQuote, getQuotes, getHistory, getMarketMap, getFx } from './sectors.js';
 import { getSentiment } from './sentiment.js';
@@ -164,10 +164,9 @@ export async function createApp() {
     if (secret && req.headers['x-ingest-secret'] !== secret) {
       return res.status(401).json({ error: 'No autorizado' });
     }
-    const what = String(req.query.what || 'quotes'); // quotes | snapshots | fundamentals | all
+    const what = String(req.query.what || 'quotes'); // quotes | fundamentals | all
     const out = {};
     if (what === 'quotes' || what === 'all') out.quotes = await ingestQuotes();
-    if (what === 'snapshots' || what === 'all') out.snapshots = await ingestSnapshots();
     if (what === 'fundamentals' || what === 'all') out.fundamentals = await ingestFundamentals();
     res.json(out);
   }));
@@ -885,23 +884,16 @@ export async function createApp() {
   // ─── YAHOO / MERCADO (público) ─────────────────────────────
   app.get('/api/sectors', h(async (req, res) => { res.json(await getSectors(req.query.fresh === '1')); }));
   app.get('/api/indices', h(async (req, res) => { res.json(await getIndices(req.query.fresh === '1')); }));
-  // Macro y sentimiento: se leen del SNAPSHOT que rellena el cron (no fetch en
-  // vivo). ?fresh=1 fuerza una lectura en vivo (admin/debug). Si el snapshot no
-  // existe aún (antes del 1er cron), se hace un bootstrap único y se guarda.
-  app.get('/api/sentiment', h(async (req, res) => {
-    if (req.query.fresh === '1') return res.json(await getSentiment(true));
-    const snap = await getSnapshot('sentiment');
-    if (snap?.data) return res.json({ ...snap.data, _fetchedAt: snap.fetchedAt });
-    const data = await getSentiment(false); await saveSnapshot('sentiment', data).catch(() => {});
-    res.json(data);
-  }));
-  app.get('/api/macro', h(async (req, res) => {
-    if (req.query.fresh === '1') return res.json(await getMacro(true));
-    const snap = await getSnapshot('macro');
-    if (snap?.data) return res.json({ ...snap.data, _fetchedAt: snap.fetchedAt });
-    const data = await getMacro(false); await saveSnapshot('macro', data).catch(() => {});
-    res.json(data);
-  }));
+  // Macro y sentimiento: fetch en vivo con caché propia en memoria (mismo
+  // patrón que /api/sectors) — NO dependen de ningún cron. Antes leían de un
+  // snapshot que el cron de Netlify debía rellenar cada 15 min; cuando ese
+  // cron dejó de dispararse (fallo de la plataforma, no del código — el
+  // manifiesto de Netlify muestra `schedule: null` pese a estar bien
+  // declarado), el snapshot se quedó congelado ~2 meses sin que nadie lo
+  // notara. Así, el dato nunca puede tener más antigüedad que el TTL interno
+  // de getMacro/getSentiment (30/10 min), pase lo que pase con el scheduler.
+  app.get('/api/sentiment', h(async (req, res) => { res.json(await getSentiment(req.query.fresh === '1')); }));
+  app.get('/api/macro', h(async (req, res) => { res.json(await getMacro(req.query.fresh === '1')); }));
   // Tendencia del mercado de semiconductores. current/history: precios de
   // memoria (DRAM/NAND/HBM, memoryindex.io) — snapshot del día + acumulado
   // propio vía cron diario. ppi: precio real a largo plazo (BLS, PPI ajustado
