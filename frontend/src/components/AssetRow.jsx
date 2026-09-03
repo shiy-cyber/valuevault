@@ -449,7 +449,7 @@ function NewsSentiment({ assetId }) {
             <span style={{ marginLeft: '8px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {data.articles.map((n, i) => (
+            {(data.articles || []).map((n, i) => (
               <a key={i} href={n.url || '#'} target="_blank" rel="noreferrer"
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text)', textDecoration: 'none', padding: '6px 8px', background: 'var(--surface)', borderRadius: '6px', borderLeft: `3px solid ${sc(n.score)}` }}>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
@@ -495,7 +495,7 @@ function InsiderTx({ assetId }) {
             <span style={{ marginLeft: '4px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            {data.tx.map((tx, i) => (
+            {(data.tx || []).map((tx, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', padding: '5px 8px', background: 'var(--surface)', borderRadius: '6px', borderLeft: `3px solid ${tx.buy ? 'var(--green)' : 'var(--red)'}` }}>
                 <span style={{ color: tx.buy ? 'var(--green)' : 'var(--red)', fontWeight: 600, width: '50px' }}>{tx.buy ? t('assetRow.insiders.buyLabel') : t('assetRow.insiders.sellLabel')}</span>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.who || '—'}{tx.title ? ` · ${tx.title}` : ''}</span>
@@ -524,14 +524,14 @@ function RevenueSegmentsTrend({ history, theme }) {
   const [years, setYears] = useState(5);
   if (!Array.isArray(history) || history.length < 2) return null;
   const rows = years >= history.length ? history : history.slice(-years);
-  const allNames = [...new Set(rows.flatMap(r => r.segments.map(s => s.name)))];
+  const allNames = [...new Set(rows.flatMap(r => (r.segments || []).map(s => s.name)))];
   const textColor = isDark ? '#7a8694' : '#6b7280';
   const gridColor = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
   const data = {
     labels: rows.map(r => r.fiscalYear),
     datasets: allNames.map((name, i) => ({
       label: name,
-      data: rows.map(r => r.segments.find(s => s.name === name)?.value ?? 0),
+      data: rows.map(r => (r.segments || []).find(s => s.name === name)?.value ?? 0),
       backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
     })),
   };
@@ -579,9 +579,10 @@ function RevenueSegments({ assetId, theme }) {
     finally { setBusy(false); }
   };
   const textColor = isDark ? '#7a8694' : '#6b7280';
+  const segments = Array.isArray(data?.segments) ? data.segments : [];
   const chartData = data ? {
-    labels: data.segments.map(s => s.name),
-    datasets: [{ data: data.segments.map(s => s.value), backgroundColor: CHART_COLORS.slice(0, data.segments.length), borderColor: isDark ? '#111418' : '#ffffff', borderWidth: 2 }],
+    labels: segments.map(s => s.name),
+    datasets: [{ data: segments.map(s => s.value), backgroundColor: CHART_COLORS.slice(0, segments.length), borderColor: isDark ? '#111418' : '#ffffff', borderWidth: 2 }],
   } : null;
   const chartOpts = {
     responsive: true, maintainAspectRatio: false,
@@ -608,7 +609,7 @@ function RevenueSegments({ assetId, theme }) {
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginTop: '4px' }}>
             <div style={{ position: 'relative', height: '160px', width: '160px', flexShrink: 0 }}><Doughnut data={chartData} options={chartOpts} /></div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '11px', minWidth: '180px' }}>
-              {data.segments.map((s, i) => (
+              {segments.map((s, i) => (
                 <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: '9px', height: '9px', borderRadius: '2px', background: CHART_COLORS[i % CHART_COLORS.length], display: 'inline-block', flexShrink: 0 }} />
                   <span style={{ color: 'var(--text)', flex: 1 }}>{s.name}</span>
@@ -657,14 +658,14 @@ function Dividends({ assetId }) {
             <span style={{ marginLeft: '8px' }}><Fresh source="Alpha Vantage" at={data.fetchedAt} stale={data.stale} /></span>
           </div>
           <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
-            {data.history.map((h, i) => (
+            {(data.history || []).map((h, i) => (
               <div key={i} style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '8px', background: 'var(--surface)', borderLeft: `3px solid ${h.up == null ? 'var(--muted)' : h.up ? 'var(--green)' : 'var(--red)'}` }}>
                 <div style={{ color: 'var(--muted)' }}>{h.year}{h.partial ? '*' : ''}</div>
                 <div style={{ color: 'var(--text)' }}>${h.amount}</div>
               </div>
             ))}
           </div>
-          {data.history.some(h => h.partial) && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{t('assetRow.dividends.partialNote')}</div>}
+          {(data.history || []).some(h => h.partial) && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{t('assetRow.dividends.partialNote')}</div>}
           {data.stale && <div style={{ fontSize: '10px', color: 'var(--orange)', marginTop: '4px' }}>{t('assetRow.staleCacheNote')}</div>}
         </div>
       )}

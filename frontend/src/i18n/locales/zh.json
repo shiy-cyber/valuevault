@@ -1227,5 +1227,8 @@
     "disclaimer": "ℹ️ ValueVault 是一款用于分析和整理信息的教育性工具，不构成投资建议。",
     "more": "更多信息",
     "privacy": "隐私政策"
+  },
+  "errorBoundary": {
+    "message": "此模块无法显示（数据异常）。"
   }
 }

@@ -1227,5 +1227,8 @@
     "disclaimer": "ℹ️ ValueVault is an analysis and organization tool for educational purposes; it does not constitute investment advice.",
     "more": "More info",
     "privacy": "Privacy"
+  },
+  "errorBoundary": {
+    "message": "This block couldn't be displayed (unexpected data)."
   }
 }

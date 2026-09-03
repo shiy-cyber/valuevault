@@ -47,6 +47,7 @@ import Notifications from './components/community/Notifications.jsx';
 import AliasModal from './components/community/AliasModal.jsx';
 import Assistant from './components/Assistant.jsx';
 import Maintenance from './components/Maintenance.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Fallback de Suspense mientras se descarga el chunk de una página.
 function RouteFallback() {
@@ -447,6 +448,11 @@ export default function App() {
             </div>
           )}
           <Suspense fallback={<RouteFallback />}>
+          <ErrorBoundary key={location.pathname} fallback={
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>
+              ⚠️ {t('errorBoundary.message')}
+            </div>
+          }>
           <Routes>
             <Route path="/" element={<Dashboard assets={portfolio} notes={notes} theme={theme} fxRates={fxRates} {...navHandlers} goAssets={() => go('assets')} onRefresh={refreshPrices} refreshing={refreshing} lastRefresh={lastRefresh} />} />
             <Route path="/dashboard" element={<Navigate to="/" replace />} />
@@ -473,6 +479,7 @@ export default function App() {
             <Route path="/about" element={<AboutUs />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
           </Suspense>
         </div>
 

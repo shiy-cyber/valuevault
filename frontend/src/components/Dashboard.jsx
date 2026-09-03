@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import AssetRow from './AssetRow.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
 import RiskPanel from './RiskPanel.jsx';
 import MarketPulse from './MarketPulse.jsx';
 import MacroPulse from './MacroPulse.jsx';
@@ -50,7 +51,7 @@ export default function Dashboard({ assets, notes, theme, fxRates, onNotes, onEd
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
         {recent.length
-          ? recent.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} />)
+          ? recent.map(a => <ErrorBoundary key={a.id}><AssetRow a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} /></ErrorBoundary>)
           : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">{t('dashboard.emptyState')}</div></div>}
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import AssetRow from './AssetRow.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
 
 const STRAT_KEYS = ['value','growth','dividend','garp','momentum','hidden'];
 const TIME_KEYS = ['short','medium','long'];
@@ -67,7 +68,7 @@ export default function Assets({ assets, notes, theme, fxRates, onNotes, onEdit,
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginTop:'16px' }}>
         {filtered.length
-          ? filtered.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} />)
+          ? filtered.map(a => <ErrorBoundary key={a.id}><AssetRow a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} /></ErrorBoundary>)
           : <div className="empty-state"><div className="empty-icon">◈</div><div className="empty-text">{t('assetsPage.emptyFiltered')}</div></div>}
       </div>
     </div>

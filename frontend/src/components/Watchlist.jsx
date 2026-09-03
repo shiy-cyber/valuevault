@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import AssetRow from './AssetRow.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
 
 // Lista de seguimiento: activos que vigilas sin tenerlos en cartera.
 export default function Watchlist({ assets, notes, theme, fxRates, onNotes, onEdit, onDelete, onRefreshData, onRefreshQuality, onAdd }) {
@@ -18,7 +19,7 @@ export default function Watchlist({ assets, notes, theme, fxRates, onNotes, onEd
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
         {assets.length
-          ? assets.map(a => <AssetRow key={a.id} a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} />)
+          ? assets.map(a => <ErrorBoundary key={a.id}><AssetRow a={a} noteCount={noteCount(a.id)} theme={theme} fxRates={fxRates} onNotes={onNotes} onEdit={onEdit} onDelete={onDelete} onRefreshData={onRefreshData} onRefreshQuality={onRefreshQuality} /></ErrorBoundary>)
           : <div className="empty-state"><div className="empty-icon">★</div><div className="empty-text">{t('watchlistPage.empty')}</div></div>}
       </div>
     </div>
