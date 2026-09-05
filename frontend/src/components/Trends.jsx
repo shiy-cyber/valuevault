@@ -78,6 +78,29 @@ export default function Trends({ theme, toast }) {
       borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.4, fill: false,
     })),
   };
+
+  // CMF (Chaikin Money Flow) solo tiene serie temporal en periodos de velas
+  // diarias (1m/3m/6m/ytd/1y) — en los largos (3y/5y/10y) el backend usa
+  // velas mensuales y no la calcula, así que el panel se oculta ahí.
+  const cmfAvailable = sectors.some(s => Array.isArray(s.cmfSeries?.[period]));
+  const cmfLineData = {
+    labels: xLabels,
+    datasets: sectors.filter(s => active.has(s.name)).map(s => ({
+      label: s.name, data: s.cmfSeries?.[period] || [], borderColor: s.color, backgroundColor: s.color + '18',
+      borderWidth: 2, pointRadius: 2, pointHoverRadius: 4, tension: 0.4, fill: false, spanGaps: true,
+    })),
+  };
+  const cmfLineOpts = {
+    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1 },
+    },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
+      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } }, suggestedMin: -0.5, suggestedMax: 0.5 },
+    },
+  };
   const lineOpts = {
     responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
     plugins: {
@@ -201,6 +224,18 @@ export default function Trends({ theme, toast }) {
           })}
         </div>
         <div style={{ position:'relative', height:'280px' }}>{!loading && <Line data={lineData} options={lineOpts} />}</div>
+
+        {cmfAvailable ? (
+          <div style={{ marginTop:'18px', paddingTop:'16px', borderTop:'1px solid var(--border)' }}>
+            <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'4px' }}>{t('trendsPage.moneyFlowTrendTitle')}</div>
+            <div style={{ fontSize:'10px', color:'var(--muted)', marginBottom:'10px' }}>{t('trendsPage.moneyFlowSubtitle')}</div>
+            <div style={{ position:'relative', height:'140px' }}>{!loading && <Line data={cmfLineData} options={cmfLineOpts} />}</div>
+          </div>
+        ) : (
+          <div style={{ marginTop:'18px', paddingTop:'16px', borderTop:'1px solid var(--border)', fontSize:'11px', color:'var(--muted)' }}>
+            {t('trendsPage.moneyFlowUnavailablePeriod')}
+          </div>
+        )}
       </div>
 
       {/* BAR */}

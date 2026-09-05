@@ -115,6 +115,22 @@ function buildSeries(points, len) {
   return { series, labels };
 }
 
+// Misma selección de 12 índices que buildSeries(), pero con el Chaikin
+// Money Flow (ventana de 20 sesiones terminando en cada punto) en vez del
+// % de precio — así ambas series comparten exactamente el mismo eje X.
+function buildCmfSeries(points, len, cmfPeriod = 20) {
+  const n = points.length;
+  const start = Math.max(0, n - len);
+  const span = n - 1 - start;
+  const series = [];
+  for (let i = 0; i < POINTS; i++) {
+    const idx = span <= 0 ? n - 1 : start + Math.round((i * span) / (POINTS - 1));
+    const cmf = chaikinMoneyFlow(points.slice(0, idx + 1), cmfPeriod);
+    series.push(cmf != null ? +cmf.toFixed(3) : null);
+  }
+  return series;
+}
+
 // Serie de 12 puntos para ventanas LARGAS, seleccionando por FECHA (no por
 // nº de puntos): Yahoo en range='max' espacia los puntos de forma irregular,
 // así que tomamos como inicio el primer punto dentro de los últimos `years`.
@@ -174,10 +190,15 @@ async function fetchSectors() {
       base.cmf20 = cmf != null ? +cmf.toFixed(3) : null;
 
       base.labels = {};
+      base.cmfSeries = {};
       for (const p of PERIODS) {
         const { series, labels } = buildSeries(daily.points, windowLength(p, daily.points));
         base[p] = series;
         base.labels[p] = labels;
+        // Serie CMF solo tiene sentido con velas diarias (ventana de 20
+        // sesiones) — los periodos largos usan velas mensuales, donde ese
+        // concepto no aplica igual; se dejan sin serie (el frontend lo oculta).
+        base.cmfSeries[p] = buildCmfSeries(daily.points, windowLength(p, daily.points));
       }
       for (const [p, years] of Object.entries(SEC_LONG_YEARS)) {
         const { series, labels } = buildSeriesByTime(monthly.points, years);
@@ -191,9 +212,11 @@ async function fetchSectors() {
       base.changePercent = 0;
       base.cmf20 = null;
       base.labels = {};
+      base.cmfSeries = {};
       const now = Date.now();
       for (const p of SEC_PERIODS) {
         base[p] = new Array(POINTS).fill(0);
+        base.cmfSeries[p] = new Array(POINTS).fill(null);
         // etiquetas de respaldo: 12 puntos hacia atrás desde hoy
         base.labels[p] = Array.from({ length: POINTS }, (_, i) => now - (POINTS - 1 - i) * 86400000);
       }

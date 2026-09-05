@@ -1156,6 +1156,8 @@
     "barTitle": "Sector Comparison — Return %",
     "moneyFlowTitle": "Buying/Selling Pressure by Sector (Chaikin Money Flow, 20d)",
     "moneyFlowSubtitle": "Technical indicator based on price and volume (range -1 to +1; positive = accumulation, negative = distribution). Not a real fund flow (net money in/out of the ETF) — that data is paid and not available here.",
+    "moneyFlowTrendTitle": "Buying/Selling Pressure Trend (Chaikin Money Flow)",
+    "moneyFlowUnavailablePeriod": "The Chaikin Money Flow trend is only available for periods with daily candles (1M–1Y); for long periods (3Y/5Y/10Y) the backend uses monthly candles, where this 20-session window doesn't apply.",
     "tableTitle": "Sector Detail — Reference ETF",
     "colSector": "Sector", "colReturn": "Return %", "colSignal": "Signal", "colView": "View",
     "footer": "⚡ Real-time data from SPDR sector ETFs via Yahoo Finance. Also check out"
