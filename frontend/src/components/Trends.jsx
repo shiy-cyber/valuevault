@@ -29,6 +29,7 @@ export default function Trends({ theme, toast }) {
   const [sectors, setSectors] = useState([]);
   const [period, setPeriod] = useState('1m');
   const [active, setActive] = useState(new Set());
+  const [cmfFocus, setCmfFocus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -83,12 +84,23 @@ export default function Trends({ theme, toast }) {
   // diarias (1m/3m/6m/ytd/1y) — en los largos (3y/5y/10y) el backend usa
   // velas mensuales y no la calcula, así que el panel se oculta ahí.
   const cmfAvailable = sectors.some(s => Array.isArray(s.cmfSeries?.[period]));
+  // Osciladores tipo CMF se leen de UN activo a la vez (igual que en
+  // cualquier plataforma real) — superponer 10 sectores con relleno a cero
+  // produce una mancha ilegible. Selector de foco independiente del
+  // multi-select de arriba (que sí tiene sentido para comparar rendimiento).
+  const cmfSector = sectors.find(s => s.name === cmfFocus) || sorted[0] || sectors[0];
+  const signColor = (ctx) => {
+    const y0 = ctx.p0.parsed.y, y1 = ctx.p1.parsed.y;
+    return (y0 + y1) / 2 >= 0 ? '#2ecc71' : '#e74c3c';
+  };
   const cmfLineData = {
     labels: xLabels,
-    datasets: sectors.filter(s => active.has(s.name)).map(s => ({
-      label: s.name, data: s.cmfSeries?.[period] || [], borderColor: s.color, backgroundColor: s.color + '18',
-      borderWidth: 2, pointRadius: 2, pointHoverRadius: 4, tension: 0.4, fill: false, spanGaps: true,
-    })),
+    datasets: cmfSector ? [{
+      label: cmfSector.name, data: cmfSector.cmfSeries?.[period] || [],
+      borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3, spanGaps: true,
+      fill: { target: 'origin', above: 'rgba(46,204,113,.28)', below: 'rgba(231,76,60,.28)' },
+      segment: { borderColor: signColor },
+    }] : [],
   };
   const cmfLineOpts = {
     responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
@@ -98,7 +110,7 @@ export default function Trends({ theme, toast }) {
     },
     scales: {
       x: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
-      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } }, suggestedMin: -0.5, suggestedMax: 0.5 },
+      y: { grid: { color: gridColor, }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } }, suggestedMin: -0.5, suggestedMax: 0.5 },
     },
   };
   const lineOpts = {
@@ -229,6 +241,17 @@ export default function Trends({ theme, toast }) {
           <div style={{ marginTop:'18px', paddingTop:'16px', borderTop:'1px solid var(--border)' }}>
             <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'4px' }}>{t('trendsPage.moneyFlowTrendTitle')}</div>
             <div style={{ fontSize:'10px', color:'var(--muted)', marginBottom:'10px' }}>{t('trendsPage.moneyFlowSubtitle')}</div>
+            <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'12px' }}>
+              {sectors.map(s => {
+                const on = cmfSector?.name === s.name;
+                return (
+                  <button key={s.name} onClick={() => setCmfFocus(s.name)}
+                    style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'10px', fontFamily:"'DM Mono',monospace", cursor:'pointer', border:`1px solid ${s.color}`, background: on ? s.color + '33' : 'transparent', color: on ? s.color : 'var(--muted)', transition:'all .15s' }}>
+                    {s.icon} {s.name}
+                  </button>
+                );
+              })}
+            </div>
             <div style={{ position:'relative', height:'140px' }}>{!loading && <Line data={cmfLineData} options={cmfLineOpts} />}</div>
           </div>
         ) : (
