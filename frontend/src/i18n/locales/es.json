@@ -1154,6 +1154,8 @@
     "selectAll": "✓ Todos",
     "selectNone": "✗ Ninguno",
     "barTitle": "Comparativa Sectorial — Rendimiento %",
+    "moneyFlowTitle": "Presión Compradora/Vendedora por Sector (Chaikin Money Flow, 20d)",
+    "moneyFlowSubtitle": "Indicador técnico basado en precio y volumen (rango -1 a +1; positivo = acumulación, negativo = distribución). No es un fund flow real (entradas/salidas netas de dinero del ETF) — ese dato es de pago y no está disponible aquí.",
     "tableTitle": "Detalle por Sector — ETF de Referencia",
     "colSector": "Sector", "colReturn": "Rend. %", "colSignal": "Señal", "colView": "Ver",
     "footer": "⚡ Datos en tiempo real de los ETFs sectoriales SPDR vía Yahoo Finance. Consulta también"

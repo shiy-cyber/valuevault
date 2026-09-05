@@ -1154,6 +1154,8 @@
     "selectAll": "✓ 全选",
     "selectNone": "✗ 全不选",
     "barTitle": "行业对比 — 回报率 %",
+    "moneyFlowTitle": "各行业买卖压力（Chaikin 资金流量指标，20日）",
+    "moneyFlowSubtitle": "基于价格和成交量的技术指标（范围 -1 至 +1；正值表示吸筹，负值表示派发）。这不是真实的资金流向（ETF 净申购/赎回资金），那类数据为付费数据，本站无法提供。",
     "tableTitle": "行业详情 — 参考 ETF",
     "colSector": "行业", "colReturn": "回报 %", "colSignal": "信号", "colView": "查看",
     "footer": "⚡ 通过 Yahoo Finance 获取的 SPDR 行业 ETF 实时数据。也可查看"

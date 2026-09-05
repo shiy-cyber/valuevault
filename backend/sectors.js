@@ -45,13 +45,36 @@ export async function fetchChart(symbol, range = '1y', interval = '1d') {
   const res = j?.chart?.result?.[0];
   if (!res) throw new Error('Respuesta Yahoo vacía');
   const ts = res.timestamp || [];
-  const closeRaw = res.indicators?.quote?.[0]?.close || [];
-  // Empareja timestamp/close descartando huecos (null)
+  const q = res.indicators?.quote?.[0] || {};
+  const closeRaw = q.close || [];
+  // Empareja timestamp/close descartando huecos (null). high/low/volume viajan
+  // igual de alineados por índice — se incluyen para poder calcular
+  // indicadores de volumen (Chaikin Money Flow) sin una segunda llamada.
   const points = [];
   for (let i = 0; i < ts.length; i++) {
-    if (closeRaw[i] != null) points.push({ t: ts[i] * 1000, close: closeRaw[i] });
+    if (closeRaw[i] != null) {
+      points.push({ t: ts[i] * 1000, close: closeRaw[i], high: q.high?.[i] ?? null, low: q.low?.[i] ?? null, volume: q.volume?.[i] ?? null });
+    }
   }
   return { points, meta: res.meta || {} };
+}
+
+// Chaikin Money Flow (N días): aproximación de presión compradora/vendedora
+// a partir de precio+volumen — NO es un fund flow real (creación/reembolso
+// neto de participaciones del ETF), que es dato de pago (ETF.com, VettaFi).
+// Rango típico [-1, 1]; > 0 sugiere acumulación, < 0 distribución.
+export function chaikinMoneyFlow(points, period = 20) {
+  const recent = points.slice(-period);
+  if (recent.length < period) return null;
+  let mfv = 0, vol = 0;
+  for (const p of recent) {
+    if (p.high == null || p.low == null || p.close == null || p.volume == null) return null;
+    const range = p.high - p.low;
+    const mfm = range > 0 ? ((p.close - p.low) - (p.high - p.close)) / range : 0;
+    mfv += mfm * p.volume;
+    vol += p.volume;
+  }
+  return vol > 0 ? mfv / vol : null;
 }
 
 // Nº aproximado de sesiones bursátiles por ventana
@@ -147,6 +170,8 @@ async function fetchSectors() {
       const prev = closes[closes.length - 2];
       base.price = +Number(last).toFixed(2);
       base.changePercent = +(((closes[closes.length - 1] - prev) / prev) * 100).toFixed(2);
+      const cmf = chaikinMoneyFlow(daily.points, 20);
+      base.cmf20 = cmf != null ? +cmf.toFixed(3) : null;
 
       base.labels = {};
       for (const p of PERIODS) {
@@ -164,6 +189,7 @@ async function fetchSectors() {
       // Fallback para que la UI nunca quede vacía
       base.price = null;
       base.changePercent = 0;
+      base.cmf20 = null;
       base.labels = {};
       const now = Date.now();
       for (const p of SEC_PERIODS) {

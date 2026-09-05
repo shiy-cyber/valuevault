@@ -1154,6 +1154,8 @@
     "selectAll": "✓ All",
     "selectNone": "✗ None",
     "barTitle": "Sector Comparison — Return %",
+    "moneyFlowTitle": "Buying/Selling Pressure by Sector (Chaikin Money Flow, 20d)",
+    "moneyFlowSubtitle": "Technical indicator based on price and volume (range -1 to +1; positive = accumulation, negative = distribution). Not a real fund flow (net money in/out of the ETF) — that data is paid and not available here.",
     "tableTitle": "Sector Detail — Reference ETF",
     "colSector": "Sector", "colReturn": "Return %", "colSignal": "Signal", "colView": "View",
     "footer": "⚡ Real-time data from SPDR sector ETFs via Yahoo Finance. Also check out"

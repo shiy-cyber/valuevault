@@ -108,6 +108,31 @@ export default function Trends({ theme, toast }) {
     },
   };
 
+  const sortedByFlow = useMemo(() => [...sectors].sort((a, b) => (b.cmf20 ?? -Infinity) - (a.cmf20 ?? -Infinity)), [sectors]);
+  const moneyFlowData = {
+    labels: sortedByFlow.map(s => s.name),
+    datasets: [{
+      data: sortedByFlow.map(s => s.cmf20 ?? 0),
+      backgroundColor: sortedByFlow.map(s => (s.cmf20 ?? 0) >= 0 ? 'rgba(46,204,113,.7)' : 'rgba(231,76,60,.7)'),
+      borderColor: sortedByFlow.map(s => (s.cmf20 ?? 0) >= 0 ? '#2ecc71' : '#e74c3c'),
+      borderWidth: 1, borderRadius: 5,
+    }],
+  };
+  const moneyFlowOpts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: { label: c => sortedByFlow[c.dataIndex]?.cmf20 == null ? t('common.noData') : c.parsed.y.toFixed(3) },
+        backgroundColor: isDark ? '#181c22' : '#fff', titleColor: textColor, bodyColor: textColor, borderColor: isDark ? '#2d3540' : '#e2e4e8', borderWidth: 1,
+      },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'DM Mono', size: 9 } } },
+      y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'DM Mono', size: 10 } }, suggestedMin: -1, suggestedMax: 1 },
+    },
+  };
+
   const signal = (v) => v > 5 ? t('trendsPage.signal.strongUp') : v > 2 ? t('trendsPage.signal.bullish') : v > 0 ? t('trendsPage.signal.neutralPos') : v > -2 ? t('trendsPage.signal.neutralNeg') : v > -5 ? t('trendsPage.signal.bearish') : t('trendsPage.signal.strongDown');
 
   const thStyle = { padding:'10px 14px', fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', textTransform:'uppercase', letterSpacing:'1px' };
@@ -182,6 +207,13 @@ export default function Trends({ theme, toast }) {
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
         <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'14px' }}>{t('trendsPage.barTitle')}</div>
         <div style={{ position:'relative', height:'260px' }}>{!loading && <Bar data={barData} options={barOpts} />}</div>
+      </div>
+
+      {/* MONEY FLOW (Chaikin Money Flow 20d — proxy de presión compradora/vendedora, NO fund flow real) */}
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'12px', padding:'20px', marginBottom:'18px' }}>
+        <div style={{ fontFamily:"'DM Mono',monospace", fontSize:'10px', color:'var(--muted)', letterSpacing:'1.5px', textTransform:'uppercase', marginBottom:'6px' }}>{t('trendsPage.moneyFlowTitle')}</div>
+        <div style={{ fontSize:'11px', color:'var(--muted)', marginBottom:'14px' }}>{t('trendsPage.moneyFlowSubtitle')}</div>
+        <div style={{ position:'relative', height:'260px' }}>{!loading && <Bar data={moneyFlowData} options={moneyFlowOpts} />}</div>
       </div>
 
       {/* TABLE */}
