@@ -451,9 +451,9 @@
     "autoRetry": "Retries automatically every 20 seconds."
   },
   "aboutPage": {
-    "p1": "ValueVault was born from a very specific need: to stop managing an investment portfolio across a dozen tabs, spreadsheets and scattered apps. Today it's an institutional-grade fundamental analysis platform: automatic DCF with a WACC×growth sensitivity matrix, free cash flow adjusted for stock-based compensation (SBC), maintenance vs. growth CapEx split, and financial health scores (Altman Z, Piotroski F, Beneish M) to catch red flags before you invest. All of it turned into clear charts, heatmaps and gauges — so you can read at a glance what would otherwise be endless tables.",
-    "p2": "Reliability and accuracy matter to us more than quantity: we only use primary, institutional sources (Alpha Vantage, Financial Modeling Prep, BLS, WSTS, U.S. Treasury), verified and up-to-date — never invented figures or unsupported opinions. We'd rather show less and have it be true than show more and have it be doubtful.",
-    "p3": "Beyond each asset's own page, ValueVault tracks trends few free tools cover: revenue segmentation by product for each company, the pulse of the semiconductor market (PPI pricing, worldwide WSTS billings and DRAM/NAND memory spot prices), and an institutional filter in the Screener that combines margin of safety, quality and financial soundness at once. We keep expanding it little by little, calmly, prioritizing reliable data and honest tools over flashy ones.",
+    "p1": "I started building ValueVault out of pure frustration: my portfolio was scattered across my broker, three spreadsheets and half a dozen tabs that never quite matched. I couldn't find a free tool that did what I actually needed — so I built it myself.",
+    "p2": "Today it's a full fundamental analysis platform: automatic DCF, financial health scores (Altman Z, Piotroski F, Beneish M), free cash flow adjusted for SBC, revenue segmentation by product, and sector trends almost nothing free covers, like the semiconductor market.",
+    "p3": "I still use it myself every week for my own investment decisions — which is exactly why I care so much that every data point is correct before it's pretty.",
     "contactPrefix": "Questions, bugs or an idea? Write to us at",
     "privacyPrefix": "Also check out our",
     "legalPrefix": "and our",
