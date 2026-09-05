@@ -485,7 +485,11 @@ export default function App() {
 
         <footer className="global-footer">
           {t('footer.disclaimer')}{' '}
-          <Link to="/about">{t('footer.more')}</Link> · <a href="/privacidad.html">{t('footer.privacy')}</a>
+          <Link to="/about">{t('footer.more')}</Link> · <a href="/privacidad.html">{t('footer.privacy')}</a> · <a href="/aviso-legal.html">{t('footer.legal')}</a>
+          <div className="footer-credit">
+            {t('footer.creditPrefix')}{' '}
+            <a href="https://shiycreative.com" target="_blank" rel="noreferrer" className="shiy-credit">✨ ShiyCreative</a>
+          </div>
         </footer>
       </div>
 

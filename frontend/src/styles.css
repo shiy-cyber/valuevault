@@ -47,6 +47,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .global-footer{padding:14px 28px 20px;font-size:11px;line-height:1.6;color:var(--muted);border-top:1px solid var(--border);}
 .global-footer a{color:var(--gold);text-decoration:none;}
 .global-footer a:hover{text-decoration:underline;}
+.footer-credit{margin-top:6px;}
+.shiy-credit{
+  font-weight:700;
+  background:linear-gradient(90deg,var(--gold) 0%,#fff8dc 20%,var(--gold) 40%,#fff2b8 60%,var(--gold) 80%,#fff8dc 100%);
+  background-size:200% auto;
+  color:transparent;
+  -webkit-background-clip:text;
+  background-clip:text;
+  animation:shiy-shimmer 3s linear infinite;
+}
+.shiy-credit:hover{text-decoration:underline;text-decoration-color:var(--gold);}
+@keyframes shiy-shimmer{to{background-position:-200% center;}}
+@media (prefers-reduced-motion: reduce){.shiy-credit{animation:none;}}
 
 .section{display:none;}.section.active{display:block;}
 

@@ -451,11 +451,13 @@
     "autoRetry": "Se reintenta automáticamente cada 20 segundos."
   },
   "aboutPage": {
-    "p1": "ValueVault nace de una necesidad muy concreta: dejar de gestionar una cartera de inversión entre una decena de pestañas, hojas de cálculo y apps sueltas. Es un proyecto pequeño e independiente que recopila datos financieros y macroeconómicos dispersos por medio mundo y los convierte en gráficas, mapas de calor y medidores claros — para leer de un vistazo lo que de otra forma serían tablas interminables.",
-    "p2": "La fiabilidad y la veracidad de cada dato nos importan más que la cantidad: solo usamos fuentes primarias e institucionales, contrastadas y actualizadas, nunca cifras inventadas ni opiniones sin respaldo. Preferimos mostrar menos y que sea cierto, a mostrar más y que sea dudoso.",
-    "p3": "Seguimos ampliándolo poco a poco, con calma, priorizando que los datos sean fiables y las herramientas honestas antes que llamativas.",
+    "p1": "ValueVault nace de una necesidad muy concreta: dejar de gestionar una cartera de inversión entre una decena de pestañas, hojas de cálculo y apps sueltas. Hoy es una plataforma de análisis fundamental de nivel institucional: DCF automático con matriz de sensibilidad WACC×crecimiento, ajuste de flujo de caja libre por retribución en acciones (SBC), separación de CapEx de mantenimiento y de crecimiento, y scores de salud financiera (Altman Z, Piotroski F, Beneish M) para detectar señales de alerta antes de invertir. Todo eso convertido en gráficas, mapas de calor y medidores claros — para leer de un vistazo lo que de otra forma serían tablas interminables.",
+    "p2": "La fiabilidad y la veracidad de cada dato nos importan más que la cantidad: solo usamos fuentes primarias e institucionales (Alpha Vantage, Financial Modeling Prep, BLS, WSTS, Tesoro de EE. UU.), contrastadas y actualizadas, nunca cifras inventadas ni opiniones sin respaldo. Preferimos mostrar menos y que sea cierto, a mostrar más y que sea dudoso.",
+    "p3": "Más allá de la ficha de cada activo, ValueVault sigue tendencias que pocas herramientas gratuitas cubren: segmentación de ingresos por producto de cada empresa, el pulso del mercado de semiconductores (precios PPI, facturación mundial WSTS y spot de memoria DRAM/NAND) y un filtro institucional en el Screener que cruza margen de seguridad, calidad y solidez financiera a la vez. Seguimos ampliándolo poco a poco, con calma, priorizando que los datos sean fiables y las herramientas honestas antes que llamativas.",
     "contactPrefix": "¿Preguntas, fallos o alguna idea? Escríbenos a",
     "privacyPrefix": "Consulta también nuestra",
+    "legalPrefix": "y nuestro",
+    "legalLink": "Aviso Legal",
     "disclaimer": "ℹ️ ValueVault es una herramienta de análisis y organización con fines educativos; no constituye asesoramiento de inversión."
   },
   "tickerPage": {
@@ -1226,7 +1228,9 @@
   "footer": {
     "disclaimer": "ℹ️ ValueVault es una herramienta de análisis y organización con fines educativos; no constituye asesoramiento de inversión.",
     "more": "Más info",
-    "privacy": "Privacidad"
+    "privacy": "Privacidad",
+    "legal": "Aviso Legal",
+    "creditPrefix": "Diseñado y programado por"
   },
   "errorBoundary": {
     "message": "Este bloque no se pudo mostrar (datos inesperados)."

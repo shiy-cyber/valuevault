@@ -451,11 +451,13 @@
     "autoRetry": "Retries automatically every 20 seconds."
   },
   "aboutPage": {
-    "p1": "ValueVault was born from a very specific need: to stop managing an investment portfolio across a dozen tabs, spreadsheets and scattered apps. It's a small, independent project that gathers financial and macroeconomic data scattered around the world and turns it into clear charts, heatmaps and gauges — so you can read at a glance what would otherwise be endless tables.",
-    "p2": "Reliability and accuracy matter to us more than quantity: we only use primary, institutional, verified and up-to-date sources — never invented figures or unsupported opinions. We'd rather show less and have it be true than show more and have it be doubtful.",
-    "p3": "We keep expanding it little by little, calmly, prioritizing reliable data and honest tools over flashy ones.",
+    "p1": "ValueVault was born from a very specific need: to stop managing an investment portfolio across a dozen tabs, spreadsheets and scattered apps. Today it's an institutional-grade fundamental analysis platform: automatic DCF with a WACC×growth sensitivity matrix, free cash flow adjusted for stock-based compensation (SBC), maintenance vs. growth CapEx split, and financial health scores (Altman Z, Piotroski F, Beneish M) to catch red flags before you invest. All of it turned into clear charts, heatmaps and gauges — so you can read at a glance what would otherwise be endless tables.",
+    "p2": "Reliability and accuracy matter to us more than quantity: we only use primary, institutional sources (Alpha Vantage, Financial Modeling Prep, BLS, WSTS, U.S. Treasury), verified and up-to-date — never invented figures or unsupported opinions. We'd rather show less and have it be true than show more and have it be doubtful.",
+    "p3": "Beyond each asset's own page, ValueVault tracks trends few free tools cover: revenue segmentation by product for each company, the pulse of the semiconductor market (PPI pricing, worldwide WSTS billings and DRAM/NAND memory spot prices), and an institutional filter in the Screener that combines margin of safety, quality and financial soundness at once. We keep expanding it little by little, calmly, prioritizing reliable data and honest tools over flashy ones.",
     "contactPrefix": "Questions, bugs or an idea? Write to us at",
     "privacyPrefix": "Also check out our",
+    "legalPrefix": "and our",
+    "legalLink": "Legal Notice",
     "disclaimer": "ℹ️ ValueVault is an analysis and organization tool for educational purposes; it does not constitute investment advice."
   },
   "tickerPage": {
@@ -1226,7 +1228,9 @@
   "footer": {
     "disclaimer": "ℹ️ ValueVault is an analysis and organization tool for educational purposes; it does not constitute investment advice.",
     "more": "More info",
-    "privacy": "Privacy"
+    "privacy": "Privacy",
+    "legal": "Legal Notice",
+    "creditPrefix": "Designed and built by"
   },
   "errorBoundary": {
     "message": "This block couldn't be displayed (unexpected data)."

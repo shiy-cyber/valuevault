@@ -18,7 +18,9 @@ export default function AboutUs() {
             {t('aboutPage.contactPrefix')}{' '}
             <a href="mailto:hola@valuevault.es" style={{ color: 'var(--gold)' }}>hola@valuevault.es</a>.
             {' '}{t('aboutPage.privacyPrefix')}{' '}
-            <a href="/privacidad.html" style={{ color: 'var(--gold)' }}>{t('auth.registerTerms.link')}</a>.
+            <a href="/privacidad.html" style={{ color: 'var(--gold)' }}>{t('auth.registerTerms.link')}</a>
+            {' '}{t('aboutPage.legalPrefix')}{' '}
+            <a href="/aviso-legal.html" style={{ color: 'var(--gold)' }}>{t('aboutPage.legalLink')}</a>.
           </p>
         </div>
       </div>
